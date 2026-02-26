@@ -52,23 +52,14 @@ export default function WorldGenLoading({ character, storyHook }: WorldGenLoadin
     return () => clearInterval(interval);
   }, []);
 
-  // Advance phases on timer for visual progress (phases 0-3 = world gen)
-  useEffect(() => {
-    if (phase >= 3) return; // Don't auto-advance past phase 3 — phase 4 is set by scene streaming
-    const interval = setInterval(() => {
-      setPhase((prev) => (prev < 3 ? prev + 1 : prev));
-    }, 8000);
-    return () => clearInterval(interval);
-  }, [phase]);
-
-  // Two-phase world generation
+  // Two-phase world generation (phases driven by server NDJSON messages, not timers)
   useEffect(() => {
     if (hasStarted.current) return;
     hasStarted.current = true;
 
     const generateWorld = async () => {
       try {
-        // ═══ PHASE 1: Generate World + Character (Opus) ═══
+        // ═══ PHASE 1: Generate World + Character (Opus, streaming NDJSON) ═══
         const worldResponse = await fetch('/api/world-genesis', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -79,18 +70,50 @@ export default function WorldGenLoading({ character, storyHook }: WorldGenLoadin
           }),
         });
 
-        if (!worldResponse.ok) {
-          const errData = await worldResponse.json().catch(() => ({}));
-          throw new Error(errData.error || `World generation failed (${worldResponse.status})`);
+        if (!worldResponse.ok || !worldResponse.body) {
+          throw new Error(`World generation failed (${worldResponse.status})`);
         }
 
-        const data = await worldResponse.json();
+        // Read NDJSON stream — server sends real-time phase updates + heartbeats
+        const worldReader = worldResponse.body.getReader();
+        const worldDecoder = new TextDecoder();
+        let ndjsonBuffer = '';
+        let worldData: { worldId: string; characterId: string; world: Record<string, unknown>; character: Record<string, unknown> } | null = null;
 
-        // Store world and character data immediately
-        localStorage.setItem('rpg-active-world', JSON.stringify(data.world));
-        localStorage.setItem('rpg-active-character', JSON.stringify(data.character));
-        if (data.worldId) localStorage.setItem('rpg-world-id', data.worldId);
-        if (data.characterId) localStorage.setItem('rpg-character-id', data.characterId);
+        while (true) {
+          const { done, value } = await worldReader.read();
+          if (done) break;
+
+          ndjsonBuffer += worldDecoder.decode(value, { stream: true });
+          const lines = ndjsonBuffer.split('\n');
+          ndjsonBuffer = lines.pop() || '';
+
+          for (const line of lines) {
+            if (!line.trim()) continue;
+            try {
+              const msg = JSON.parse(line);
+              if (msg.error) throw new Error(msg.error);
+              if (msg.phase !== undefined) setPhase(msg.phase);
+              if (msg.status === 'complete' && msg.data) {
+                worldData = msg.data;
+              }
+            } catch (parseErr) {
+              if (parseErr instanceof SyntaxError) continue;
+              throw parseErr;
+            }
+          }
+        }
+
+        if (!worldData) throw new Error('World generation completed without data');
+
+        // Store world and character data
+        localStorage.setItem('rpg-active-world', JSON.stringify(worldData.world));
+        localStorage.setItem('rpg-active-character', JSON.stringify(worldData.character));
+        if (worldData.worldId) localStorage.setItem('rpg-world-id', worldData.worldId);
+        if (worldData.characterId) localStorage.setItem('rpg-character-id', worldData.characterId);
+
+        // Use the streaming data for the opening scene call
+        const data = worldData;
 
         // ═══ PHASE 2: Stream Opening Scene (Opus) ═══
         setPhase(4); // "Writing the opening scene..."
@@ -259,7 +282,7 @@ export default function WorldGenLoading({ character, storyHook }: WorldGenLoadin
         <p className="text-slate-600 text-xs">
           {phase >= 4
             ? 'The AI is writing your unique opening scene with full creative depth...'
-            : 'This may take 30–60 seconds. The AI is crafting an entire world just for you.'}
+            : 'This may take up to a minute. The AI is crafting an entire world just for you.'}
         </p>
       </div>
     </div>

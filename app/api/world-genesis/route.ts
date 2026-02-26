@@ -2,18 +2,19 @@
 // WORLD GENESIS API ROUTE — Phase 1: World + Character
 // POST /api/world-genesis
 // Generates a unique world using Claude Opus (full creativity)
+// Returns a STREAMING NDJSON response with heartbeats to avoid timeouts
 // Opening scene is generated separately via /api/world-genesis/opening-scene
 // ============================================================
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { callClaudeJSON } from '@/lib/ai-orchestrator';
 import { buildWorldGenesisPrompt } from '@/lib/prompts/world-genesis';
 import { createWorld, createCharacter } from '@/lib/services/database';
 import type { WorldRecord } from '@/lib/types/world';
 import type { CharacterCreationInput, Character } from '@/lib/types/character';
 
-// Allow longer execution for world generation (Opus needs time)
-export const maxDuration = 60;
+// Streaming responses on Vercel have no duration limit
+// (the 60s limit only applies to time-to-first-byte for non-streaming)
 
 interface WorldGenesisRequest {
   character: CharacterCreationInput;
@@ -98,100 +99,136 @@ function buildCharacterFromInput(input: CharacterCreationInput, worldId: string)
 }
 
 export async function POST(request: NextRequest) {
-  try {
-    const body = (await request.json()) as WorldGenesisRequest;
-    const { character: charInput, playerSentence, userId } = body;
+  const encoder = new TextEncoder();
 
-    // Validate minimum required fields
-    if (!charInput?.name || !charInput?.race || !charInput?.class) {
-      return NextResponse.json(
-        { error: 'Character must have name, race, and class' },
-        { status: 400 }
-      );
-    }
+  const stream = new ReadableStream({
+    async start(controller) {
+      const send = (msg: Record<string, unknown>) => {
+        try {
+          controller.enqueue(encoder.encode(JSON.stringify(msg) + '\n'));
+        } catch {
+          // Controller closed (client disconnected) — safe to ignore
+        }
+      };
 
-    if (!userId) {
-      return NextResponse.json(
-        { error: 'userId is required' },
-        { status: 400 }
-      );
-    }
+      // Heartbeat keeps the stream alive while Opus generates (5s interval)
+      // This prevents Vercel from treating the response as non-streaming
+      let heartbeatPhase = 0;
+      const heartbeat = setInterval(() => {
+        heartbeatPhase = Math.min(heartbeatPhase + 1, 3);
+        send({ status: 'generating', phase: heartbeatPhase });
+      }, 5000);
 
-    // ── Step 1: Generate World via Claude Opus ──
-    // This is the big creative call — Opus takes ~30-45s but produces the richest worlds
+      try {
+        const body = (await request.json()) as WorldGenesisRequest;
+        const { character: charInput, playerSentence, userId } = body;
 
-    const worldGenesisPrompt = buildWorldGenesisPrompt(charInput, playerSentence);
+        // Validate
+        if (!charInput?.name || !charInput?.race || !charInput?.class) {
+          clearInterval(heartbeat);
+          send({ error: 'Character must have name, race, and class' });
+          controller.close();
+          return;
+        }
 
-    let worldRecord: WorldRecord;
-    try {
-      worldRecord = await callClaudeJSON<WorldRecord>(
-        'world_building',
-        worldGenesisPrompt,
-        `Generate a world for ${charInput.name}, a ${charInput.race} ${charInput.class}.${playerSentence ? ` Player says: "${playerSentence}"` : ''}`,
-        { maxTokens: 8192 }
-      );
-    } catch (parseError) {
-      // Retry once on JSON parse failure
-      console.warn('[WorldGenesis] First attempt failed, retrying...', parseError);
-      worldRecord = await callClaudeJSON<WorldRecord>(
-        'world_building',
-        worldGenesisPrompt,
-        `Generate a world for ${charInput.name}, a ${charInput.race} ${charInput.class}. IMPORTANT: Output ONLY valid JSON, no other text.${playerSentence ? ` Player says: "${playerSentence}"` : ''}`,
-        { maxTokens: 8192 }
-      );
-    }
+        if (!userId) {
+          clearInterval(heartbeat);
+          send({ error: 'userId is required' });
+          controller.close();
+          return;
+        }
 
-    // Ensure required fields
-    worldRecord.id = worldRecord.id || crypto.randomUUID();
-    worldRecord.createdAt = worldRecord.createdAt || new Date().toISOString();
+        // ── First byte: establish streaming connection immediately ──
+        send({ status: 'started', phase: 0 });
 
-    // ── Step 2: Save World to Supabase ──
+        // ── Generate World via Claude Opus ──
+        // Opus produces the richest, most creative worlds
+        // Heartbeats keep the connection alive during the 30-50s generation
 
-    let worldRow;
-    try {
-      worldRow = await createWorld(userId, worldRecord);
-    } catch (dbError) {
-      // If Supabase isn't configured, continue with local-only
-      console.warn('[WorldGenesis] Supabase save failed, continuing local-only:', dbError);
-      worldRow = { id: worldRecord.id };
-    }
+        const worldGenesisPrompt = buildWorldGenesisPrompt(charInput, playerSentence);
 
-    // ── Step 3: Build Character record ──
+        let worldRecord: WorldRecord;
+        try {
+          worldRecord = await callClaudeJSON<WorldRecord>(
+            'world_building',
+            worldGenesisPrompt,
+            `Generate a world for ${charInput.name}, a ${charInput.race} ${charInput.class}.${playerSentence ? ` Player says: "${playerSentence}"` : ''}`,
+            { maxTokens: 8192 }
+          );
+        } catch (parseError) {
+          console.warn('[WorldGenesis] First attempt failed, retrying...', parseError);
+          send({ status: 'retrying', phase: heartbeatPhase });
+          worldRecord = await callClaudeJSON<WorldRecord>(
+            'world_building',
+            worldGenesisPrompt,
+            `Generate a world for ${charInput.name}, a ${charInput.race} ${charInput.class}. IMPORTANT: Output ONLY valid JSON, no other text.${playerSentence ? ` Player says: "${playerSentence}"` : ''}`,
+            { maxTokens: 8192 }
+          );
+        }
 
-    const character = buildCharacterFromInput(charInput, worldRow.id);
-    character.userId = userId;
-    worldRecord.characterId = character.id;
+        clearInterval(heartbeat);
 
-    // Save character to Supabase
-    let characterRow;
-    try {
-      characterRow = await createCharacter(userId, worldRow.id, character);
-    } catch (dbError) {
-      console.warn('[WorldGenesis] Character save failed, continuing local-only:', dbError);
-      characterRow = { id: character.id };
-    }
+        // Ensure required fields
+        worldRecord.id = worldRecord.id || crypto.randomUUID();
+        worldRecord.createdAt = worldRecord.createdAt || new Date().toISOString();
 
-    // ── Step 4: Return world + character (opening scene generated separately) ──
+        send({ status: 'saving', phase: 3 });
 
-    return NextResponse.json({
-      worldId: worldRow.id,
-      characterId: characterRow.id,
-      world: worldRecord,
-      character,
-      worldSummary: {
-        name: worldRecord.worldName,
-        type: worldRecord.worldType,
-        genre: worldRecord.primaryGenre,
-        tone: worldRecord.narrativeTone,
-        threat: worldRecord.mainThreat.name,
-        villain: worldRecord.villainCore.name,
-      },
-    });
-  } catch (error) {
-    console.error('[WorldGenesis] Error:', error);
-    return NextResponse.json(
-      { error: 'Failed to generate world. Please try again.' },
-      { status: 500 }
-    );
-  }
+        // ── Save World to Supabase ──
+        let worldRow;
+        try {
+          worldRow = await createWorld(userId, worldRecord);
+        } catch (dbError) {
+          console.warn('[WorldGenesis] Supabase save failed, continuing local-only:', dbError);
+          worldRow = { id: worldRecord.id };
+        }
+
+        // ── Build Character record ──
+        const character = buildCharacterFromInput(charInput, worldRow.id);
+        character.userId = userId;
+        worldRecord.characterId = character.id;
+
+        let characterRow;
+        try {
+          characterRow = await createCharacter(userId, worldRow.id, character);
+        } catch (dbError) {
+          console.warn('[WorldGenesis] Character save failed, continuing local-only:', dbError);
+          characterRow = { id: character.id };
+        }
+
+        // ── Send completed world + character data ──
+        send({
+          status: 'complete',
+          data: {
+            worldId: worldRow.id,
+            characterId: characterRow.id,
+            world: worldRecord,
+            character,
+            worldSummary: {
+              name: worldRecord.worldName,
+              type: worldRecord.worldType,
+              genre: worldRecord.primaryGenre,
+              tone: worldRecord.narrativeTone,
+              threat: worldRecord.mainThreat.name,
+              villain: worldRecord.villainCore.name,
+            },
+          },
+        });
+      } catch (error) {
+        clearInterval(heartbeat);
+        console.error('[WorldGenesis] Error:', error);
+        send({ error: error instanceof Error ? error.message : 'Failed to generate world. Please try again.' });
+      }
+
+      controller.close();
+    },
+  });
+
+  return new Response(stream, {
+    headers: {
+      'Content-Type': 'application/x-ndjson',
+      'Cache-Control': 'no-cache, no-transform',
+      'X-Accel-Buffering': 'no',
+    },
+  });
 }
