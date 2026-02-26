@@ -109,7 +109,7 @@ export default function AboutPage() {
               'Advanced language models (GPT-4 / Claude) for natural, engaging dialogue',
               'DALL-E integration for generating scene and character artwork',
               'Contextual memory — the world remembers your choices and their consequences',
-              'Dynamic difficulty that scales with your character's power and experience',
+              "Dynamic difficulty that scales with your character's power and experience",
             ].map((item) => (
               <li key={item} className="flex items-start gap-3">
                 <span className="text-primary-400 mt-0.5 flex-shrink-0">▸</span>
