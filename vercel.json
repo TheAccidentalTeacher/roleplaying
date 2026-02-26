@@ -8,6 +8,9 @@
     "app/api/world-genesis/route.ts": {
       "maxDuration": 60
     },
+    "app/api/world-genesis/opening-scene/route.ts": {
+      "maxDuration": 60
+    },
     "app/api/dm/route.ts": {
       "maxDuration": 30
     },

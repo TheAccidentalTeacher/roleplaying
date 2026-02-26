@@ -1,18 +1,18 @@
 // ============================================================
-// WORLD GENESIS API ROUTE
+// WORLD GENESIS API ROUTE — Phase 1: World + Character
 // POST /api/world-genesis
-// Generates a unique world + opening scene using Claude Sonnet
+// Generates a unique world using Claude Opus (full creativity)
+// Opening scene is generated separately via /api/world-genesis/opening-scene
 // ============================================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { callClaudeJSON, callClaude } from '@/lib/ai-orchestrator';
+import { callClaudeJSON } from '@/lib/ai-orchestrator';
 import { buildWorldGenesisPrompt } from '@/lib/prompts/world-genesis';
-import { buildOpeningScenePrompt } from '@/lib/prompts/opening-scene';
-import { createWorld, createCharacter, saveMessage } from '@/lib/services/database';
+import { createWorld, createCharacter } from '@/lib/services/database';
 import type { WorldRecord } from '@/lib/types/world';
 import type { CharacterCreationInput, Character } from '@/lib/types/character';
 
-// Allow longer execution for world generation
+// Allow longer execution for world generation (Opus needs time)
 export const maxDuration = 60;
 
 interface WorldGenesisRequest {
@@ -118,6 +118,7 @@ export async function POST(request: NextRequest) {
     }
 
     // ── Step 1: Generate World via Claude Opus ──
+    // This is the big creative call — Opus takes ~30-45s but produces the richest worlds
 
     const worldGenesisPrompt = buildWorldGenesisPrompt(charInput, playerSentence);
 
@@ -127,7 +128,7 @@ export async function POST(request: NextRequest) {
         'world_building',
         worldGenesisPrompt,
         `Generate a world for ${charInput.name}, a ${charInput.race} ${charInput.class}.${playerSentence ? ` Player says: "${playerSentence}"` : ''}`,
-        { maxTokens: 6000 }
+        { maxTokens: 8192 }
       );
     } catch (parseError) {
       // Retry once on JSON parse failure
@@ -136,7 +137,7 @@ export async function POST(request: NextRequest) {
         'world_building',
         worldGenesisPrompt,
         `Generate a world for ${charInput.name}, a ${charInput.race} ${charInput.class}. IMPORTANT: Output ONLY valid JSON, no other text.${playerSentence ? ` Player says: "${playerSentence}"` : ''}`,
-        { maxTokens: 6000 }
+        { maxTokens: 8192 }
       );
     }
 
@@ -170,40 +171,13 @@ export async function POST(request: NextRequest) {
       characterRow = { id: character.id };
     }
 
-    // ── Step 4: Generate Opening Scene ──
-
-    const openingScenePrompt = buildOpeningScenePrompt(worldRecord, character);
-
-    const openingScene = await callClaude(
-      'dm_narration',
-      openingScenePrompt,
-      [{ role: 'user', content: 'Write the opening scene now.' }],
-      { maxTokens: 2048, temperature: 0.9, model: 'claude-sonnet-4-6' }
-    );
-
-    // ── Step 5: Save Opening Scene as First Message ──
-
-    try {
-      // Save system context message
-      await saveMessage(characterRow.id, 'system', `World: ${worldRecord.worldName}. Genre: ${worldRecord.primaryGenre}. Tone: ${worldRecord.narrativeTone.join(', ')}.`);
-      // Save the opening scene as assistant message
-      await saveMessage(characterRow.id, 'assistant', openingScene, {
-        type: 'opening_scene',
-        worldId: worldRow.id,
-        location: worldRecord.originScenario.setting,
-      });
-    } catch (dbError) {
-      console.warn('[WorldGenesis] Message save failed, continuing:', dbError);
-    }
-
-    // ── Step 6: Return Response ──
+    // ── Step 4: Return world + character (opening scene generated separately) ──
 
     return NextResponse.json({
       worldId: worldRow.id,
       characterId: characterRow.id,
       world: worldRecord,
       character,
-      openingScene,
       worldSummary: {
         name: worldRecord.worldName,
         type: worldRecord.worldType,

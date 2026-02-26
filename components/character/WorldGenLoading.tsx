@@ -41,6 +41,7 @@ export default function WorldGenLoading({ character, storyHook }: WorldGenLoadin
   const [flavorIndex, setFlavorIndex] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
+  const [streamedText, setStreamedText] = useState('');
   const hasStarted = useRef(false);
 
   // Cycle flavor text
@@ -51,22 +52,24 @@ export default function WorldGenLoading({ character, storyHook }: WorldGenLoadin
     return () => clearInterval(interval);
   }, []);
 
-  // Advance phases on timer for visual progress
+  // Advance phases on timer for visual progress (phases 0-3 = world gen)
   useEffect(() => {
+    if (phase >= 3) return; // Don't auto-advance past phase 3 — phase 4 is set by scene streaming
     const interval = setInterval(() => {
-      setPhase((prev) => (prev < PHASE_LABELS.length - 1 ? prev + 1 : prev));
+      setPhase((prev) => (prev < 3 ? prev + 1 : prev));
     }, 8000);
     return () => clearInterval(interval);
-  }, []);
+  }, [phase]);
 
-  // Call world genesis API
+  // Two-phase world generation
   useEffect(() => {
     if (hasStarted.current) return;
     hasStarted.current = true;
 
     const generateWorld = async () => {
       try {
-        const response = await fetch('/api/world-genesis', {
+        // ═══ PHASE 1: Generate World + Character (Opus) ═══
+        const worldResponse = await fetch('/api/world-genesis', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -76,23 +79,60 @@ export default function WorldGenLoading({ character, storyHook }: WorldGenLoadin
           }),
         });
 
-        if (!response.ok) {
-          const errData = await response.json().catch(() => ({}));
-          throw new Error(errData.error || `World generation failed (${response.status})`);
+        if (!worldResponse.ok) {
+          const errData = await worldResponse.json().catch(() => ({}));
+          throw new Error(errData.error || `World generation failed (${worldResponse.status})`);
         }
 
-        const data = await response.json();
+        const data = await worldResponse.json();
 
-        // Store world and character data in localStorage for the game page
+        // Store world and character data immediately
         localStorage.setItem('rpg-active-world', JSON.stringify(data.world));
         localStorage.setItem('rpg-active-character', JSON.stringify(data.character));
-        localStorage.setItem('rpg-opening-scene', data.openingScene);
         if (data.worldId) localStorage.setItem('rpg-world-id', data.worldId);
         if (data.characterId) localStorage.setItem('rpg-character-id', data.characterId);
 
-        // Brief delay to let the user see "Your adventure is almost ready"
-        setPhase(PHASE_LABELS.length - 1);
-        await new Promise((r) => setTimeout(r, 1500));
+        // ═══ PHASE 2: Stream Opening Scene (Opus) ═══
+        setPhase(4); // "Writing the opening scene..."
+
+        const sceneResponse = await fetch('/api/world-genesis/opening-scene', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            world: data.world,
+            character: data.character,
+            worldId: data.worldId,
+            characterId: data.characterId,
+          }),
+        });
+
+        if (!sceneResponse.ok) {
+          throw new Error(`Opening scene generation failed (${sceneResponse.status})`);
+        }
+
+        // Stream the opening scene text
+        const reader = sceneResponse.body?.getReader();
+        const decoder = new TextDecoder();
+        let fullScene = '';
+
+        if (reader) {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            const chunk = decoder.decode(value, { stream: true });
+            fullScene += chunk;
+            setStreamedText(fullScene);
+          }
+        } else {
+          // Fallback: non-streaming
+          fullScene = await sceneResponse.text();
+          setStreamedText(fullScene);
+        }
+
+        localStorage.setItem('rpg-opening-scene', fullScene);
+
+        // Brief delay to let the user read the streamed preview
+        await new Promise((r) => setTimeout(r, 2000));
 
         router.push('/game');
       } catch (err) {
@@ -151,12 +191,14 @@ export default function WorldGenLoading({ character, storyHook }: WorldGenLoadin
           <div className="absolute inset-2 rounded-full border-2 border-amber-500/30 animate-spin" style={{ animationDuration: '8s' }} />
           <div className="absolute inset-4 rounded-full border border-sky-400/40 animate-spin" style={{ animationDuration: '12s', animationDirection: 'reverse' }} />
           <div className="absolute inset-0 flex items-center justify-center text-5xl animate-pulse">
-            🌍
+            {phase >= 4 ? '✨' : '🌍'}
           </div>
         </div>
 
         {/* Title */}
-        <h2 className="text-2xl font-cinzel text-amber-400">Creating Your World</h2>
+        <h2 className="text-2xl font-cinzel text-amber-400">
+          {phase >= 4 ? 'Your World Awaits' : 'Creating Your World'}
+        </h2>
 
         {/* Phase indicator */}
         <div className="space-y-3">
@@ -194,13 +236,30 @@ export default function WorldGenLoading({ character, storyHook }: WorldGenLoadin
           />
         </div>
 
-        {/* Rotating flavor text */}
-        <p className="text-slate-500 italic text-sm h-6 transition-opacity duration-500">
-          {FLAVOR_TEXTS[flavorIndex]}
-        </p>
+        {/* Streamed opening scene preview (phase 4+) */}
+        {phase >= 4 && streamedText && (
+          <div className="text-left bg-slate-900/60 border border-slate-700/50 rounded-xl p-4 max-h-48 overflow-y-auto">
+            <p className="text-xs text-amber-500/60 font-cinzel mb-2">Opening Scene Preview</p>
+            <p className="text-slate-300 text-sm leading-relaxed whitespace-pre-wrap">
+              {streamedText.slice(0, 400)}
+              {streamedText.length > 400 && (
+                <span className="text-slate-500">... (continues in game)</span>
+              )}
+            </p>
+          </div>
+        )}
+
+        {/* Rotating flavor text (only show when not streaming) */}
+        {phase < 4 && (
+          <p className="text-slate-500 italic text-sm h-6 transition-opacity duration-500">
+            {FLAVOR_TEXTS[flavorIndex]}
+          </p>
+        )}
 
         <p className="text-slate-600 text-xs">
-          This may take 30–60 seconds. The AI is crafting an entire world just for you.
+          {phase >= 4
+            ? 'The AI is writing your unique opening scene with full creative depth...'
+            : 'This may take 30–60 seconds. The AI is crafting an entire world just for you.'}
         </p>
       </div>
     </div>

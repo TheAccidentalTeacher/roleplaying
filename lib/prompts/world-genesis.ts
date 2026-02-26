@@ -1,13 +1,13 @@
 // ============================================================
 // WORLD GENESIS SYSTEM PROMPT
-// Instructs Claude Sonnet to generate a complete, unique world
+// Instructs Claude Opus to generate a complete, unique world
 // ============================================================
 
 import type { CharacterCreationInput } from '@/lib/types/character';
 
 /**
  * Build the world genesis system prompt.
- * Claude Sonnet receives this + the character info + optional player sentence
+ * Claude Opus receives this + the character info + optional player sentence
  * and returns a complete WorldRecord as JSON.
  */
 export function buildWorldGenesisPrompt(
