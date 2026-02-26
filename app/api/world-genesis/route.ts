@@ -13,8 +13,9 @@ import { createWorld, createCharacter } from '@/lib/services/database';
 import type { WorldRecord } from '@/lib/types/world';
 import type { CharacterCreationInput, Character } from '@/lib/types/character';
 
-// Streaming responses on Vercel have no duration limit
-// (the 60s limit only applies to time-to-first-byte for non-streaming)
+// For streaming responses on Vercel, maxDuration = timeout between writes.
+// Our 5-second heartbeats reset this timer, so Opus can run indefinitely.
+export const maxDuration = 60;
 
 interface WorldGenesisRequest {
   character: CharacterCreationInput;

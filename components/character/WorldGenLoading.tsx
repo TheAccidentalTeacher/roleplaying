@@ -80,6 +80,21 @@ export default function WorldGenLoading({ character, storyHook }: WorldGenLoadin
         let ndjsonBuffer = '';
         let worldData: { worldId: string; characterId: string; world: Record<string, unknown>; character: Record<string, unknown> } | null = null;
 
+        const processLine = (line: string) => {
+          if (!line.trim()) return;
+          try {
+            const msg = JSON.parse(line);
+            if (msg.error) throw new Error(msg.error);
+            if (msg.phase !== undefined) setPhase(msg.phase);
+            if (msg.status === 'complete' && msg.data) {
+              worldData = msg.data;
+            }
+          } catch (parseErr) {
+            if (parseErr instanceof SyntaxError) return; // ignore malformed chunks
+            throw parseErr;
+          }
+        };
+
         while (true) {
           const { done, value } = await worldReader.read();
           if (done) break;
@@ -89,31 +104,29 @@ export default function WorldGenLoading({ character, storyHook }: WorldGenLoadin
           ndjsonBuffer = lines.pop() || '';
 
           for (const line of lines) {
-            if (!line.trim()) continue;
-            try {
-              const msg = JSON.parse(line);
-              if (msg.error) throw new Error(msg.error);
-              if (msg.phase !== undefined) setPhase(msg.phase);
-              if (msg.status === 'complete' && msg.data) {
-                worldData = msg.data;
-              }
-            } catch (parseErr) {
-              if (parseErr instanceof SyntaxError) continue;
-              throw parseErr;
-            }
+            processLine(line);
           }
+        }
+
+        // Flush any remaining data in the buffer (e.g. final complete message)
+        ndjsonBuffer += worldDecoder.decode(); // flush TextDecoder
+        if (ndjsonBuffer.trim()) {
+          processLine(ndjsonBuffer);
         }
 
         if (!worldData) throw new Error('World generation completed without data');
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const completedData = worldData as any;
+
         // Store world and character data
-        localStorage.setItem('rpg-active-world', JSON.stringify(worldData.world));
-        localStorage.setItem('rpg-active-character', JSON.stringify(worldData.character));
-        if (worldData.worldId) localStorage.setItem('rpg-world-id', worldData.worldId);
-        if (worldData.characterId) localStorage.setItem('rpg-character-id', worldData.characterId);
+        localStorage.setItem('rpg-active-world', JSON.stringify(completedData.world));
+        localStorage.setItem('rpg-active-character', JSON.stringify(completedData.character));
+        if (completedData.worldId) localStorage.setItem('rpg-world-id', completedData.worldId);
+        if (completedData.characterId) localStorage.setItem('rpg-character-id', completedData.characterId);
 
         // Use the streaming data for the opening scene call
-        const data = worldData;
+        const data = completedData;
 
         // ═══ PHASE 2: Stream Opening Scene (Opus) ═══
         setPhase(4); // "Writing the opening scene..."
