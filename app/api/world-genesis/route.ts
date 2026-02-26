@@ -1,7 +1,7 @@
 // ============================================================
 // WORLD GENESIS API ROUTE
 // POST /api/world-genesis
-// Generates a unique world + opening scene using Claude Opus
+// Generates a unique world + opening scene using Claude Sonnet
 // ============================================================
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -127,7 +127,7 @@ export async function POST(request: NextRequest) {
         'world_building',
         worldGenesisPrompt,
         `Generate a world for ${charInput.name}, a ${charInput.race} ${charInput.class}.${playerSentence ? ` Player says: "${playerSentence}"` : ''}`,
-        { maxTokens: 8192 }
+        { maxTokens: 6000 }
       );
     } catch (parseError) {
       // Retry once on JSON parse failure
@@ -136,7 +136,7 @@ export async function POST(request: NextRequest) {
         'world_building',
         worldGenesisPrompt,
         `Generate a world for ${charInput.name}, a ${charInput.race} ${charInput.class}. IMPORTANT: Output ONLY valid JSON, no other text.${playerSentence ? ` Player says: "${playerSentence}"` : ''}`,
-        { maxTokens: 8192 }
+        { maxTokens: 6000 }
       );
     }
 
@@ -178,7 +178,7 @@ export async function POST(request: NextRequest) {
       'dm_narration',
       openingScenePrompt,
       [{ role: 'user', content: 'Write the opening scene now.' }],
-      { maxTokens: 4096, temperature: 0.9 }
+      { maxTokens: 2048, temperature: 0.9, model: 'claude-sonnet-4-6' }
     );
 
     // ── Step 5: Save Opening Scene as First Message ──

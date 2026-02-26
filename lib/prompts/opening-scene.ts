@@ -1,6 +1,6 @@
 // ============================================================
 // OPENING SCENE SYSTEM PROMPT
-// Instructs Claude Opus to write the first narrative scene
+// Instructs Claude Sonnet to write the first narrative scene
 // ============================================================
 
 import type { WorldRecord } from '@/lib/types/world';
