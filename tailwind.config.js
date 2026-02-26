@@ -44,6 +44,7 @@ module.exports = {
         'spin-slow': 'spin 4s linear infinite',
         'loading-bar': 'loadingBar 2s ease-in-out infinite',
         'pulse-glow': 'pulseGlow 2s ease-in-out infinite',
+        'float': 'float 3s ease-in-out infinite',
       },
       keyframes: {
         loadingBar: {
@@ -54,6 +55,10 @@ module.exports = {
         pulseGlow: {
           '0%, 100%': { boxShadow: '0 0 5px rgba(14, 165, 233, 0.3)' },
           '50%': { boxShadow: '0 0 20px rgba(14, 165, 233, 0.6)' },
+        },
+        float: {
+          '0%, 100%': { transform: 'translateY(0)' },
+          '50%': { transform: 'translateY(-8px)' },
         },
       },
     },
