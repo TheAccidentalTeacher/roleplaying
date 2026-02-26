@@ -286,6 +286,11 @@ export interface CharacterCreationInput {
   personality?: PersonalityTraits;
   appearance?: string;
   playerSentence?: string; // The "one sentence" optional story hook
+  backstory?: string;
+  motivation?: string;
+  fears?: string;
+  mannerisms?: string;
+  connections?: string;
   creationMode: CreationMode;
   worldType?: string; // World definition id (e.g. 'cyberpunk', 'dark-fantasy')
 }

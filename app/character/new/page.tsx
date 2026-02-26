@@ -51,6 +51,11 @@ export default function NewCharacter() {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [storyHook, setStoryHook] = useState('');
+  const [backstory, setBackstory] = useState('');
+  const [motivation, setMotivation] = useState('');
+  const [fears, setFears] = useState('');
+  const [mannerisms, setMannerisms] = useState('');
+  const [connections, setConnections] = useState('');
 
   // When world changes, reset origin and class (they depend on world)
   const handleWorldSelect = useCallback((world: WorldDefinition) => {
@@ -106,6 +111,11 @@ export default function NewCharacter() {
       : undefined,
     appearance: description || undefined,
     playerSentence: storyHook || undefined,
+    backstory: backstory || undefined,
+    motivation: motivation || undefined,
+    fears: fears || undefined,
+    mannerisms: mannerisms || undefined,
+    connections: connections || undefined,
     creationMode: 'builder',
     worldType: selectedWorld?.id,
   });
@@ -204,6 +214,14 @@ export default function NewCharacter() {
               onBackgroundSelect={setBackground}
               personality={personality}
               onPersonalityChange={setPersonality}
+              aiContext={{
+                worldName: selectedWorld?.name,
+                worldGenre: selectedWorld?.genre,
+                origin: race,
+                className: characterClass,
+                classRole: selectedWorld?.classes?.find((c) => c.id === characterClass)?.role,
+                abilityScores,
+              }}
             />
           )}
           {step === 5 && (
@@ -214,6 +232,16 @@ export default function NewCharacter() {
               onDescriptionChange={setDescription}
               storyHook={storyHook}
               onStoryHookChange={setStoryHook}
+              backstory={backstory}
+              onBackstoryChange={setBackstory}
+              motivation={motivation}
+              onMotivationChange={setMotivation}
+              fears={fears}
+              onFearsChange={setFears}
+              mannerisms={mannerisms}
+              onMannerismsChange={setMannerisms}
+              connections={connections}
+              onConnectionsChange={setConnections}
               race={race}
               characterClass={characterClass}
               background={background}
@@ -221,8 +249,10 @@ export default function NewCharacter() {
               personality={personality}
               worldName={selectedWorld?.name}
               worldIcon={selectedWorld?.icon}
+              worldGenre={selectedWorld?.genre}
               originLabel={originLabel}
               classLabel={classLabel}
+              classRole={selectedWorld?.classes?.find((c) => c.id === characterClass)?.role}
             />
           )}
         </div>

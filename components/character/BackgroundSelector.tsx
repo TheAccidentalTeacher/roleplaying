@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import type { BackgroundType } from '@/lib/types/character';
+import AIHelpButton from './AIHelpButton';
 
 interface PersonalityTraitsInput {
   traits: string[];
@@ -15,6 +16,7 @@ interface BackgroundSelectorProps {
   onBackgroundSelect: (bg: BackgroundType) => void;
   personality: PersonalityTraitsInput;
   onPersonalityChange: (p: PersonalityTraitsInput) => void;
+  aiContext?: Record<string, unknown>;
 }
 
 interface BackgroundDef {
@@ -357,6 +359,7 @@ export default function BackgroundSelector({
   onBackgroundSelect,
   personality,
   onPersonalityChange,
+  aiContext,
 }: BackgroundSelectorProps) {
   const [showSuggestions, setShowSuggestions] = useState(true);
   const selectedBg = BACKGROUNDS.find((b) => b.id === selectedBackground);
@@ -527,9 +530,25 @@ export default function BackgroundSelector({
             <div className="space-y-4">
               {/* Freeform Personality Traits */}
               <div>
-                <label className="text-sm text-slate-300 font-semibold block mb-1">
-                  Personality Traits
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-sm text-slate-300 font-semibold">
+                    Personality Traits
+                  </label>
+                  {aiContext && (
+                    <AIHelpButton
+                      field="trait"
+                      context={aiContext}
+                      onSelect={(text) =>
+                        onPersonalityChange({
+                          ...personality,
+                          traits: [...personality.traits.filter(Boolean), text].slice(0, 3),
+                        })
+                      }
+                      label="✨ Suggest Trait"
+                      compact
+                    />
+                  )}
+                </div>
                 <textarea
                   value={personality.traits.join('\n')}
                   onChange={(e) =>
@@ -544,7 +563,18 @@ export default function BackgroundSelector({
                 />
               </div>
               <div>
-                <label className="text-sm text-slate-300 font-semibold block mb-1">Ideal</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-sm text-slate-300 font-semibold">Ideal</label>
+                  {aiContext && (
+                    <AIHelpButton
+                      field="ideal"
+                      context={aiContext}
+                      onSelect={(text) => onPersonalityChange({ ...personality, ideal: text })}
+                      label="✨ Suggest"
+                      compact
+                    />
+                  )}
+                </div>
                 <input
                   type="text"
                   value={personality.ideal}
@@ -554,7 +584,18 @@ export default function BackgroundSelector({
                 />
               </div>
               <div>
-                <label className="text-sm text-slate-300 font-semibold block mb-1">Bond</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-sm text-slate-300 font-semibold">Bond</label>
+                  {aiContext && (
+                    <AIHelpButton
+                      field="bond"
+                      context={aiContext}
+                      onSelect={(text) => onPersonalityChange({ ...personality, bond: text })}
+                      label="✨ Suggest"
+                      compact
+                    />
+                  )}
+                </div>
                 <input
                   type="text"
                   value={personality.bond}
@@ -564,7 +605,18 @@ export default function BackgroundSelector({
                 />
               </div>
               <div>
-                <label className="text-sm text-slate-300 font-semibold block mb-1">Flaw</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-sm text-slate-300 font-semibold">Flaw</label>
+                  {aiContext && (
+                    <AIHelpButton
+                      field="flaw"
+                      context={aiContext}
+                      onSelect={(text) => onPersonalityChange({ ...personality, flaw: text })}
+                      label="✨ Suggest"
+                      compact
+                    />
+                  )}
+                </div>
                 <input
                   type="text"
                   value={personality.flaw}
