@@ -192,6 +192,10 @@ export default function NewCharacter() {
               onScoresChange={setAbilityScores}
               method={abilityMethod}
               onMethodChange={setAbilityMethod}
+              className={selectedWorld?.classes?.find((c) => c.id === characterClass)?.name}
+              classPrimaryStat={selectedWorld?.classes?.find((c) => c.id === characterClass)?.primaryStat}
+              classRole={selectedWorld?.classes?.find((c) => c.id === characterClass)?.role}
+              classLabel={classLabel}
             />
           )}
           {step === 4 && (

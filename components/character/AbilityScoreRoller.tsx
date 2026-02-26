@@ -44,14 +44,62 @@ interface AbilityScoreRollerProps {
   onScoresChange: (scores: AbilityScores) => void;
   method: AbilityScoreMethod;
   onMethodChange: (method: AbilityScoreMethod) => void;
+  /** Name of the selected class/archetype (e.g. "Warrior", "Netrunner") */
+  className?: string;
+  /** Raw primaryStat string from ClassDef (e.g. "STR / CON", "DEX") */
+  classPrimaryStat?: string;
+  /** Role string from ClassDef (e.g. "Tank / Damage", "Healer / Support") */
+  classRole?: string;
+  /** What the world calls its classes (e.g. "Class", "Role", "MOS") */
+  classLabel?: string;
 }
+
+/**
+ * Parse a primaryStat string like "STR / CON" into arrays of ability keys.
+ * The first stat listed is "primary", any after "/" are "secondary".
+ */
+function parseStatPriority(primaryStat: string): {
+  primary: string[];
+  secondary: string[];
+} {
+  const parts = primaryStat.split(/\s*\/\s*/);
+  return {
+    primary: parts.slice(0, 1).map((s) => s.trim().toLowerCase()),
+    secondary: parts.slice(1).map((s) => s.trim().toLowerCase()),
+  };
+}
+
+/** Full names for each ability abbreviation */
+const ABILITY_FULL_NAMES: Record<string, string> = {
+  str: 'Strength',
+  dex: 'Dexterity',
+  con: 'Constitution',
+  int: 'Intelligence',
+  wis: 'Wisdom',
+  cha: 'Charisma',
+};
 
 export default function AbilityScoreRoller({
   scores,
   onScoresChange,
   method,
   onMethodChange,
+  className: selectedClassName,
+  classPrimaryStat,
+  classRole,
+  classLabel = 'Class',
 }: AbilityScoreRollerProps) {
+  // ── Stat priority from class ──
+  const statPriority = classPrimaryStat ? parseStatPriority(classPrimaryStat) : null;
+
+  /** Returns 'primary' | 'secondary' | null for a given ability key */
+  const getStatTier = (key: string): 'primary' | 'secondary' | null => {
+    if (!statPriority) return null;
+    if (statPriority.primary.includes(key)) return 'primary';
+    if (statPriority.secondary.includes(key)) return 'secondary';
+    return null;
+  };
+
   // ── Roll method state ──
   const [rollSets, setRollSets] = useState<RollSet[]>([]);
   const [assignments, setAssignments] = useState<(number | null)[]>(Array(6).fill(null));
@@ -163,6 +211,37 @@ export default function AbilityScoreRoller({
         <h2 className="text-2xl font-cinzel text-amber-400 mb-2">Ability Scores</h2>
         <p className="text-slate-400 text-sm">These six stats define your character{"'"}s core capabilities.</p>
       </div>
+
+      {/* ── Class Stat Guide ── */}
+      {selectedClassName && statPriority && (
+        <div className="mb-6 mx-auto max-w-2xl bg-slate-900/80 border border-amber-500/30 rounded-xl p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-amber-400 font-cinzel font-semibold text-sm">{classLabel} Stat Guide</span>
+            <span className="text-slate-500 text-xs">— {selectedClassName}{classRole ? ` (${classRole})` : ''}</span>
+          </div>
+          <div className="flex flex-wrap gap-3 items-center">
+            {statPriority.primary.map((key) => (
+              <div key={key} className="flex items-center gap-1.5 bg-amber-500/15 border border-amber-500/40 rounded-lg px-3 py-1.5">
+                <span className="text-amber-400 text-sm">⭐</span>
+                <span className="text-amber-300 font-semibold text-sm uppercase">{key}</span>
+                <span className="text-amber-400/70 text-xs">{ABILITY_FULL_NAMES[key]}</span>
+                <span className="text-[10px] text-amber-500/60 ml-1">PRIMARY</span>
+              </div>
+            ))}
+            {statPriority.secondary.map((key) => (
+              <div key={key} className="flex items-center gap-1.5 bg-sky-500/10 border border-sky-500/30 rounded-lg px-3 py-1.5">
+                <span className="text-sky-400 text-sm">◆</span>
+                <span className="text-sky-300 font-semibold text-sm uppercase">{key}</span>
+                <span className="text-sky-400/70 text-xs">{ABILITY_FULL_NAMES[key]}</span>
+                <span className="text-[10px] text-sky-500/60 ml-1">SECONDARY</span>
+              </div>
+            ))}
+          </div>
+          <p className="text-slate-500 text-xs mt-3 italic">
+            Put your highest rolls in starred stats for best results — but it{"'"}s your character, your choice!
+          </p>
+        </div>
+      )}
 
       {/* Method Selector */}
       <div className="flex flex-wrap justify-center gap-3 mb-6">
@@ -308,13 +387,14 @@ export default function AbilityScoreRoller({
                   const hasValue = assignedIdx !== null;
                   const value = hasValue ? rollSets[assignedIdx].total : null;
                   const isTarget = selectedRollIndex !== null;
+                  const tier = getStatTier(key);
 
                   return (
                     <button
                       key={key}
                       onClick={() => handleSlotClick(index)}
                       className={`
-                        bg-slate-900/80 border-2 rounded-xl p-4 text-center transition-all duration-200
+                        relative bg-slate-900/80 border-2 rounded-xl p-4 text-center transition-all duration-200
                         ${
                           isTarget && !hasValue
                             ? 'border-amber-500/60 bg-amber-500/5 animate-pulse cursor-pointer'
@@ -326,7 +406,20 @@ export default function AbilityScoreRoller({
                         }
                       `}
                     >
-                      <div className="text-xs text-slate-500 uppercase tracking-wider mb-1">
+                      {/* Stat tier badge */}
+                      {tier === 'primary' && (
+                        <span className="absolute -top-2 -right-2 bg-amber-500/90 text-black text-[9px] font-bold px-1.5 py-0.5 rounded-full shadow-lg shadow-amber-500/30">
+                          ⭐ PRI
+                        </span>
+                      )}
+                      {tier === 'secondary' && (
+                        <span className="absolute -top-2 -right-2 bg-sky-500/80 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full shadow-lg shadow-sky-500/20">
+                          ◆ SEC
+                        </span>
+                      )}
+                      <div className={`text-xs uppercase tracking-wider mb-1 ${
+                        tier === 'primary' ? 'text-amber-400' : tier === 'secondary' ? 'text-sky-400' : 'text-slate-500'
+                      }`}>
                         {ABILITY_NAMES[index]}
                       </div>
                       {hasValue ? (
@@ -383,9 +476,23 @@ export default function AbilityScoreRoller({
             </div>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-            {ABILITY_KEYS.map((key, index) => (
-              <div key={key} className="bg-slate-900/80 border border-slate-700 rounded-xl p-4 text-center">
-                <div className="text-xs text-slate-500 uppercase tracking-wider mb-1">
+            {ABILITY_KEYS.map((key, index) => {
+              const tier = getStatTier(key);
+              return (
+              <div key={key} className="relative bg-slate-900/80 border border-slate-700 rounded-xl p-4 text-center">
+                {tier === 'primary' && (
+                  <span className="absolute -top-2 -right-2 bg-amber-500/90 text-black text-[9px] font-bold px-1.5 py-0.5 rounded-full shadow-lg shadow-amber-500/30">
+                    ⭐ PRI
+                  </span>
+                )}
+                {tier === 'secondary' && (
+                  <span className="absolute -top-2 -right-2 bg-sky-500/80 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full shadow-lg shadow-sky-500/20">
+                    ◆ SEC
+                  </span>
+                )}
+                <div className={`text-xs uppercase tracking-wider mb-1 ${
+                  tier === 'primary' ? 'text-amber-400' : tier === 'secondary' ? 'text-sky-400' : 'text-slate-500'
+                }`}>
                   {ABILITY_NAMES[index]}
                 </div>
                 <div className="text-3xl font-bold text-white mb-1">{scores[key]}</div>
@@ -409,7 +516,8 @@ export default function AbilityScoreRoller({
                   </button>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         </>
       )}
@@ -430,9 +538,23 @@ export default function AbilityScoreRoller({
             </div>
           )}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-            {ABILITY_KEYS.map((key, index) => (
-              <div key={key} className="bg-slate-900/80 border border-slate-700 rounded-xl p-4 text-center">
-                <div className="text-xs text-slate-500 uppercase tracking-wider mb-1">
+            {ABILITY_KEYS.map((key, index) => {
+              const tier = getStatTier(key);
+              return (
+              <div key={key} className="relative bg-slate-900/80 border border-slate-700 rounded-xl p-4 text-center">
+                {tier === 'primary' && (
+                  <span className="absolute -top-2 -right-2 bg-amber-500/90 text-black text-[9px] font-bold px-1.5 py-0.5 rounded-full shadow-lg shadow-amber-500/30">
+                    ⭐ PRI
+                  </span>
+                )}
+                {tier === 'secondary' && (
+                  <span className="absolute -top-2 -right-2 bg-sky-500/80 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full shadow-lg shadow-sky-500/20">
+                    ◆ SEC
+                  </span>
+                )}
+                <div className={`text-xs uppercase tracking-wider mb-1 ${
+                  tier === 'primary' ? 'text-amber-400' : tier === 'secondary' ? 'text-sky-400' : 'text-slate-500'
+                }`}>
                   {ABILITY_NAMES[index]}
                 </div>
                 <div className="text-3xl font-bold text-white mb-1">{scores[key]}</div>
@@ -451,7 +573,8 @@ export default function AbilityScoreRoller({
                   ))}
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         </>
       )}
