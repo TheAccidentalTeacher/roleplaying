@@ -1,59 +1,140 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { streamClaude } from '@/lib/ai-orchestrator'
+import { NextRequest, NextResponse } from 'next/server';
+import { streamClaude } from '@/lib/ai-orchestrator';
+import { buildDMSystemPrompt } from '@/lib/prompts/dm-system';
+import { buildContextFromDB, getMessageHistory } from '@/lib/services/context-builder';
+import { saveMessage } from '@/lib/services/database';
+import type { WorldRecord } from '@/lib/types/world';
+import type { Character } from '@/lib/types/character';
+import type { Quest } from '@/lib/types/quest';
+import type { NPC } from '@/lib/types/npc';
+import type { CombatState } from '@/lib/types/combat';
+import type { GameClock, Weather } from '@/lib/types/exploration';
 
-export const runtime = 'edge'
+export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
   try {
-    const { messages, character, gameState, task = 'dm_narration' } = await req.json()
+    const body = await req.json();
+    const {
+      messages = [],       // Latest messages from client
+      characterId,         // Supabase character ID (if available)
+      worldId,             // Supabase world ID (if available)
+      // Fallback data passed from client when Supabase isn't configured
+      character: fallbackCharacter,
+      world: fallbackWorld,
+      activeQuests = [],
+      knownNPCs = [],
+      combatState = null,
+      gameClock,
+      weather,
+    } = body as {
+      messages: { role: 'user' | 'assistant' | 'system'; content: string }[];
+      characterId?: string;
+      worldId?: string;
+      character?: Character;
+      world?: WorldRecord;
+      activeQuests?: Quest[];
+      knownNPCs?: NPC[];
+      combatState?: CombatState | null;
+      gameClock?: GameClock;
+      weather?: Weather;
+    };
 
-    const systemPrompt = `You are an expert Dungeon Master running a rich, immersive single-player RPG.
+    // Build the full DM context
+    const dmContext = await buildContextFromDB({
+      worldId: worldId || 'local',
+      characterId: characterId || 'local',
+      fallbackWorld: fallbackWorld ?? undefined,
+      fallbackCharacter: fallbackCharacter ?? undefined,
+      activeQuests,
+      knownNPCs,
+      combatState,
+      gameClock,
+      weather,
+    });
 
-## CHARACTER
-Name: ${character?.name || 'Unknown Adventurer'}
-Class: ${character?.class || 'Adventurer'}
-Level: ${character?.level || 1}
-Background: ${character?.background || 'A mysterious past'}
-HP: ${character?.hitPoints?.current ?? '?'}/${character?.hitPoints?.max ?? '?'}
+    // Build the massive system prompt
+    const systemPrompt = buildDMSystemPrompt(dmContext);
 
-## CURRENT GAME STATE
-${gameState || 'Beginning of adventure'}
+    // Get message history from Supabase (or use client-provided messages)
+    let messageHistory = messages;
+    if (characterId && characterId !== 'local') {
+      try {
+        const dbMessages = await getMessageHistory(characterId, 40);
+        // Use DB messages if available, append latest client message
+        if (dbMessages.length > 0) {
+          const latestUserMessage = messages.filter((m) => m.role === 'user').pop();
+          // DB has history; just add the latest user message if not already there
+          messageHistory = [
+            ...dbMessages,
+            ...(latestUserMessage ? [latestUserMessage] : []),
+          ];
+        }
+      } catch {
+        // Fall back to client messages
+      }
+    }
 
-## YOUR ROLE AS DM
-- Create vivid, immersive narratives with atmosphere and tension
-- Always end your response with a clear set of available actions OR an open question
-- Track and reference prior events for consistency
-- Handle combat with full tactical transparency (show enemy HP, AC, available moves)
-- When loot is found, describe it dramatically with rarity and properties
-- Manage the full world: NPCs, factions, environment, weather, time of day
-- Allow complete player freedom — never say "you can't do that"
-- Ask for dice rolls with explicit notation (e.g. "Roll a d20 + your STR modifier")
-- Scale challenge to character level
-- Be cinematic. Make every moment memorable.`
+    // Filter out system messages (Claude doesn't accept them in messages array)
+    const claudeMessages = messageHistory
+      .filter((m) => m.role !== 'system')
+      .map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content }));
 
-    // Convert messages to Claude format (no 'system' role in messages array)
-    const claudeMessages = messages
-      .filter((m: any) => m.role !== 'system')
-      .map((m: any) => ({ role: m.role as 'user' | 'assistant', content: m.content }))
+    // Ensure messages are not empty
+    if (claudeMessages.length === 0) {
+      claudeMessages.push({
+        role: 'user',
+        content: 'I look around and take in my surroundings.',
+      });
+    }
 
+    // Save the latest user message to Supabase
+    const latestUser = claudeMessages[claudeMessages.length - 1];
+    if (characterId && characterId !== 'local' && latestUser?.role === 'user') {
+      saveMessage(characterId, 'user', latestUser.content).catch(() => {});
+    }
+
+    // Stream the DM response
     const stream = await streamClaude(
-      task,
+      'dm_narration',
       systemPrompt,
       claudeMessages,
-      { maxTokens: 1200, temperature: 0.85 }
-    )
+      { maxTokens: 2000, temperature: 0.85 }
+    );
 
-    return new NextResponse(stream, {
+    // Create a TransformStream to capture the response for saving
+    const { readable, writable } = new TransformStream();
+    const writer = writable.getWriter();
+    const reader = stream.getReader();
+    let fullResponse = '';
+
+    // Process the stream: pass through to client AND capture for saving
+    (async () => {
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          fullResponse += new TextDecoder().decode(value);
+          await writer.write(value);
+        }
+      } finally {
+        await writer.close();
+        // Save the complete DM response to Supabase
+        if (characterId && characterId !== 'local' && fullResponse) {
+          saveMessage(characterId, 'assistant', fullResponse).catch(() => {});
+        }
+      }
+    })();
+
+    return new NextResponse(readable, {
       headers: {
         'Content-Type': 'text/plain; charset=utf-8',
         'Transfer-Encoding': 'chunked',
       },
-    })
-  } catch (error: any) {
-    console.error('DM API Error:', error)
-    return NextResponse.json(
-      { error: error?.message || 'An error occurred' },
-      { status: 500 }
-    )
+    });
+  } catch (error: unknown) {
+    console.error('DM API Error:', error);
+    const message = error instanceof Error ? error.message : 'An error occurred';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

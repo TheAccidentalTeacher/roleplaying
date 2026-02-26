@@ -3,5 +3,25 @@
   "devCommand": "npm run dev",
   "installCommand": "npm install",
   "framework": "nextjs",
-  "outputDirectory": ".next"
+  "outputDirectory": ".next",
+  "functions": {
+    "app/api/world-genesis/route.ts": {
+      "maxDuration": 60
+    },
+    "app/api/dm/route.ts": {
+      "maxDuration": 30
+    },
+    "app/api/combat/start/route.ts": {
+      "maxDuration": 30
+    },
+    "app/api/combat/action/route.ts": {
+      "maxDuration": 30
+    },
+    "app/api/character-gen/route.ts": {
+      "maxDuration": 30
+    },
+    "app/api/image/route.ts": {
+      "maxDuration": 60
+    }
+  }
 }

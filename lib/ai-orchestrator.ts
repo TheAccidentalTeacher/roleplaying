@@ -296,8 +296,8 @@ export async function generateImage(
       quality,
     })
     return {
-      url: response.data[0]?.url ?? '',
-      revisedPrompt: response.data[0]?.revised_prompt,
+      url: response.data?.[0]?.url ?? '',
+      revisedPrompt: response.data?.[0]?.revised_prompt,
       model,
     }
   }
@@ -312,8 +312,8 @@ export async function generateImage(
     style: options?.style ?? 'vivid',
   })
   return {
-    url: response.data[0]?.url ?? '',
-    revisedPrompt: response.data[0]?.revised_prompt,
+    url: response.data?.[0]?.url ?? '',
+    revisedPrompt: response.data?.[0]?.revised_prompt,
     model,
   }
 }
