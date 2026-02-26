@@ -287,6 +287,7 @@ export interface CharacterCreationInput {
   appearance?: string;
   playerSentence?: string; // The "one sentence" optional story hook
   creationMode: CreationMode;
+  worldType?: string; // World definition id (e.g. 'cyberpunk', 'dark-fantasy')
 }
 
 // Party companion (simplified character for NPC party members)

@@ -9,7 +9,9 @@ import type {
   AbilityScoreMethod,
   CharacterCreationInput,
 } from '@/lib/types/character';
+import type { WorldDefinition } from '@/lib/data/world-types';
 
+import WorldSelector from '@/components/character/WorldSelector';
 import RaceSelector from '@/components/character/RaceSelector';
 import ClassSelector from '@/components/character/ClassSelector';
 import AbilityScoreRoller from '@/components/character/AbilityScoreRoller';
@@ -18,34 +20,13 @@ import CharacterPreview from '@/components/character/CharacterPreview';
 import WorldGenLoading from '@/components/character/WorldGenLoading';
 
 const STEPS = [
-  { label: 'Race', icon: '🧝' },
+  { label: 'World', icon: '🌍' },
+  { label: 'Origin', icon: '🧬' },
   { label: 'Class', icon: '⚔️' },
   { label: 'Abilities', icon: '🎲' },
   { label: 'Background', icon: '📜' },
   { label: 'Finalize', icon: '✨' },
 ];
-
-// Recommended classes per race for the highlight feature
-const RACE_CLASS_RECOMMENDATIONS: Partial<Record<string, string[]>> = {
-  human: ['warrior', 'rogue', 'paladin'],
-  elf: ['mage', 'ranger', 'druid'],
-  dwarf: ['warrior', 'cleric', 'artificer'],
-  halfling: ['rogue', 'bard', 'ranger'],
-  gnome: ['mage', 'artificer', 'bard'],
-  'half-elf': ['bard', 'warlock', 'ranger'],
-  'half-orc': ['warrior', 'blood-mage', 'ranger'],
-  tiefling: ['warlock', 'rogue', 'bard'],
-  dragonborn: ['paladin', 'warrior', 'cleric'],
-  orc: ['warrior', 'blood-mage', 'druid'],
-  goblin: ['rogue', 'artificer', 'ranger'],
-  goliath: ['warrior', 'monk', 'druid'],
-  firbolg: ['druid', 'cleric', 'ranger'],
-  tabaxi: ['rogue', 'monk', 'ranger'],
-  kenku: ['rogue', 'bard', 'monk'],
-  aasimar: ['paladin', 'cleric', 'warlock'],
-  changeling: ['rogue', 'bard', 'warlock'],
-  warforged: ['warrior', 'artificer', 'paladin'],
-};
 
 export default function NewCharacter() {
   const router = useRouter();
@@ -53,6 +34,7 @@ export default function NewCharacter() {
   const [generating, setGenerating] = useState(false);
 
   // Form state
+  const [selectedWorld, setSelectedWorld] = useState<WorldDefinition | null>(null);
   const [race, setRace] = useState<CharacterRace | null>(null);
   const [characterClass, setCharacterClass] = useState<CharacterClass | null>(null);
   const [abilityScores, setAbilityScores] = useState({
@@ -70,22 +52,30 @@ export default function NewCharacter() {
   const [description, setDescription] = useState('');
   const [storyHook, setStoryHook] = useState('');
 
+  // When world changes, reset origin and class (they depend on world)
+  const handleWorldSelect = useCallback((world: WorldDefinition) => {
+    setSelectedWorld(world);
+    setRace(null);
+    setCharacterClass(null);
+  }, []);
+
   // Validation per step
   const isStepValid = useCallback(
     (s: number): boolean => {
       switch (s) {
-        case 0: return race !== null;
-        case 1: return characterClass !== null;
-        case 2: {
+        case 0: return selectedWorld !== null;
+        case 1: return race !== null;
+        case 2: return characterClass !== null;
+        case 3: {
           const total = Object.values(abilityScores).reduce((a, b) => a + b, 0);
           return total > 48; // Must be higher than all-8s default
         }
-        case 3: return background !== null;
-        case 4: return name.trim().length >= 2;
+        case 4: return background !== null;
+        case 5: return name.trim().length >= 2;
         default: return false;
       }
     },
-    [race, characterClass, abilityScores, background, name]
+    [selectedWorld, race, characterClass, abilityScores, background, name]
   );
 
   const handleNext = () => {
@@ -99,7 +89,7 @@ export default function NewCharacter() {
   };
 
   const handleBeginAdventure = () => {
-    if (!isStepValid(4)) return;
+    if (!isStepValid(5)) return;
     setGenerating(true);
   };
 
@@ -117,6 +107,7 @@ export default function NewCharacter() {
     appearance: description || undefined,
     playerSentence: storyHook || undefined,
     creationMode: 'builder',
+    worldType: selectedWorld?.id,
   });
 
   // If generating, show the world gen loading screen
@@ -124,9 +115,9 @@ export default function NewCharacter() {
     return <WorldGenLoading character={buildCreationInput()} storyHook={storyHook} />;
   }
 
-  const recommendedClasses = race
-    ? RACE_CLASS_RECOMMENDATIONS[race] || []
-    : [];
+  // Derived world data
+  const originLabel = selectedWorld?.originLabel ?? 'Race';
+  const classLabel = selectedWorld?.classLabel ?? 'Class';
 
   return (
     <main className="min-h-screen bg-slate-950 px-4 py-8">
@@ -138,11 +129,16 @@ export default function NewCharacter() {
           </h1>
           <p className="text-slate-500 text-sm mt-2">
             Step {step + 1} of {STEPS.length}
+            {selectedWorld && (
+              <span className="ml-2 text-amber-400/80">
+                — {selectedWorld.icon} {selectedWorld.name}
+              </span>
+            )}
           </p>
         </div>
 
         {/* Step Indicator */}
-        <div className="flex items-center justify-center gap-1 mb-10">
+        <div className="flex items-center justify-center gap-1 mb-10 flex-wrap">
           {STEPS.map((s, i) => (
             <div key={i} className="flex items-center">
               <button
@@ -171,15 +167,26 @@ export default function NewCharacter() {
 
         {/* Step Content */}
         <div className="mb-10">
-          {step === 0 && <RaceSelector selected={race} onSelect={setRace} />}
+          {step === 0 && (
+            <WorldSelector selected={selectedWorld} onSelect={handleWorldSelect} />
+          )}
           {step === 1 && (
-            <ClassSelector
-              selected={characterClass}
-              onSelect={setCharacterClass}
-              recommendedClasses={recommendedClasses}
+            <RaceSelector
+              selected={race}
+              onSelect={setRace}
+              origins={selectedWorld?.origins}
+              originLabel={selectedWorld?.originLabel}
             />
           )}
           {step === 2 && (
+            <ClassSelector
+              selected={characterClass}
+              onSelect={setCharacterClass}
+              classes={selectedWorld?.classes}
+              classLabel={selectedWorld?.classLabel}
+            />
+          )}
+          {step === 3 && (
             <AbilityScoreRoller
               scores={abilityScores}
               onScoresChange={setAbilityScores}
@@ -187,7 +194,7 @@ export default function NewCharacter() {
               onMethodChange={setAbilityMethod}
             />
           )}
-          {step === 3 && (
+          {step === 4 && (
             <BackgroundSelector
               selectedBackground={background}
               onBackgroundSelect={setBackground}
@@ -195,7 +202,7 @@ export default function NewCharacter() {
               onPersonalityChange={setPersonality}
             />
           )}
-          {step === 4 && (
+          {step === 5 && (
             <CharacterPreview
               name={name}
               onNameChange={setName}
@@ -208,6 +215,10 @@ export default function NewCharacter() {
               background={background}
               abilityScores={abilityScores}
               personality={personality}
+              worldName={selectedWorld?.name}
+              worldIcon={selectedWorld?.icon}
+              originLabel={originLabel}
+              classLabel={classLabel}
             />
           )}
         </div>
@@ -236,9 +247,9 @@ export default function NewCharacter() {
           ) : (
             <button
               onClick={handleBeginAdventure}
-              disabled={!isStepValid(4)}
+              disabled={!isStepValid(5)}
               className={`px-8 py-3 rounded-lg font-semibold transition-all ${
-                isStepValid(4)
+                isStepValid(5)
                   ? 'bg-gradient-to-r from-amber-500 to-sky-500 hover:from-amber-400 hover:to-sky-400 text-white shadow-lg shadow-amber-500/20'
                   : 'bg-slate-800 text-slate-600 cursor-not-allowed'
               }`}

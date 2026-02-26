@@ -31,6 +31,10 @@ interface CharacterPreviewProps {
   background: BackgroundType | null;
   abilityScores: AbilityScores;
   personality: PersonalityTraitsInput;
+  worldName?: string;
+  worldIcon?: string;
+  originLabel?: string;
+  classLabel?: string;
 }
 
 export default function CharacterPreview({
@@ -45,6 +49,10 @@ export default function CharacterPreview({
   background,
   abilityScores,
   personality,
+  worldName,
+  worldIcon,
+  originLabel = 'Race',
+  classLabel = 'Class',
 }: CharacterPreviewProps) {
   const getMod = (score: number) => Math.floor((score - 10) / 2);
 
@@ -126,6 +134,13 @@ export default function CharacterPreview({
               <span className="inline-block mt-1 px-2 py-0.5 bg-slate-800 rounded text-xs text-slate-300">
                 {capitalize(background)}
               </span>
+            )}
+            {worldName && (
+              <div className="mt-2">
+                <span className="inline-block px-2 py-0.5 bg-sky-900/30 border border-sky-500/20 rounded text-xs text-sky-400">
+                  {worldIcon} {worldName}
+                </span>
+              </div>
             )}
           </div>
 
