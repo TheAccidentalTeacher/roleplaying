@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import type { AbilityScoreMethod } from '@/lib/types/character';
-import { rollAbilityScore } from '@/lib/utils/dice';
+import { rollMultiple } from '@/lib/utils/dice';
 import { formatModifier } from '@/lib/utils/formatters';
 
 const STANDARD_ARRAY = [15, 14, 13, 12, 10, 8];
@@ -13,6 +13,22 @@ const ABILITY_KEYS = ['str', 'dex', 'con', 'int', 'wis', 'cha'] as const;
 const POINT_BUY_COSTS: Record<number, number> = {
   8: 0, 9: 1, 10: 2, 11: 3, 12: 4, 13: 5, 14: 7, 15: 9,
 };
+
+/** One set of 4d6-drop-lowest */
+interface RollSet {
+  dice: number[];    // all 4 dice
+  dropped: number;   // the lowest die value
+  total: number;     // sum of top 3
+}
+
+function rollOneSet(): RollSet {
+  const dice = rollMultiple(4, 6).sort((a, b) => a - b);
+  return {
+    dice: [...dice],
+    dropped: dice[0],
+    total: dice[1] + dice[2] + dice[3],
+  };
+}
 
 interface AbilityScores {
   str: number;
@@ -36,13 +52,18 @@ export default function AbilityScoreRoller({
   method,
   onMethodChange,
 }: AbilityScoreRollerProps) {
-  const [rolledSets, setRolledSets] = useState<number[][]>([]);
+  // ── Roll method state ──
+  const [rollSets, setRollSets] = useState<RollSet[]>([]);
+  const [assignments, setAssignments] = useState<(number | null)[]>(Array(6).fill(null));
+  const [selectedRollIndex, setSelectedRollIndex] = useState<number | null>(null);
+  const [rollCount, setRollCount] = useState(0);
+
+  // ── Standard array state ──
   const [standardArrayAssigned, setStandardArrayAssigned] = useState<(number | null)[]>(
     Array(6).fill(null)
   );
   const [availableStandard, setAvailableStandard] = useState<number[]>([...STANDARD_ARRAY]);
 
-  // Calculate modifier for display
   const getMod = (score: number) => Math.floor((score - 10) / 2);
 
   // Point buy: total points spent
@@ -51,15 +72,58 @@ export default function AbilityScoreRoller({
     0
   );
 
-  // Roll 4d6 drop lowest for all 6 stats
-  const handleRollAll = useCallback(() => {
-    const newScores = ABILITY_KEYS.reduce((acc, key) => {
-      acc[key] = rollAbilityScore();
-      return acc;
-    }, {} as AbilityScores);
-    onScoresChange(newScores);
-    setRolledSets((prev) => [...prev.slice(-4), Object.values(newScores)]);
+  // Which roll pool indices are already assigned to a slot?
+  const assignedIndices = new Set(assignments.filter((a) => a !== null) as number[]);
+
+  // Sync assignments → scores
+  const syncScores = useCallback(
+    (newAssignments: (number | null)[], sets: RollSet[]) => {
+      const newScores = { ...scores };
+      ABILITY_KEYS.forEach((key, i) => {
+        const idx = newAssignments[i];
+        newScores[key] = idx !== null ? sets[idx].total : 10;
+      });
+      onScoresChange(newScores);
+    },
+    [scores, onScoresChange]
+  );
+
+  // ── Roll 7 sets ──
+  const handleRoll7 = useCallback(() => {
+    const sets = Array.from({ length: 7 }, () => rollOneSet());
+    setRollSets(sets);
+    setAssignments(Array(6).fill(null));
+    setSelectedRollIndex(null);
+    setRollCount((c) => c + 1);
+    onScoresChange({ str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 });
   }, [onScoresChange]);
+
+  // ── Click a pool roll ──
+  const handlePoolClick = (poolIdx: number) => {
+    if (assignedIndices.has(poolIdx)) return; // already placed
+    setSelectedRollIndex(selectedRollIndex === poolIdx ? null : poolIdx);
+  };
+
+  // ── Click an ability slot ──
+  const handleSlotClick = (slotIdx: number) => {
+    if (selectedRollIndex === null) {
+      // No roll selected — if slot has a value, unassign it back to pool
+      if (assignments[slotIdx] !== null) {
+        const newAssignments = [...assignments];
+        newAssignments[slotIdx] = null;
+        setAssignments(newAssignments);
+        syncScores(newAssignments, rollSets);
+      }
+      return;
+    }
+    // Place selected roll into this slot
+    const newAssignments = [...assignments];
+    // If slot already has a value, unassign the old one (swap back to pool)
+    newAssignments[slotIdx] = selectedRollIndex;
+    setAssignments(newAssignments);
+    setSelectedRollIndex(null);
+    syncScores(newAssignments, rollSets);
+  };
 
   // Point buy: increment/decrement
   const handlePointBuy = (key: keyof AbilityScores, delta: number) => {
@@ -77,21 +141,21 @@ export default function AbilityScoreRoller({
   // Standard array: assign a value to a slot
   const handleStandardAssign = (abilityIndex: number, value: number) => {
     const newAssigned = [...standardArrayAssigned];
-    // Unassign the previous value at this slot
     if (newAssigned[abilityIndex] !== null) {
       setAvailableStandard((prev) => [...prev, newAssigned[abilityIndex]!].sort((a, b) => b - a));
     }
     newAssigned[abilityIndex] = value;
     setStandardArrayAssigned(newAssigned);
     setAvailableStandard((prev) => prev.filter((v) => v !== value));
-
-    // Update scores
     const newScores = { ...scores };
     ABILITY_KEYS.forEach((key, i) => {
       newScores[key] = newAssigned[i] ?? 8;
     });
     onScoresChange(newScores);
   };
+
+  // How many rolls are assigned?
+  const assignedCount = assignments.filter((a) => a !== null).length;
 
   return (
     <div className="space-y-6">
@@ -103,7 +167,7 @@ export default function AbilityScoreRoller({
       {/* Method Selector */}
       <div className="flex flex-wrap justify-center gap-3 mb-6">
         {[
-          { value: 'roll' as const, label: '🎲 Roll 4d6', desc: 'Roll dice, random stats' },
+          { value: 'roll' as const, label: '🎲 Roll 4d6', desc: 'Roll 7 sets, assign your best 6' },
           { value: 'point-buy' as const, label: '💰 Point Buy', desc: '27 points to distribute' },
           { value: 'standard-array' as const, label: '📊 Standard Array', desc: 'Fixed set: 15,14,13,12,10,8' },
         ].map((m) => (
@@ -111,7 +175,12 @@ export default function AbilityScoreRoller({
             key={m.value}
             onClick={() => {
               onMethodChange(m.value);
-              if (m.value === 'point-buy') {
+              if (m.value === 'roll') {
+                setRollSets([]);
+                setAssignments(Array(6).fill(null));
+                setSelectedRollIndex(null);
+                onScoresChange({ str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 });
+              } else if (m.value === 'point-buy') {
                 onScoresChange({ str: 8, dex: 8, con: 8, int: 8, wis: 8, cha: 8 });
               } else if (m.value === 'standard-array') {
                 setStandardArrayAssigned(Array(6).fill(null));
@@ -131,106 +200,261 @@ export default function AbilityScoreRoller({
         ))}
       </div>
 
-      {/* Roll Method */}
+      {/* ═══════════════════════════════════════════
+          ROLL METHOD — 7 Sets, Assign 6
+          ═══════════════════════════════════════════ */}
       {method === 'roll' && (
-        <div className="text-center mb-4">
-          <button
-            onClick={handleRollAll}
-            className="px-6 py-3 bg-sky-600 hover:bg-sky-500 text-white rounded-lg font-semibold transition-colors"
-          >
-            🎲 Roll All Stats (4d6 drop lowest)
-          </button>
-          {rolledSets.length > 0 && (
-            <p className="text-slate-500 text-xs mt-2">
-              Rolled {rolledSets.length} time{rolledSets.length > 1 ? 's' : ''} — click again to reroll
-            </p>
+        <div className="space-y-6">
+          {/* Roll Button */}
+          <div className="text-center">
+            <button
+              onClick={handleRoll7}
+              className="px-6 py-3 bg-sky-600 hover:bg-sky-500 text-white rounded-lg font-semibold transition-colors"
+            >
+              🎲 Roll 7 Sets (4d6 drop lowest)
+            </button>
+            {rollCount > 0 && (
+              <p className="text-slate-500 text-xs mt-2">
+                Rolled {rollCount} time{rollCount > 1 ? 's' : ''} — click again to reroll all
+              </p>
+            )}
+          </div>
+
+          {/* Roll Pool */}
+          {rollSets.length > 0 && (
+            <>
+              <div className="text-center">
+                <p className="text-slate-400 text-sm mb-3">
+                  {selectedRollIndex !== null
+                    ? `Selected ${rollSets[selectedRollIndex].total} — now click an ability slot below to assign it`
+                    : assignedCount < 6
+                    ? 'Click a roll to select it, then click an ability slot to assign it'
+                    : '✓ All slots assigned! Click a slot to unassign, or reroll.'}
+                </p>
+                <div className="flex flex-wrap justify-center gap-3">
+                  {rollSets.map((set, i) => {
+                    const isAssigned = assignedIndices.has(i);
+                    const isSelected = selectedRollIndex === i;
+                    const isDropped = assignedCount === 6 && !isAssigned;
+
+                    return (
+                      <button
+                        key={i}
+                        onClick={() => handlePoolClick(i)}
+                        disabled={isAssigned}
+                        className={`
+                          relative flex flex-col items-center p-3 rounded-xl border-2 transition-all duration-200 min-w-[80px]
+                          ${
+                            isSelected
+                              ? 'border-amber-400 bg-amber-500/20 shadow-lg shadow-amber-500/30 scale-105'
+                              : isAssigned
+                              ? 'border-green-500/30 bg-green-500/5 opacity-40 cursor-default'
+                              : isDropped
+                              ? 'border-red-500/30 bg-red-500/5 opacity-50'
+                              : 'border-slate-600 bg-slate-800/80 hover:border-sky-500/60 hover:scale-105 cursor-pointer'
+                          }
+                        `}
+                      >
+                        {/* Individual dice */}
+                        <div className="flex gap-1 mb-1">
+                          {set.dice.map((d, di) => {
+                            const isDroppedDie = di === 0; // dice sorted asc, index 0 is lowest
+                            return (
+                              <span
+                                key={di}
+                                className={`
+                                  w-6 h-6 rounded text-[10px] flex items-center justify-center font-mono
+                                  ${isDroppedDie
+                                    ? 'bg-red-900/40 text-red-500 line-through'
+                                    : 'bg-slate-700 text-slate-300'
+                                  }
+                                `}
+                              >
+                                {d}
+                              </span>
+                            );
+                          })}
+                        </div>
+
+                        {/* Total */}
+                        <span className={`text-xl font-bold ${
+                          isSelected ? 'text-amber-300' : isAssigned ? 'text-green-400' : isDropped ? 'text-red-400' : 'text-white'
+                        }`}>
+                          {set.total}
+                        </span>
+
+                        {/* Labels */}
+                        {isAssigned && (
+                          <span className="text-[10px] text-green-500 mt-0.5">
+                            {ABILITY_NAMES[assignments.indexOf(i)]}
+                          </span>
+                        )}
+                        {isDropped && (
+                          <span className="text-[10px] text-red-400 mt-0.5">Dropped</span>
+                        )}
+                        {isSelected && (
+                          <span className="text-[10px] text-amber-400 mt-0.5">Selected</span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Ability Slots for Assignment */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+                {ABILITY_KEYS.map((key, index) => {
+                  const assignedIdx = assignments[index];
+                  const hasValue = assignedIdx !== null;
+                  const value = hasValue ? rollSets[assignedIdx].total : null;
+                  const isTarget = selectedRollIndex !== null;
+
+                  return (
+                    <button
+                      key={key}
+                      onClick={() => handleSlotClick(index)}
+                      className={`
+                        bg-slate-900/80 border-2 rounded-xl p-4 text-center transition-all duration-200
+                        ${
+                          isTarget && !hasValue
+                            ? 'border-amber-500/60 bg-amber-500/5 animate-pulse cursor-pointer'
+                            : isTarget && hasValue
+                            ? 'border-sky-500/40 bg-sky-500/5 cursor-pointer hover:border-sky-400'
+                            : hasValue
+                            ? 'border-slate-600 cursor-pointer hover:border-red-500/50'
+                            : 'border-slate-700/50'
+                        }
+                      `}
+                    >
+                      <div className="text-xs text-slate-500 uppercase tracking-wider mb-1">
+                        {ABILITY_NAMES[index]}
+                      </div>
+                      {hasValue ? (
+                        <>
+                          <div className="text-3xl font-bold text-white mb-1">{value}</div>
+                          <div
+                            className={`text-sm font-mono ${
+                              getMod(value!) >= 0 ? 'text-green-400' : 'text-red-400'
+                            }`}
+                          >
+                            {formatModifier(getMod(value!))}
+                          </div>
+                          {!isTarget && (
+                            <span className="text-[10px] text-slate-600 mt-1 block">click to remove</span>
+                          )}
+                          {isTarget && (
+                            <span className="text-[10px] text-sky-400 mt-1 block">click to replace</span>
+                          )}
+                        </>
+                      ) : (
+                        <>
+                          <div className="text-3xl font-bold text-slate-700 mb-1">—</div>
+                          <div className="text-sm text-slate-700">+0</div>
+                          {isTarget && (
+                            <span className="text-[10px] text-amber-400 mt-1 block">click to place</span>
+                          )}
+                        </>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </>
           )}
         </div>
       )}
 
-      {/* Point Buy Budget */}
+      {/* ═══════════════════════════════════════════
+          POINT BUY
+          ═══════════════════════════════════════════ */}
       {method === 'point-buy' && (
-        <div className="text-center mb-4">
-          <div className="inline-flex items-center gap-2 bg-slate-800 rounded-lg px-4 py-2">
-            <span className="text-slate-400 text-sm">Points remaining:</span>
-            <span
-              className={`font-mono font-bold text-lg ${
-                POINT_BUY_MAX - pointsSpent > 0 ? 'text-sky-400' : 'text-amber-400'
-              }`}
-            >
-              {POINT_BUY_MAX - pointsSpent}
-            </span>
-            <span className="text-slate-600 text-sm">/ {POINT_BUY_MAX}</span>
+        <>
+          <div className="text-center mb-4">
+            <div className="inline-flex items-center gap-2 bg-slate-800 rounded-lg px-4 py-2">
+              <span className="text-slate-400 text-sm">Points remaining:</span>
+              <span
+                className={`font-mono font-bold text-lg ${
+                  POINT_BUY_MAX - pointsSpent > 0 ? 'text-sky-400' : 'text-amber-400'
+                }`}
+              >
+                {POINT_BUY_MAX - pointsSpent}
+              </span>
+              <span className="text-slate-600 text-sm">/ {POINT_BUY_MAX}</span>
+            </div>
           </div>
-        </div>
-      )}
-
-      {/* Standard Array Available Values */}
-      {method === 'standard-array' && availableStandard.length > 0 && (
-        <div className="text-center mb-4">
-          <span className="text-slate-400 text-sm mr-2">Available:</span>
-          {availableStandard.map((val, i) => (
-            <span key={i} className="inline-block bg-sky-500/20 text-sky-400 px-2 py-0.5 rounded mx-1 text-sm font-mono">
-              {val}
-            </span>
-          ))}
-        </div>
-      )}
-
-      {/* Ability Score Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-        {ABILITY_KEYS.map((key, index) => (
-          <div
-            key={key}
-            className="bg-slate-900/80 border border-slate-700 rounded-xl p-4 text-center"
-          >
-            <div className="text-xs text-slate-500 uppercase tracking-wider mb-1">
-              {ABILITY_NAMES[index]}
-            </div>
-            <div className="text-3xl font-bold text-white mb-1">{scores[key]}</div>
-            <div
-              className={`text-sm font-mono mb-3 ${
-                getMod(scores[key]) >= 0 ? 'text-green-400' : 'text-red-400'
-              }`}
-            >
-              {formatModifier(getMod(scores[key]))}
-            </div>
-
-            {method === 'point-buy' && (
-              <div className="flex justify-center gap-1">
-                <button
-                  onClick={() => handlePointBuy(key, -1)}
-                  disabled={scores[key] <= 8}
-                  className="w-8 h-8 rounded bg-slate-800 text-slate-400 hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed"
-                >
-                  −
-                </button>
-                <button
-                  onClick={() => handlePointBuy(key, 1)}
-                  disabled={scores[key] >= 15}
-                  className="w-8 h-8 rounded bg-slate-800 text-slate-400 hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed"
-                >
-                  +
-                </button>
-              </div>
-            )}
-
-            {method === 'standard-array' && (
-              <div className="flex flex-wrap justify-center gap-1">
-                {availableStandard.map((val) => (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+            {ABILITY_KEYS.map((key, index) => (
+              <div key={key} className="bg-slate-900/80 border border-slate-700 rounded-xl p-4 text-center">
+                <div className="text-xs text-slate-500 uppercase tracking-wider mb-1">
+                  {ABILITY_NAMES[index]}
+                </div>
+                <div className="text-3xl font-bold text-white mb-1">{scores[key]}</div>
+                <div className={`text-sm font-mono mb-3 ${getMod(scores[key]) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                  {formatModifier(getMod(scores[key]))}
+                </div>
+                <div className="flex justify-center gap-1">
                   <button
-                    key={val}
-                    onClick={() => handleStandardAssign(index, val)}
-                    className="w-8 h-6 rounded bg-sky-500/20 text-sky-400 text-xs hover:bg-sky-500/40 transition-colors"
+                    onClick={() => handlePointBuy(key, -1)}
+                    disabled={scores[key] <= 8}
+                    className="w-8 h-8 rounded bg-slate-800 text-slate-400 hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed"
                   >
-                    {val}
+                    −
                   </button>
-                ))}
+                  <button
+                    onClick={() => handlePointBuy(key, 1)}
+                    disabled={scores[key] >= 15}
+                    className="w-8 h-8 rounded bg-slate-800 text-slate-400 hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed"
+                  >
+                    +
+                  </button>
+                </div>
               </div>
-            )}
+            ))}
           </div>
-        ))}
-      </div>
+        </>
+      )}
+
+      {/* ═══════════════════════════════════════════
+          STANDARD ARRAY
+          ═══════════════════════════════════════════ */}
+      {method === 'standard-array' && (
+        <>
+          {availableStandard.length > 0 && (
+            <div className="text-center mb-4">
+              <span className="text-slate-400 text-sm mr-2">Available:</span>
+              {availableStandard.map((val, i) => (
+                <span key={i} className="inline-block bg-sky-500/20 text-sky-400 px-2 py-0.5 rounded mx-1 text-sm font-mono">
+                  {val}
+                </span>
+              ))}
+            </div>
+          )}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+            {ABILITY_KEYS.map((key, index) => (
+              <div key={key} className="bg-slate-900/80 border border-slate-700 rounded-xl p-4 text-center">
+                <div className="text-xs text-slate-500 uppercase tracking-wider mb-1">
+                  {ABILITY_NAMES[index]}
+                </div>
+                <div className="text-3xl font-bold text-white mb-1">{scores[key]}</div>
+                <div className={`text-sm font-mono mb-3 ${getMod(scores[key]) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                  {formatModifier(getMod(scores[key]))}
+                </div>
+                <div className="flex flex-wrap justify-center gap-1">
+                  {availableStandard.map((val) => (
+                    <button
+                      key={val}
+                      onClick={() => handleStandardAssign(index, val)}
+                      className="w-8 h-6 rounded bg-sky-500/20 text-sky-400 text-xs hover:bg-sky-500/40 transition-colors"
+                    >
+                      {val}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }
