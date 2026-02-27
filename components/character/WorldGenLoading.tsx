@@ -52,23 +52,14 @@ export default function WorldGenLoading({ character, storyHook }: WorldGenLoadin
     return () => clearInterval(interval);
   }, []);
 
-  // Advance phases on timer for visual progress (phases 0-3 = world gen)
-  useEffect(() => {
-    if (phase >= 3) return;
-    const interval = setInterval(() => {
-      setPhase((prev) => (prev < 3 ? prev + 1 : prev));
-    }, 6000);
-    return () => clearInterval(interval);
-  }, [phase]);
-
-  // Two-phase world generation
+  // World generation (phases driven by server progress, not timers)
   useEffect(() => {
     if (hasStarted.current) return;
     hasStarted.current = true;
 
     const generateWorld = async () => {
       try {
-        // ═══ PHASE 1: Generate World + Character ═══
+        // ═══ PHASE 1: Generate World + Character (Opus, streaming NDJSON) ═══
         const worldResponse = await fetch('/api/world-genesis', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -79,18 +70,64 @@ export default function WorldGenLoading({ character, storyHook }: WorldGenLoadin
           }),
         });
 
-        if (!worldResponse.ok) {
-          const errData = await worldResponse.json().catch(() => ({}));
-          throw new Error(errData.error || `World generation failed (${worldResponse.status})`);
+        if (!worldResponse.ok || !worldResponse.body) {
+          const errText = await worldResponse.text().catch(() => '');
+          let errMsg = `World generation failed (${worldResponse.status})`;
+          try { const errJson = JSON.parse(errText); errMsg = errJson.error || errMsg; } catch {}
+          throw new Error(errMsg);
         }
 
-        const data = await worldResponse.json();
+        // Read NDJSON stream — Claude tokens keep connection alive,
+        // server sends progress updates every 3s + final complete message
+        const worldReader = worldResponse.body.getReader();
+        const worldDecoder = new TextDecoder();
+        let ndjsonBuffer = '';
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        let worldData: any = null;
+
+        const processLine = (line: string) => {
+          if (!line.trim()) return;
+          try {
+            const msg = JSON.parse(line);
+            if (msg.error) throw new Error(msg.error);
+            if (msg.phase !== undefined) setPhase(msg.phase);
+            if (msg.status === 'complete' && msg.data) {
+              worldData = msg.data;
+            }
+          } catch (parseErr) {
+            if (parseErr instanceof SyntaxError) return;
+            throw parseErr;
+          }
+        };
+
+        while (true) {
+          const { done, value } = await worldReader.read();
+          if (done) break;
+
+          ndjsonBuffer += worldDecoder.decode(value, { stream: true });
+          const lines = ndjsonBuffer.split('\n');
+          ndjsonBuffer = lines.pop() || '';
+
+          for (const line of lines) {
+            processLine(line);
+          }
+        }
+
+        // Flush remaining buffer
+        ndjsonBuffer += worldDecoder.decode();
+        if (ndjsonBuffer.trim()) {
+          processLine(ndjsonBuffer);
+        }
+
+        if (!worldData) throw new Error('World generation completed without data');
 
         // Store world and character data
-        localStorage.setItem('rpg-active-world', JSON.stringify(data.world));
-        localStorage.setItem('rpg-active-character', JSON.stringify(data.character));
-        if (data.worldId) localStorage.setItem('rpg-world-id', data.worldId);
-        if (data.characterId) localStorage.setItem('rpg-character-id', data.characterId);
+        localStorage.setItem('rpg-active-world', JSON.stringify(worldData.world));
+        localStorage.setItem('rpg-active-character', JSON.stringify(worldData.character));
+        if (worldData.worldId) localStorage.setItem('rpg-world-id', worldData.worldId);
+        if (worldData.characterId) localStorage.setItem('rpg-character-id', worldData.characterId);
+
+        const data = worldData;
 
         // ═══ PHASE 2: Stream Opening Scene (Opus) ═══
         setPhase(4); // "Writing the opening scene..."
