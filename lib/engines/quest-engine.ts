@@ -21,6 +21,28 @@ export function buildMainQuestPrompt(
   world: WorldRecord,
   character: Character
 ): string {
+  // Build story arc context
+  const arcContext = world.storyArc
+    ? `\nCAMPAIGN ARC: ${world.storyArc.title}
+${world.storyArc.logline}
+Key Themes: ${world.storyArc.recurringThemes.join(', ')}
+Current villain phase: ${world.storyArc.acts[0]?.villainPhase || 'Unknown'}
+Key beats to build toward: ${world.storyArc.acts.flatMap(a => a.keyBeats).slice(0, 5).map(b => `${b.name} (${b.type})`).join(', ')}
+The main quest MUST advance this campaign arc.`
+    : '';
+
+  // Build companion context
+  const companionContext = world.companions?.length
+    ? `\nAVAILABLE COMPANIONS: ${world.companions.map(c => `${c.name} (${c.race} ${c.class}, found at ${c.recruitLocation})`).join(', ')}
+Weave at least one companion into the quest narrative.`
+    : '';
+
+  // Build dungeon context
+  const dungeonContext = world.dungeons?.length
+    ? `\nKNOWN ADVENTURE SITES: ${world.dungeons.slice(0, 4).map(d => `${d.name} (${d.type} in ${d.location}, Levels ${d.levelRange.min}-${d.levelRange.max})`).join(', ')}
+Consider setting quest objectives in one of these locations.`
+    : '';
+
   return `Generate a MAIN QUEST for this RPG world. Return ONLY valid JSON.
 
 WORLD:
@@ -29,7 +51,7 @@ WORLD:
 - Tone: ${world.narrativeTone}
 - Central Conflict: ${world.villainCore?.motivation || 'Unknown'}
 - Prophecy: ${world.prophecy?.text || 'None'}
-- Main Threat: ${world.mainThreat?.name || 'None'}
+- Main Threat: ${world.mainThreat?.name || 'None'}${arcContext}${companionContext}${dungeonContext}
 
 CHARACTER:
 - Name: ${character.name}
@@ -83,12 +105,31 @@ export function buildSideQuestPrompt(
   location: string,
   context?: string
 ): string {
+  // Look up settlement rumors for this location
+  const settlement = world.settlements?.find(s =>
+    s.name.toLowerCase() === location.toLowerCase() ||
+    location.toLowerCase().includes(s.name.toLowerCase())
+  );
+  const rumorsContext = settlement?.rumors?.length
+    ? `\nLOCAL RUMORS IN ${settlement.name.toUpperCase()}:\n${settlement.rumors.map(r => `- ${r}`).join('\n')}\nConsider basing the quest on one of these rumors.`
+    : '';
+
+  // Story arc themes for side quest alignment
+  const arcContext = world.storyArc
+    ? `\nCAMPAIGN THEMES: ${world.storyArc.recurringThemes.join(', ')}\nSide quest should echo or contrast these themes.`
+    : '';
+
+  // NPC hooks from this settlement
+  const npcContext = settlement?.keyNPCs?.filter(n => n.questHook)?.length
+    ? `\nNPCs WITH QUEST HOOKS:\n${settlement.keyNPCs.filter(n => n.questHook).map(n => `- ${n.name} (${n.role}): ${n.questHook}`).join('\n')}`
+    : '';
+
   return `Generate a SIDE QUEST appropriate to the current situation. Return ONLY valid JSON.
 
 WORLD: ${world.worldName} (${world.primaryGenre})
 LOCATION: ${location}
 CHARACTER: ${character.name}, Level ${character.level} ${character.class}
-${context ? `CONTEXT: ${context}` : ''}
+${context ? `CONTEXT: ${context}` : ''}${rumorsContext}${arcContext}${npcContext}
 
 The side quest should:
 1. Be completable in 1-3 sessions

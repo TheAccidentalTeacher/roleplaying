@@ -27,13 +27,41 @@ export function buildNPCGenerationPrompt(params: {
 }): string {
   const { world, location, role, storyRole, context } = params;
 
+  // Check for pre-defined NPCs in this settlement
+  const settlement = world.settlements?.find(s =>
+    s.name.toLowerCase() === location.toLowerCase() ||
+    location.toLowerCase().includes(s.name.toLowerCase())
+  );
+  const existingNPCs = settlement?.keyNPCs?.length
+    ? `\nESTABLISHED NPCs AT THIS LOCATION (do NOT duplicate — create someone NEW who fits alongside them):
+${settlement.keyNPCs.map(n => `- ${n.name} (${n.role}): ${n.personality}. Secret: ${n.secret}`).join('\n')}`
+    : '';
+
+  // Settlement context for atmosphere
+  const settlementContext = settlement
+    ? `\nSETTLEMENT: ${settlement.name} (${settlement.type}, pop. ${settlement.population}). ${settlement.description.slice(0, 100)}
+Government: ${settlement.government}. Controlling faction: ${settlement.controllingFaction}.
+Laws: ${settlement.laws.slice(0, 2).join('; ')}`
+    : '';
+
+  // Faction context for NPC affiliation
+  const factionContext = world.factions?.length
+    ? `\nACTIVE FACTIONS: ${world.factions.map(f => `${f.name} (${f.attitude_toward_player})`).join(', ')}
+Consider making this NPC affiliated with one of these factions.`
+    : '';
+
+  // Companion awareness — don't duplicate companions
+  const companionNames = world.companions?.length
+    ? `\nEXISTING COMPANIONS (do NOT recreate): ${world.companions.map(c => c.name).join(', ')}`
+    : '';
+
   return `Generate an NPC for this RPG world. Return ONLY valid JSON.
 
 WORLD: ${world.worldName} (${world.primaryGenre})
 LOCATION: ${location}
 ${role ? `ROLE: ${role}` : 'Any role appropriate to the location'}
 ${storyRole ? `STORY IMPORTANCE: ${storyRole}` : ''}
-${context ? `CONTEXT: ${context}` : ''}
+${context ? `CONTEXT: ${context}` : ''}${existingNPCs}${settlementContext}${factionContext}${companionNames}
 
 Create a memorable, three-dimensional character. NOT a stereotype.
 

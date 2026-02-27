@@ -124,7 +124,112 @@ Primary: ${w.currencyNames.primary}${w.currencyNames.secondary ? `, Secondary: $
 
 ### Secret History
 ${w.secretHistory}
-(YOU know this. The player does NOT. Reveal only through discovery.)`;
+(YOU know this. The player does NOT. Reveal only through discovery.)${buildDeepWorldContext(w)}`;
+}
+
+// ─── DEEP WORLDBUILDING CONTEXT (from multi-step pipeline) ───
+function buildDeepWorldContext(w: WorldRecord): string {
+  const sections: string[] = [];
+
+  // Core fields not yet in the base prompt
+  if (w.playerRole) {
+    sections.push(`### The Player's Destined Role\n${w.playerRole}`);
+  }
+
+  if (w.prophecy) {
+    sections.push(`### The Prophecy\n"${w.prophecy.text}"\n- Common belief: ${w.prophecy.interpretation}\n- TRUE meaning: ${w.prophecy.truth}\n(Reveal gradually through gameplay. NEVER dump exposition.)`);
+  }
+
+  if (w.centralArtifact) {
+    const a = w.centralArtifact;
+    sections.push(`### The Central Artifact: ${a.name}\n${a.description}\n- Nature: ${a.nature}\n- Location: ${a.currentLocation}\n- Guarded by: ${a.guardedBy}\n- Danger of use: ${a.dangerOfUse}`);
+  }
+
+  if (w.legends?.length) {
+    sections.push(`### Legends\n${w.legends.map(l => `- **${l.title}**: ${l.summary} (${l.isTrue ? 'TRUE — can be discovered' : 'FALSE — a myth'}) — ${l.relevanceToPlayer}`).join('\n')}`);
+  }
+
+  if (w.majorHistoricalEras?.length) {
+    sections.push(`### Historical Eras\n${w.majorHistoricalEras.map(e => `- **${e.name}** (${e.duration}): ${e.legacy}`).join('\n')}`);
+  }
+
+  if (w.catastrophes?.length) {
+    sections.push(`### Historical Catastrophes\n${w.catastrophes.map(c => `- ${c}`).join('\n')}`);
+  }
+
+  if (w.afterlife) {
+    sections.push(`### The Afterlife\n${w.afterlife}`);
+  }
+
+  if (w.time) {
+    sections.push(`### Nature of Time\n${w.time}`);
+  }
+
+  if (w.powerVacuums?.length) {
+    sections.push(`### Power Vacuums (opportunities for player influence)\n${w.powerVacuums.map(p => `- ${p}`).join('\n')}`);
+  }
+
+  // === DEEP WORLDBUILDING FROM MULTI-STEP PIPELINE ===
+
+  if (w.companions?.length) {
+    sections.push(`### Recruitable Companions\n${w.companions.map(c =>
+      `- **${c.name}** (${c.race} ${c.class}, ${c.role}): ${c.personality.slice(0, 80)}. Found: ${c.recruitLocation}. Quest: ${c.personalQuest.slice(0, 60)}`
+    ).join('\n')}`);
+  }
+
+  if (w.settlements?.length) {
+    sections.push(`### Key Settlements\n${w.settlements.map(s => {
+      const npcs = s.keyNPCs.slice(0, 3).map(n => `${n.name} (${n.role})`).join(', ');
+      return `- **${s.name}** (${s.type}, ${s.region}): ${s.description.slice(0, 80)}. Key NPCs: ${npcs}`;
+    }).join('\n')}`);
+  }
+
+  if (w.bestiary?.length) {
+    sections.push(`### Notable Creatures\n${w.bestiary.map(b =>
+      `- **${b.name}** (${b.type}, CR ${b.challengeRating}): ${b.description.slice(0, 60)}. Habitat: ${b.habitat.join(', ')}${b.isUnique ? ' ★BOSS' : ''}`
+    ).join('\n')}`);
+  }
+
+  if (w.dungeons?.length) {
+    sections.push(`### Dungeons & Adventure Sites\n${w.dungeons.map(d =>
+      `- **${d.name}** (${d.type}, ${d.location}): Levels ${d.levelRange.min}-${d.levelRange.max}. Boss: ${d.boss}. Lore: ${d.lore.slice(0, 60)}`
+    ).join('\n')}`);
+  }
+
+  if (w.economy) {
+    const e = w.economy;
+    sections.push(`### Economy\n- Trade tensions: ${e.economicTensions.join('; ')}\n- Black market: ${e.blackMarket}\n- Price regions: ${e.priceRegions.map(p => `${p.region} (×${p.priceModifier})`).join(', ')}\n- Rare materials: ${e.rareMaterials.map(m => `${m.name} (${m.source})`).join(', ')}`);
+  }
+
+  if (w.relationshipWeb?.length) {
+    sections.push(`### Relationship Web\n${w.relationshipWeb.slice(0, 15).map(r =>
+      `- ${r.entityA} ↔ ${r.entityB}: ${r.relationship}${r.canChange ? ' [player-mutable]' : ''} — ${r.details.slice(0, 60)}`
+    ).join('\n')}`);
+  }
+
+  if (w.travelNetwork?.length) {
+    sections.push(`### Travel Routes\n${w.travelNetwork.map(r =>
+      `- ${r.from} → ${r.to}: ${r.method}, ${r.travelDays}d, danger ${r.dangerLevel}/5${r.controlledBy ? ` [${r.controlledBy}]` : ''}${r.hazards.length ? '. Hazards: ' + r.hazards.slice(0, 2).join(', ') : ''}`
+    ).join('\n')}`);
+  }
+
+  if (w.randomEvents?.length) {
+    sections.push(`### World Events (trigger when narratively appropriate)\n${w.randomEvents.map(e =>
+      `- **${e.name}** (${e.type}): ${e.description.slice(0, 60)}. Trigger: ${e.triggerCondition}`
+    ).join('\n')}`);
+  }
+
+  if (w.crafting) {
+    sections.push(`### Crafting\n${w.crafting.description.slice(0, 100)}\nDisciplines: ${w.crafting.disciplines.map(d => `${d.name} (${d.toolRequired})`).join(', ')}\nRecipes available: ${w.crafting.recipes.length}`);
+  }
+
+  if (w.lootTables?.length) {
+    sections.push(`### Loot Tables\n${w.lootTables.map(t =>
+      `- **${t.name}** (${t.context}): ${t.items.slice(0, 3).map(i => `${i.name} [${i.rarity}]`).join(', ')}${t.items.length > 3 ? '...' : ''}`
+    ).join('\n')}`);
+  }
+
+  return sections.length > 0 ? '\n\n' + sections.join('\n\n') : '';
 }
 
 // ─── SECTION 3: THE CHARACTER ────────────────────────────────
@@ -242,6 +347,22 @@ function buildSection5_StoryState(ctx: DMContext): string {
     .map((entry) => `- ${entry}`)
     .join('\n');
 
+  // Campaign arc context
+  let campaignStr = '';
+  if (ctx.world.storyArc) {
+    const arc = ctx.world.storyArc;
+    const actsStr = arc.acts.map(a =>
+      `- **Act ${a.actNumber}: ${a.title}** (Levels ${a.levelRange.min}-${a.levelRange.max}): ${a.summary.slice(0, 120)}. Villain phase: ${a.villainPhase}`
+    ).join('\n');
+    campaignStr = `
+
+### Campaign Arc: ${arc.title}
+${arc.logline}
+${actsStr}
+**Key Twists** (reveal at the right moment): ${arc.keyTwists.join('; ')}
+**Player Agency Points**: ${arc.playerAgencyPoints.join('; ')}`;
+  }
+
   return `## SECTION 5 — STORY STATE
 
 ### Active Quests
@@ -251,7 +372,7 @@ ${questsStr || 'No active quests yet.'}
 ${npcsStr || 'No NPCs met yet.'}
 
 ### Recent Events
-${chronicleStr || 'Adventure is just beginning.'}`;
+${chronicleStr || 'Adventure is just beginning.'}${campaignStr}`;
 }
 
 // ─── SECTION 6: RULES ───────────────────────────────────────

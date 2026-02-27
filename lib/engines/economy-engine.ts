@@ -215,6 +215,48 @@ export function shouldRestock(merchant: Merchant): boolean {
   }
 }
 
+// ---- Regional Price Modifier from World Economy ----
+
+/**
+ * Look up the regional price modifier for a location from world economy data.
+ * Returns a PriceModifier array that can be passed to calculateBuyPrice/calculateSellPrice.
+ */
+export function getRegionalPriceModifiers(
+  world: WorldRecord,
+  location: string
+): PriceModifier[] {
+  if (!world.economy?.priceRegions?.length) return [];
+
+  const region = world.economy.priceRegions.find(p =>
+    location.toLowerCase().includes(p.region.toLowerCase()) ||
+    p.region.toLowerCase().includes(location.toLowerCase())
+  );
+
+  if (!region || region.priceModifier === 1.0) return [];
+
+  return [{
+    source: `Regional pricing (${region.region})`,
+    type: 'multiply' as const,
+    value: region.priceModifier,
+    description: `Prices ${region.priceModifier > 1 ? 'higher' : 'lower'} in ${region.region}. Specialties: ${region.specialties.join(', ')}. Scarce: ${region.scarcities.join(', ')}.`,
+  }];
+}
+
+/**
+ * Get the base regional price multiplier as a simple number.
+ */
+export function getRegionalPriceMultiplier(
+  world: WorldRecord,
+  location: string
+): number {
+  if (!world.economy?.priceRegions?.length) return 1.0;
+  const region = world.economy.priceRegions.find(p =>
+    location.toLowerCase().includes(p.region.toLowerCase()) ||
+    p.region.toLowerCase().includes(location.toLowerCase())
+  );
+  return region?.priceModifier ?? 1.0;
+}
+
 // ---- Prompt Builders for AI Merchant Generation ----
 
 export function buildMerchantPrompt(
@@ -222,12 +264,49 @@ export function buildMerchantPrompt(
   world: WorldRecord,
   location: string
 ): string {
+  // Build economy context from world data
+  const economyLines: string[] = [];
+  if (world.economy) {
+    const e = world.economy;
+    const region = e.priceRegions.find(p =>
+      location.toLowerCase().includes(p.region.toLowerCase()) ||
+      p.region.toLowerCase().includes(location.toLowerCase())
+    );
+    if (region) {
+      economyLines.push(`Regional Price Modifier: ×${region.priceModifier}`);
+      economyLines.push(`Local Specialties (cheap): ${region.specialties.join(', ')}`);
+      economyLines.push(`Scarce here (expensive): ${region.scarcities.join(', ')}`);
+    }
+    if (e.rareMaterials.length) {
+      economyLines.push(`Rare Materials in World: ${e.rareMaterials.slice(0, 5).map(m => m.name).join(', ')}`);
+    }
+    if (e.economicTensions.length) {
+      economyLines.push(`Trade Tensions: ${e.economicTensions[0]}`);
+    }
+    if (e.blackMarket) {
+      economyLines.push(`Black Market: ${e.blackMarket}`);
+    }
+  }
+
+  // Check for settlement context
+  const settlement = world.settlements?.find(s =>
+    s.name.toLowerCase() === location.toLowerCase() ||
+    location.toLowerCase().includes(s.name.toLowerCase())
+  );
+  if (settlement?.economicProfile) {
+    economyLines.push(`Settlement Economy: ${settlement.economicProfile}`);
+  }
+
+  const economyContext = economyLines.length
+    ? `\nECONOMY CONTEXT:\n${economyLines.map(l => `- ${l}`).join('\n')}\nReflect these economic conditions in pricing and inventory.`
+    : '';
+
   return `You are creating a merchant NPC for an RPG.
 
 World: ${world.worldName}
 Genre: ${world.primaryGenre}
 Location: ${location}
-Shop Type: ${shopType}
+Shop Type: ${shopType}${economyContext}
 
 Generate a merchant as JSON:
 {

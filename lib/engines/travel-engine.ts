@@ -15,6 +15,7 @@ import type {
   FastTravelResult,
   Weather,
 } from '@/lib/types/exploration';
+import type { WorldRecord, TravelRoute } from '@/lib/types/world';
 import { roll } from '@/lib/utils/dice';
 
 // ---- Speed Constants ----
@@ -282,4 +283,98 @@ export function getPaceDescription(pace: TravelPace): {
         perception: '-5 to passive Perception',
       };
   }
+}
+
+// ---- World Travel Network Integration ----
+
+/**
+ * Look up a pre-defined travel route from the world's travel network.
+ * Returns the route if found, or null if the journey must use generic terrain costs.
+ */
+export function lookupWorldRoute(
+  world: WorldRecord,
+  from: string,
+  to: string
+): TravelRoute | null {
+  if (!world.travelNetwork?.length) return null;
+
+  // Search both directions (routes may be defined A→B but traveled B→A)
+  return world.travelNetwork.find(r =>
+    (r.from.toLowerCase() === from.toLowerCase() && r.to.toLowerCase() === to.toLowerCase()) ||
+    (r.from.toLowerCase() === to.toLowerCase() && r.to.toLowerCase() === from.toLowerCase())
+  ) ?? null;
+}
+
+/**
+ * Create a travel plan using a world-defined route instead of generic terrain costs.
+ * Falls back to generic createTravelPlan for routes not in the network.
+ */
+export function createWorldTravelPlan(
+  route: TravelRoute,
+  method: TravelMethod,
+  pace: TravelPace,
+): TravelPlan {
+  // Convert route's travel days to hours (8 hours per day)
+  const baseHours = route.travelDays * 8;
+
+  // Map route method to terrain type for segment generation
+  const terrainMap: Record<string, TerrainType> = {
+    road: 'plains',
+    trail: 'forest',
+    river: 'coast',
+    sea: 'ocean',
+    air: 'plains',
+    underground: 'underground',
+    portal: 'plains',
+    wilderness: 'forest',
+  };
+
+  const terrain = terrainMap[route.method] || ('plains' as TerrainType);
+  const segmentCount = Math.max(1, Math.ceil(route.travelDays));
+  const terrains: TerrainType[] = Array(segmentCount).fill(terrain);
+
+  const plan = createTravelPlan(route.from, route.to, method, pace, terrains, baseHours);
+
+  // Override segments with route-specific data
+  plan.segments.forEach((seg, i) => {
+    seg.dangerLevel = route.dangerLevel;
+    seg.description = i === 0
+      ? `${route.description}. Hazards: ${route.hazards.join(', ') || 'none known'}`
+      : `Continuing via ${route.method} toward ${route.to}`;
+  });
+
+  return plan;
+}
+
+/**
+ * Build a travel route prompt for AI generation of routes not in the world network.
+ */
+export function buildTravelRoutePrompt(
+  world: WorldRecord,
+  from: string,
+  to: string
+): string {
+  const knownRoutes = world.travelNetwork?.length
+    ? `\nKNOWN ROUTES IN THIS WORLD:\n${world.travelNetwork.map(r =>
+      `- ${r.from} → ${r.to}: ${r.method}, ${r.travelDays}d, danger ${r.dangerLevel}/5`
+    ).join('\n')}\nUse these as reference for distance/danger calibration.`
+    : '';
+
+  const regionContext = world.geography?.length
+    ? `\nREGIONS: ${world.geography.map(r => `${r.name} (${r.terrain}, danger ${r.dangerLevel}/5)`).join(', ')}`
+    : '';
+
+  return `Determine the travel route from "${from}" to "${to}" in ${world.worldName}.${knownRoutes}${regionContext}
+
+Return JSON:
+{
+  "method": "road|trail|river|sea|air|underground|portal|wilderness",
+  "travelDays": number,
+  "dangerLevel": 1-5,
+  "description": "1-2 sentence route description",
+  "hazards": ["hazard1", "hazard2"],
+  "pointsOfInterest": ["poi1"],
+  "terrainTypes": ["plains", "forest", ...],
+  "controlledBy": "faction name or null"
+}`;
 }

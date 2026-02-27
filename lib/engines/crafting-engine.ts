@@ -12,6 +12,7 @@ import type {
   Item,
 } from '@/lib/types/items';
 import type { Character } from '@/lib/types/character';
+import type { WorldRecord } from '@/lib/types/world';
 import { d20 } from '@/lib/utils/dice';
 
 // ---- Quality Tiers (WoW-style proc system) ----
@@ -196,4 +197,96 @@ Respond as JSON array:
     "cost": number (gold per hour, 0 if free)
   }
 ]`;
+}
+
+// ---- World Crafting Integration ----
+
+/**
+ * Convert world crafting recipes to engine-compatible CraftingRecipe format.
+ * World recipes start as undiscovered — players find them through gameplay.
+ */
+export function getWorldCraftingRecipes(
+  world: WorldRecord,
+): CraftingRecipe[] {
+  if (!world.crafting?.recipes?.length) return [];
+
+  const difficultyToDC: Record<string, number> = {
+    novice: 10,
+    journeyman: 15,
+    expert: 20,
+    master: 25,
+  };
+
+  const difficultyToTime: Record<string, number> = {
+    novice: 1,
+    journeyman: 2,
+    expert: 4,
+    master: 8,
+  };
+
+  return world.crafting.recipes.map((r, i) => ({
+    id: `world-recipe-${i}`,
+    name: r.name,
+    skill: r.discipline.toLowerCase() as CraftingSkill,
+    skillLevelRequired: difficultyToDC[r.difficulty] ? Math.floor(difficultyToDC[r.difficulty] / 5) : 3,
+    materials: r.inputs.map(inp => ({
+      materialName: inp.material,
+      quantity: inp.quantity,
+    })),
+    resultDescription: r.output,
+    difficultyDC: difficultyToDC[r.difficulty] || 15,
+    craftingTimeHours: difficultyToTime[r.difficulty] || 2,
+    requiresStation: true,
+    stationType: r.discipline,
+    isDiscovered: false, // Must be discovered through gameplay
+  }));
+}
+
+/**
+ * Get available crafting disciplines from the world data.
+ */
+export function getWorldCraftingDisciplines(
+  world: WorldRecord,
+): { name: string; tool: string; description: string }[] {
+  if (!world.crafting?.disciplines?.length) return [];
+
+  return world.crafting.disciplines.map(d => ({
+    name: d.name,
+    tool: d.toolRequired,
+    description: d.description,
+  }));
+}
+
+/**
+ * Build a prompt asking the AI about crafting options at a location,
+ * informed by the world's crafting system.
+ */
+export function buildWorldCraftingPrompt(
+  world: WorldRecord,
+  location: string,
+  character: Character
+): string {
+  const craftingInfo = world.crafting
+    ? `\nWORLD CRAFTING SYSTEM: ${world.crafting.description}
+Disciplines: ${world.crafting.disciplines.map(d => `${d.name} (requires ${d.toolRequired})`).join(', ')}
+Available recipes: ${world.crafting.recipes.map(r => `${r.name} [${r.difficulty}]`).join(', ')}`
+    : '';
+
+  const materials = world.economy?.rareMaterials?.length
+    ? `\nRARE MATERIALS IN WORLD: ${world.economy.rareMaterials.map(m => `${m.name} — found at ${m.source}`).join(', ')}`
+    : '';
+
+  const tools = character.proficiencies.tools?.length
+    ? `\nPLAYER TOOL PROFICIENCIES: ${character.proficiencies.tools.join(', ')}`
+    : '';
+
+  return `What crafting opportunities are available at "${location}" in ${world.worldName}?${craftingInfo}${materials}${tools}
+
+Return JSON:
+{
+  "availableStations": [{"type": "string", "quality": "basic|good|excellent", "cost": number}],
+  "availableRecipes": [{"name": "string", "discipline": "string", "difficulty": "string", "materialsNeeded": ["string"]}],
+  "localMaterials": [{"name": "string", "cost": number, "source": "string"}],
+  "craftingNPCs": [{"name": "string", "specialty": "string", "canTeach": boolean}]
+}`;
 }

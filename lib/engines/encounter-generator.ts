@@ -76,8 +76,35 @@ export function buildEncounterPrompt(params: {
   timeOfDay: TimeOfDay;
   difficulty: 'easy' | 'medium' | 'hard' | 'deadly';
   context?: string;
+  regionName?: string;
 }): string {
-  const { world, character, terrain, timeOfDay, difficulty, context } = params;
+  const { world, character, terrain, timeOfDay, difficulty, context, regionName } = params;
+
+  // Pull matching creatures from world bestiary
+  const bestiaryHits = world.bestiary
+    ?.filter(b => b.habitat.some(h =>
+      h.toLowerCase().includes(terrain) || terrain.includes(h.toLowerCase())
+    ))
+    .slice(0, 6) ?? [];
+  const bestiaryContext = bestiaryHits.length
+    ? `\nWORLD-NATIVE CREATURES IN THIS TERRAIN:\n${bestiaryHits.map(b =>
+      `- ${b.name} (${b.type}, CR ${b.challengeRating}): ${b.behavior}. Weaknesses: ${b.weaknesses.join(', ')}. Loot: ${b.loot.join(', ')}`
+    ).join('\n')}\nPREFER using creatures from this list. Adapt stats to match difficulty.`
+    : '';
+
+  // Pull encounter table entries for this region
+  const regionTable = regionName && world.encounterTables?.length
+    ? world.encounterTables.find(t =>
+      t.regionName.toLowerCase() === regionName.toLowerCase()
+    )
+    : undefined;
+  const tableContext = regionTable?.encounters?.length
+    ? `\nPRE-PLANNED ENCOUNTERS FOR ${regionTable.regionName}:\n${regionTable.encounters
+      .filter(e => e.difficulty === difficulty || e.type === 'combat')
+      .slice(0, 4)
+      .map(e => `- ${e.name} (${e.difficulty}): ${e.description}. Creatures: ${e.creatures.join(', ')}`)
+      .join('\n')}\nYou may use one of these encounters or create a variant.`
+    : '';
 
   return `Generate a combat encounter for this RPG. Return ONLY valid JSON.
 
@@ -86,7 +113,7 @@ TERRAIN: ${terrain}
 TIME: ${timeOfDay}
 DIFFICULTY: ${difficulty}
 PLAYER: Level ${character.level} ${character.class}
-${context ? `CONTEXT: ${context}` : ''}
+${context ? `CONTEXT: ${context}` : ''}${bestiaryContext}${tableContext}
 
 Generate 1-4 enemies appropriate to the terrain, difficulty, and world genre.
 
