@@ -13,9 +13,9 @@ import { createWorld, createCharacter } from '@/lib/services/database';
 import type { WorldRecord } from '@/lib/types/world';
 import type { CharacterCreationInput, Character } from '@/lib/types/character';
 
-// For streaming responses on Vercel, maxDuration = timeout between writes.
-// Our 5-second heartbeats reset this timer, so Opus can run indefinitely.
-export const maxDuration = 60;
+// Edge Runtime: CPU-time limit only (30s). Waiting for Claude's API is I/O
+// and does NOT count. Opus can take as long as it needs.
+export const runtime = 'edge';
 
 interface WorldGenesisRequest {
   character: CharacterCreationInput;

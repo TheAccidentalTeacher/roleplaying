@@ -12,7 +12,8 @@ import { saveMessage } from '@/lib/services/database';
 import type { WorldRecord } from '@/lib/types/world';
 import type { Character } from '@/lib/types/character';
 
-// Opus needs time for rich narrative
+// Edge Runtime: I/O wait (Claude API) doesn't count toward CPU limit.
+export const runtime = 'edge';
 export const maxDuration = 60;
 
 interface OpeningSceneRequest {
