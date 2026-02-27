@@ -22,17 +22,32 @@ const FLAVOR_TEXTS = [
   'Taverns are stocked. Dungeons are trapped. Quests await...',
   'The world map unfurls across forgotten continents...',
   'Factions vie for power in halls you\'ve yet to see...',
+  'Companion bonds are forged in futures yet unwritten...',
+  'Creatures stir in undiscovered lairs...',
+  'Trade routes connect cities that never existed before...',
   'An origin story crystallizes from the aether...',
   'The final threads of destiny are woven...',
   'Your adventure is almost ready...',
 ];
 
+// Matches GENESIS_STEPS order + assembling + opening scene = 16 labels
 const PHASE_LABELS = [
-  'Forging the world foundation...',
-  'Creating the villain and factions...',
-  'Mapping geography and your origin...',
-  'Assembling the world...',
-  'Writing the opening scene...',
+  'Forging the world concept...',         // 0  — step 1
+  'Designing magic & power systems...',   // 1  — step 2
+  'Writing deep history & legends...',    // 2  — step 3
+  'Building factions & politics...',      // 3  — step 4
+  'Crafting the villain...',              // 4  — step 5
+  'Shaping the main threat & prophecy...', // 5  — step 6
+  'Mapping the world geography...',       // 6  — step 7
+  'Detailing cities & settlements...',    // 7  — step 8
+  'Creating companion characters...',     // 8  — step 9
+  'Populating the bestiary...',           // 9  — step 10
+  'Designing dungeons & adventure sites...', // 10 — step 11
+  'Building economy & crafting...',       // 11 — step 12
+  'Mapping the campaign arc...',          // 12 — step 13
+  'Weaving relationships & origin...',    // 13 — step 14
+  'Assembling the world...',              // 14 — post-steps
+  'Writing the opening scene...',         // 15 — opening scene
 ];
 
 export default function WorldGenLoading({ character, storyHook }: WorldGenLoadingProps) {
@@ -130,7 +145,7 @@ export default function WorldGenLoading({ character, storyHook }: WorldGenLoadin
         const data = worldData;
 
         // ═══ PHASE 2: Stream Opening Scene (Opus) ═══
-        setPhase(4); // "Writing the opening scene..."
+        setPhase(15); // "Writing the opening scene..."
 
         const sceneResponse = await fetch('/api/world-genesis/opening-scene', {
           method: 'POST',
@@ -228,13 +243,13 @@ export default function WorldGenLoading({ character, storyHook }: WorldGenLoadin
           <div className="absolute inset-2 rounded-full border-2 border-amber-500/30 animate-spin" style={{ animationDuration: '8s' }} />
           <div className="absolute inset-4 rounded-full border border-sky-400/40 animate-spin" style={{ animationDuration: '12s', animationDirection: 'reverse' }} />
           <div className="absolute inset-0 flex items-center justify-center text-5xl animate-pulse">
-            {phase >= 4 ? '✨' : '🌍'}
+            {phase >= 15 ? '✨' : '🌍'}
           </div>
         </div>
 
         {/* Title */}
         <h2 className="text-2xl font-cinzel text-amber-400">
-          {phase >= 4 ? 'Your World Awaits' : 'Creating Your World'}
+          {phase >= 15 ? 'Your World Awaits' : 'Creating Your World'}
         </h2>
 
         {/* Phase indicator */}
@@ -274,7 +289,7 @@ export default function WorldGenLoading({ character, storyHook }: WorldGenLoadin
         </div>
 
         {/* Streamed opening scene preview (phase 4+) */}
-        {phase >= 4 && streamedText && (
+        {phase >= 15 && streamedText && (
           <div className="text-left bg-slate-900/60 border border-slate-700/50 rounded-xl p-4 max-h-48 overflow-y-auto">
             <p className="text-xs text-amber-500/60 font-cinzel mb-2">Opening Scene Preview</p>
             <p className="text-slate-300 text-sm leading-relaxed whitespace-pre-wrap">
@@ -287,16 +302,16 @@ export default function WorldGenLoading({ character, storyHook }: WorldGenLoadin
         )}
 
         {/* Rotating flavor text (only show when not streaming) */}
-        {phase < 4 && (
+        {phase < 15 && (
           <p className="text-slate-500 italic text-sm h-6 transition-opacity duration-500">
             {FLAVOR_TEXTS[flavorIndex]}
           </p>
         )}
 
         <p className="text-slate-600 text-xs">
-          {phase >= 4
+          {phase >= 15
             ? 'The AI is writing your unique opening scene with full creative depth...'
-            : 'This may take up to a minute. The AI is crafting an entire world just for you.'}
+            : 'Sit back — the AI is building an entire homebrew campaign world just for you. This takes a few minutes.'}
         </p>
       </div>
     </div>

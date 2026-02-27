@@ -1,24 +1,20 @@
 // ============================================================
-// WORLD GENESIS API ROUTE — Multi-Step World Generation
+// WORLD GENESIS API ROUTE — 14-Step Homebrew Campaign Factory
 // POST /api/world-genesis
 //
-// 3 focused Claude Opus calls, each ~4K tokens, each ~15-20s:
-//   Step 1: World Foundation (name, magic, history, tone, genre)
-//   Step 2: Conflict Engine (villain, threat, factions)
-//   Step 3: Geography & Origin (regions, locations, origin scenario)
-//
+// 14 focused Claude Opus calls, each ~3-6K tokens, each ~10-20s:
+// Builds a full homebrew campaign world piece by piece.
 // TransformStream sends NDJSON progress between each step.
-// Each call finishes well within any timeout. No streaming needed.
 // ============================================================
 
 import { NextRequest } from 'next/server';
 import { callClaudeJSON } from '@/lib/ai-orchestrator';
-import { buildStep1Prompt, buildStep2Prompt, buildStep3Prompt } from '@/lib/prompts/world-genesis-steps';
+import { GENESIS_STEPS, TOTAL_STEPS } from '@/lib/prompts/world-genesis-steps';
 import { createWorld, createCharacter } from '@/lib/services/database';
 import type { WorldRecord } from '@/lib/types/world';
 import type { CharacterCreationInput, Character } from '@/lib/types/character';
 
-// Each step is ~15-20s. 3 steps + DB saves = ~60-90s total.
+// 14 steps × ~15s each + DB saves ≈ 3.5-4 min. Vercel Pro allows up to 300s.
 export const maxDuration = 300;
 
 interface WorldGenesisRequest {
@@ -145,76 +141,47 @@ export async function POST(request: NextRequest) {
     }
   };
 
-  // Fire-and-forget: 3 Claude calls with progress updates between each
+  // Fire-and-forget: 14 Claude calls with progress updates between each
   (async () => {
     try {
       // ═══════════════════════════════════════════════════════
-      // STEP 1: World Foundation (~4K tokens, ~15-20s)
+      // GENERIC STEP EXECUTOR — loops through all 14 steps
+      // Each step gets the accumulated prior results as context
       // ═══════════════════════════════════════════════════════
-      console.log('[WorldGenesis] Step 1: World Foundation...');
-      await send({ status: 'generating', phase: 0, step: 1, totalSteps: 3 });
+      let accumulated: Record<string, unknown> = {};
 
-      const step1Prompt = buildStep1Prompt(charInput, playerSentence);
-      const step1 = await callClaudeJSON<Record<string, unknown>>(
-        'world_building',
-        step1Prompt.system,
-        step1Prompt.user,
-        { maxTokens: 5000 }
-      );
+      for (let i = 0; i < GENESIS_STEPS.length; i++) {
+        const step = GENESIS_STEPS[i];
+        console.log(`[WorldGenesis] Step ${step.id}/${TOTAL_STEPS}: ${step.name}...`);
+        await send({ status: 'generating', phase: i, step: step.id, totalSteps: TOTAL_STEPS, label: step.label });
 
-      console.log('[WorldGenesis] Step 1 complete. World:', (step1 as Record<string, unknown>).worldName);
-      await send({ status: 'generating', phase: 1, step: 1, done: true });
+        // Build the prompt — step 1 gets playerSentence, others get accumulated context
+        const prevContext = JSON.stringify(accumulated);
+        const prompt = step.isFirst
+          ? step.buildPrompt(charInput, '', playerSentence)
+          : step.buildPrompt(charInput, prevContext);
 
-      // ═══════════════════════════════════════════════════════
-      // STEP 2: Conflict Engine (~5K tokens, ~15-20s)
-      // ═══════════════════════════════════════════════════════
-      console.log('[WorldGenesis] Step 2: Conflicts & Villain...');
-      await send({ status: 'generating', phase: 1, step: 2, totalSteps: 3 });
+        const result = await callClaudeJSON<Record<string, unknown>>(
+          'world_building',
+          prompt.system,
+          prompt.user,
+          { maxTokens: prompt.maxTokens }
+        );
 
-      // Pass Step 1 result as context for consistency
-      const step1Summary = JSON.stringify(step1);
-      const step2Prompt = buildStep2Prompt(charInput, step1Summary);
-      const step2 = await callClaudeJSON<Record<string, unknown>>(
-        'world_building',
-        step2Prompt.system,
-        step2Prompt.user,
-        { maxTokens: 6000 }
-      );
-
-      console.log('[WorldGenesis] Step 2 complete. Villain:', (step2 as Record<string, unknown>).villainCore ? 'yes' : 'no');
-      await send({ status: 'generating', phase: 2, step: 2, done: true });
+        // Merge this step's result into accumulated context
+        accumulated = { ...accumulated, ...result };
+        console.log(`[WorldGenesis] Step ${step.id} complete.`);
+        await send({ status: 'generating', phase: i + 1, step: step.id, done: true });
+      }
 
       // ═══════════════════════════════════════════════════════
-      // STEP 3: Geography & Origin (~5K tokens, ~15-20s)
-      // ═══════════════════════════════════════════════════════
-      console.log('[WorldGenesis] Step 3: Geography & Origin...');
-      await send({ status: 'generating', phase: 2, step: 3, totalSteps: 3 });
-
-      const step2Summary = JSON.stringify(step2);
-      const step3Prompt = buildStep3Prompt(charInput, step1Summary, step2Summary);
-      const step3 = await callClaudeJSON<Record<string, unknown>>(
-        'world_building',
-        step3Prompt.system,
-        step3Prompt.user,
-        { maxTokens: 6000 }
-      );
-
-      console.log('[WorldGenesis] Step 3 complete. Regions:', Array.isArray((step3 as Record<string, unknown>).geography) ? 'yes' : 'no');
-      await send({ status: 'processing', phase: 3, step: 3, done: true });
-
-      // ═══════════════════════════════════════════════════════
-      // ASSEMBLE: Merge all 3 steps into a complete WorldRecord
+      // ASSEMBLE: Merge all steps into a complete WorldRecord
       // ═══════════════════════════════════════════════════════
       console.log('[WorldGenesis] Assembling world record...');
+      await send({ status: 'processing', phase: TOTAL_STEPS, label: 'Assembling the world...' });
 
       const worldRecord = {
-        // Step 1: Foundation
-        ...step1,
-        // Step 2: Conflict
-        ...step2,
-        // Step 3: Geography & Origin
-        ...step3,
-        // Identity fields
+        ...accumulated,
         id: crypto.randomUUID(),
         characterId: 'pending',
         createdAt: new Date().toISOString(),
