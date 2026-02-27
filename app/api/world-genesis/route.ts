@@ -155,11 +155,8 @@ export async function POST(request: NextRequest) {
         console.log(`[WorldGenesis] Step ${step.id}/${TOTAL_STEPS}: ${step.name}...`);
         await send({ status: 'generating', phase: i, step: step.id, totalSteps: TOTAL_STEPS, label: step.label });
 
-        // Build the prompt — step 1 gets playerSentence, others get accumulated context
-        const prevContext = JSON.stringify(accumulated);
-        const prompt = step.isFirst
-          ? step.buildPrompt(charInput, '', playerSentence)
-          : step.buildPrompt(charInput, prevContext);
+        // Build the prompt — each step extracts its own targeted context from accumulated
+        const prompt = step.buildPrompt(charInput, accumulated, playerSentence);
 
         const result = await callClaudeJSON<Record<string, unknown>>(
           'world_building',
