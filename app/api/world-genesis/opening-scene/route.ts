@@ -12,8 +12,7 @@ import { saveMessage } from '@/lib/services/database';
 import type { WorldRecord } from '@/lib/types/world';
 import type { Character } from '@/lib/types/character';
 
-// Edge Runtime: I/O wait (Claude API) doesn't count toward CPU limit.
-export const runtime = 'edge';
+// Opus streams text chunks continuously — each chunk resets the timeout
 export const maxDuration = 60;
 
 interface OpeningSceneRequest {

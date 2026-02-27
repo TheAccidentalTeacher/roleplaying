@@ -52,14 +52,23 @@ export default function WorldGenLoading({ character, storyHook }: WorldGenLoadin
     return () => clearInterval(interval);
   }, []);
 
-  // Two-phase world generation (phases driven by server NDJSON messages, not timers)
+  // Advance phases on timer for visual progress (phases 0-3 = world gen)
+  useEffect(() => {
+    if (phase >= 3) return;
+    const interval = setInterval(() => {
+      setPhase((prev) => (prev < 3 ? prev + 1 : prev));
+    }, 6000);
+    return () => clearInterval(interval);
+  }, [phase]);
+
+  // Two-phase world generation
   useEffect(() => {
     if (hasStarted.current) return;
     hasStarted.current = true;
 
     const generateWorld = async () => {
       try {
-        // ═══ PHASE 1: Generate World + Character (Opus, streaming NDJSON) ═══
+        // ═══ PHASE 1: Generate World + Character ═══
         const worldResponse = await fetch('/api/world-genesis', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -70,63 +79,18 @@ export default function WorldGenLoading({ character, storyHook }: WorldGenLoadin
           }),
         });
 
-        if (!worldResponse.ok || !worldResponse.body) {
-          throw new Error(`World generation failed (${worldResponse.status})`);
+        if (!worldResponse.ok) {
+          const errData = await worldResponse.json().catch(() => ({}));
+          throw new Error(errData.error || `World generation failed (${worldResponse.status})`);
         }
 
-        // Read NDJSON stream — server sends real-time phase updates + heartbeats
-        const worldReader = worldResponse.body.getReader();
-        const worldDecoder = new TextDecoder();
-        let ndjsonBuffer = '';
-        let worldData: { worldId: string; characterId: string; world: Record<string, unknown>; character: Record<string, unknown> } | null = null;
-
-        const processLine = (line: string) => {
-          if (!line.trim()) return;
-          try {
-            const msg = JSON.parse(line);
-            if (msg.error) throw new Error(msg.error);
-            if (msg.phase !== undefined) setPhase(msg.phase);
-            if (msg.status === 'complete' && msg.data) {
-              worldData = msg.data;
-            }
-          } catch (parseErr) {
-            if (parseErr instanceof SyntaxError) return; // ignore malformed chunks
-            throw parseErr;
-          }
-        };
-
-        while (true) {
-          const { done, value } = await worldReader.read();
-          if (done) break;
-
-          ndjsonBuffer += worldDecoder.decode(value, { stream: true });
-          const lines = ndjsonBuffer.split('\n');
-          ndjsonBuffer = lines.pop() || '';
-
-          for (const line of lines) {
-            processLine(line);
-          }
-        }
-
-        // Flush any remaining data in the buffer (e.g. final complete message)
-        ndjsonBuffer += worldDecoder.decode(); // flush TextDecoder
-        if (ndjsonBuffer.trim()) {
-          processLine(ndjsonBuffer);
-        }
-
-        if (!worldData) throw new Error('World generation completed without data');
-
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const completedData = worldData as any;
+        const data = await worldResponse.json();
 
         // Store world and character data
-        localStorage.setItem('rpg-active-world', JSON.stringify(completedData.world));
-        localStorage.setItem('rpg-active-character', JSON.stringify(completedData.character));
-        if (completedData.worldId) localStorage.setItem('rpg-world-id', completedData.worldId);
-        if (completedData.characterId) localStorage.setItem('rpg-character-id', completedData.characterId);
-
-        // Use the streaming data for the opening scene call
-        const data = completedData;
+        localStorage.setItem('rpg-active-world', JSON.stringify(data.world));
+        localStorage.setItem('rpg-active-character', JSON.stringify(data.character));
+        if (data.worldId) localStorage.setItem('rpg-world-id', data.worldId);
+        if (data.characterId) localStorage.setItem('rpg-character-id', data.characterId);
 
         // ═══ PHASE 2: Stream Opening Scene (Opus) ═══
         setPhase(4); // "Writing the opening scene..."
