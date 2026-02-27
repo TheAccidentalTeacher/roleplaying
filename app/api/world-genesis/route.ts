@@ -1,20 +1,24 @@
 // ============================================================
-// WORLD GENESIS API ROUTE — Phase 1: World + Character
+// WORLD GENESIS API ROUTE — Multi-Step World Generation
 // POST /api/world-genesis
-// Generates a unique world using Claude Opus (full creativity)
-// Uses STREAMING Claude call — tokens flow every ~100ms keeping the
-// connection alive indefinitely. Progress sent as NDJSON lines.
-// Opening scene is generated separately via /api/world-genesis/opening-scene
+//
+// 3 focused Claude Opus calls, each ~4K tokens, each ~15-20s:
+//   Step 1: World Foundation (name, magic, history, tone, genre)
+//   Step 2: Conflict Engine (villain, threat, factions)
+//   Step 3: Geography & Origin (regions, locations, origin scenario)
+//
+// TransformStream sends NDJSON progress between each step.
+// Each call finishes well within any timeout. No streaming needed.
 // ============================================================
 
 import { NextRequest } from 'next/server';
-import { createClaudeStream } from '@/lib/ai-orchestrator';
-import { buildWorldGenesisPrompt } from '@/lib/prompts/world-genesis';
+import { callClaudeJSON } from '@/lib/ai-orchestrator';
+import { buildStep1Prompt, buildStep2Prompt, buildStep3Prompt } from '@/lib/prompts/world-genesis-steps';
 import { createWorld, createCharacter } from '@/lib/services/database';
 import type { WorldRecord } from '@/lib/types/world';
 import type { CharacterCreationInput, Character } from '@/lib/types/character';
 
-// Safety net — streaming keeps connection alive well beyond this
+// Each step is ~15-20s. 3 steps + DB saves = ~60-90s total.
 export const maxDuration = 300;
 
 interface WorldGenesisRequest {
@@ -129,15 +133,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Build the prompt
-  const worldGenesisPrompt = buildWorldGenesisPrompt(charInput, playerSentence);
-  const fullSystemPrompt = `${worldGenesisPrompt}\n\nIMPORTANT: Respond ONLY with valid JSON. No markdown, no explanation, no code blocks. Just raw JSON.`;
-  const userMessage = `Generate a world for ${charInput.name}, a ${charInput.race} ${charInput.class}.${playerSentence ? ` Player says: "${playerSentence}"` : ''}`;
-
-  // ── TransformStream pattern ──
-  // CRITICAL: ReadableStream's async start() blocks ALL reads until the promise
-  // resolves — meaning zero bytes flow to the client during Claude generation.
-  // TransformStream solves this: writer.write() data is IMMEDIATELY readable.
+  // TransformStream: writer.write() data is IMMEDIATELY readable on the other side.
   const { readable, writable } = new TransformStream();
   const writer = writable.getWriter();
 
@@ -145,69 +141,84 @@ export async function POST(request: NextRequest) {
     try {
       await writer.write(encoder.encode(JSON.stringify(msg) + '\n'));
     } catch {
-      // Writer closed — safe to ignore
+      // Writer closed
     }
   };
 
-  // Fire-and-forget: async work runs independently, pushing data as it goes.
-  // The readable side is returned immediately as the Response body.
+  // Fire-and-forget: 3 Claude calls with progress updates between each
   (async () => {
     try {
-      // ── Immediate first byte — proves connection is alive ──
-      console.log('[WorldGenesis] Starting generation...');
-      await send({ status: 'started', phase: 0 });
+      // ═══════════════════════════════════════════════════════
+      // STEP 1: World Foundation (~4K tokens, ~15-20s)
+      // ═══════════════════════════════════════════════════════
+      console.log('[WorldGenesis] Step 1: World Foundation...');
+      await send({ status: 'generating', phase: 0, step: 1, totalSteps: 3 });
 
-      // ── Stream world JSON from Opus ──
-      // createClaudeStream returns the raw Anthropic MessageStream (async iterable)
-      // Tokens arrive every ~100ms, keeping the connection alive
-      const claudeStream = createClaudeStream(
+      const step1Prompt = buildStep1Prompt(charInput, playerSentence);
+      const step1 = await callClaudeJSON<Record<string, unknown>>(
         'world_building',
-        fullSystemPrompt,
-        [{ role: 'user', content: userMessage }],
-        { maxTokens: 16384 }
+        step1Prompt.system,
+        step1Prompt.user,
+        { maxTokens: 5000 }
       );
 
-      let fullText = '';
-      let lastProgressTime = Date.now();
-      let tokenCount = 0;
+      console.log('[WorldGenesis] Step 1 complete. World:', (step1 as Record<string, unknown>).worldName);
+      await send({ status: 'generating', phase: 1, step: 1, done: true });
 
-      for await (const event of claudeStream) {
-        if (
-          event.type === 'content_block_delta' &&
-          event.delta.type === 'text_delta'
-        ) {
-          fullText += event.delta.text;
-          tokenCount++;
+      // ═══════════════════════════════════════════════════════
+      // STEP 2: Conflict Engine (~5K tokens, ~15-20s)
+      // ═══════════════════════════════════════════════════════
+      console.log('[WorldGenesis] Step 2: Conflicts & Villain...');
+      await send({ status: 'generating', phase: 1, step: 2, totalSteps: 3 });
 
-          // Send progress update every 3 seconds
-          if (Date.now() - lastProgressTime > 3000) {
-            const estimatedPhase = Math.min(Math.floor(fullText.length / 4000), 3);
-            await send({ status: 'generating', phase: estimatedPhase, chars: fullText.length });
-            lastProgressTime = Date.now();
-          }
-        }
-      }
+      // Pass Step 1 result as context for consistency
+      const step1Summary = JSON.stringify(step1);
+      const step2Prompt = buildStep2Prompt(charInput, step1Summary);
+      const step2 = await callClaudeJSON<Record<string, unknown>>(
+        'world_building',
+        step2Prompt.system,
+        step2Prompt.user,
+        { maxTokens: 6000 }
+      );
 
-      console.log(`[WorldGenesis] Claude finished. ${tokenCount} chunks, ${fullText.length} chars.`);
-      await send({ status: 'processing', phase: 3 });
+      console.log('[WorldGenesis] Step 2 complete. Villain:', (step2 as Record<string, unknown>).villainCore ? 'yes' : 'no');
+      await send({ status: 'generating', phase: 2, step: 2, done: true });
 
-      // ── Parse the accumulated JSON ──
-      const cleaned = fullText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-      let worldRecord: WorldRecord;
-      try {
-        worldRecord = JSON.parse(cleaned) as WorldRecord;
-      } catch (parseError) {
-        console.error('[WorldGenesis] JSON parse failed. Raw text length:', fullText.length);
-        console.error('[WorldGenesis] First 500 chars:', fullText.slice(0, 500));
-        console.error('[WorldGenesis] Last 500 chars:', fullText.slice(-500));
-        await send({ error: 'World generation produced invalid JSON. Please try again.' });
-        await writer.close();
-        return;
-      }
+      // ═══════════════════════════════════════════════════════
+      // STEP 3: Geography & Origin (~5K tokens, ~15-20s)
+      // ═══════════════════════════════════════════════════════
+      console.log('[WorldGenesis] Step 3: Geography & Origin...');
+      await send({ status: 'generating', phase: 2, step: 3, totalSteps: 3 });
 
-      // Ensure required fields
-      worldRecord.id = worldRecord.id || crypto.randomUUID();
-      worldRecord.createdAt = worldRecord.createdAt || new Date().toISOString();
+      const step2Summary = JSON.stringify(step2);
+      const step3Prompt = buildStep3Prompt(charInput, step1Summary, step2Summary);
+      const step3 = await callClaudeJSON<Record<string, unknown>>(
+        'world_building',
+        step3Prompt.system,
+        step3Prompt.user,
+        { maxTokens: 6000 }
+      );
+
+      console.log('[WorldGenesis] Step 3 complete. Regions:', Array.isArray((step3 as Record<string, unknown>).geography) ? 'yes' : 'no');
+      await send({ status: 'processing', phase: 3, step: 3, done: true });
+
+      // ═══════════════════════════════════════════════════════
+      // ASSEMBLE: Merge all 3 steps into a complete WorldRecord
+      // ═══════════════════════════════════════════════════════
+      console.log('[WorldGenesis] Assembling world record...');
+
+      const worldRecord = {
+        // Step 1: Foundation
+        ...step1,
+        // Step 2: Conflict
+        ...step2,
+        // Step 3: Geography & Origin
+        ...step3,
+        // Identity fields
+        id: crypto.randomUUID(),
+        characterId: 'pending',
+        createdAt: new Date().toISOString(),
+      } as WorldRecord;
 
       // ── Save World to Supabase ──
       let worldRow;
@@ -231,7 +242,7 @@ export async function POST(request: NextRequest) {
         characterRow = { id: character.id };
       }
 
-      console.log('[WorldGenesis] Sending complete data. World:', worldRecord.worldName);
+      console.log('[WorldGenesis] Complete! World:', worldRecord.worldName);
 
       // ── Send completed world + character data ──
       await send({
@@ -246,20 +257,21 @@ export async function POST(request: NextRequest) {
             type: worldRecord.worldType,
             genre: worldRecord.primaryGenre,
             tone: worldRecord.narrativeTone,
-            threat: worldRecord.mainThreat.name,
-            villain: worldRecord.villainCore.name,
+            threat: worldRecord.mainThreat?.name,
+            villain: worldRecord.villainCore?.name,
           },
         },
       });
     } catch (error) {
       console.error('[WorldGenesis] Error:', error);
-      await send({ error: error instanceof Error ? error.message : 'Failed to generate world. Please try again.' });
+      await send({
+        error: error instanceof Error ? error.message : 'Failed to generate world. Please try again.',
+      });
     }
 
     try { await writer.close(); } catch { /* already closed */ }
   })();
 
-  // Return the readable side immediately — bytes flow as writer.write() is called
   return new Response(readable, {
     headers: {
       'Content-Type': 'application/x-ndjson',

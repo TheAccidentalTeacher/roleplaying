@@ -28,10 +28,10 @@ const FLAVOR_TEXTS = [
 ];
 
 const PHASE_LABELS = [
-  'Generating world lore and geography...',
-  'Creating factions and political landscapes...',
-  'Crafting the villain and their machinations...',
-  'Designing your origin story...',
+  'Forging the world foundation...',
+  'Creating the villain and factions...',
+  'Mapping geography and your origin...',
+  'Assembling the world...',
   'Writing the opening scene...',
 ];
 
