@@ -1,7 +1,7 @@
 // ============================================================
 // WORLD GENESIS API ROUTE — Phase 1: World + Character
 // POST /api/world-genesis
-// Generates a unique world using Claude Sonnet 4.6 (fast + creative)
+// Generates a unique world using Claude Opus (full creativity)
 // Returns JSON with world + character data
 // Opening scene is generated separately via /api/world-genesis/opening-scene
 // ============================================================
@@ -13,8 +13,8 @@ import { createWorld, createCharacter } from '@/lib/services/database';
 import type { WorldRecord } from '@/lib/types/world';
 import type { CharacterCreationInput, Character } from '@/lib/types/character';
 
-// Sonnet 4.6 generates 4096 tokens in ~25-35s — well within this limit
-export const maxDuration = 60;
+// Vercel Pro plan supports up to 300s — Opus needs ~60-90s for rich world gen
+export const maxDuration = 300;
 
 interface WorldGenesisRequest {
   character: CharacterCreationInput;
@@ -127,7 +127,7 @@ export async function POST(request: NextRequest) {
         'world_building',
         worldGenesisPrompt,
         `Generate a world for ${charInput.name}, a ${charInput.race} ${charInput.class}.${playerSentence ? ` Player says: "${playerSentence}"` : ''}`,
-        { maxTokens: 4096 }
+        { maxTokens: 8192 }
       );
     } catch (parseError) {
       // Retry once on JSON parse failure
@@ -136,7 +136,7 @@ export async function POST(request: NextRequest) {
         'world_building',
         worldGenesisPrompt,
         `Generate a world for ${charInput.name}, a ${charInput.race} ${charInput.class}. IMPORTANT: Output ONLY valid JSON, no other text.${playerSentence ? ` Player says: "${playerSentence}"` : ''}`,
-        { maxTokens: 4096 }
+        { maxTokens: 8192 }
       );
     }
 

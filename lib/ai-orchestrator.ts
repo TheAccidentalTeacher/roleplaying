@@ -72,7 +72,7 @@ export function getModelForTask(task: AITask): string {
     // Claude Opus: richest narration, complex world logic
     dm_narration:       MODELS.CLAUDE_OPUS,
     quest_generation:   MODELS.CLAUDE_OPUS,
-    world_building:     MODELS.CLAUDE_SONNET,  // Sonnet 4.6 — fast enough for Vercel 60s limit
+    world_building:     MODELS.CLAUDE_OPUS,
 
     // Claude Sonnet: fast + smart, great for interactive moments
     combat_narration:   MODELS.CLAUDE_SONNET,

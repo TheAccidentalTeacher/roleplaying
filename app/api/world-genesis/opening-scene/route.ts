@@ -12,8 +12,8 @@ import { saveMessage } from '@/lib/services/database';
 import type { WorldRecord } from '@/lib/types/world';
 import type { Character } from '@/lib/types/character';
 
-// Opus streams text chunks continuously — each chunk resets the timeout
-export const maxDuration = 60;
+// Vercel Pro plan supports up to 300s
+export const maxDuration = 300;
 
 interface OpeningSceneRequest {
   world: WorldRecord;
