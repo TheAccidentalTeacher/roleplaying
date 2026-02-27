@@ -118,7 +118,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ── Generate World via Claude Sonnet 4.6 ──
+    // ── Generate World via Claude Opus ──
+    // 16K tokens gives Opus room for deeply detailed factions, regions, lore, and villain
     const worldGenesisPrompt = buildWorldGenesisPrompt(charInput, playerSentence);
 
     let worldRecord: WorldRecord;
@@ -127,7 +128,7 @@ export async function POST(request: NextRequest) {
         'world_building',
         worldGenesisPrompt,
         `Generate a world for ${charInput.name}, a ${charInput.race} ${charInput.class}.${playerSentence ? ` Player says: "${playerSentence}"` : ''}`,
-        { maxTokens: 8192 }
+        { maxTokens: 16384 }
       );
     } catch (parseError) {
       // Retry once on JSON parse failure
@@ -136,7 +137,7 @@ export async function POST(request: NextRequest) {
         'world_building',
         worldGenesisPrompt,
         `Generate a world for ${charInput.name}, a ${charInput.race} ${charInput.class}. IMPORTANT: Output ONLY valid JSON, no other text.${playerSentence ? ` Player says: "${playerSentence}"` : ''}`,
-        { maxTokens: 8192 }
+        { maxTokens: 16384 }
       );
     }
 
