@@ -134,121 +134,133 @@ export async function POST(request: NextRequest) {
   const fullSystemPrompt = `${worldGenesisPrompt}\n\nIMPORTANT: Respond ONLY with valid JSON. No markdown, no explanation, no code blocks. Just raw JSON.`;
   const userMessage = `Generate a world for ${charInput.name}, a ${charInput.race} ${charInput.class}.${playerSentence ? ` Player says: "${playerSentence}"` : ''}`;
 
-  // Return a streaming NDJSON response
-  // Claude tokens flow every ~100ms, and we send progress updates every 3s
-  // This keeps the connection alive indefinitely — no timeout possible
-  const stream = new ReadableStream({
-    async start(controller) {
-      const send = (msg: Record<string, unknown>) => {
-        try {
-          controller.enqueue(encoder.encode(JSON.stringify(msg) + '\n'));
-        } catch {
-          // Controller closed — safe to ignore
-        }
-      };
+  // ── TransformStream pattern ──
+  // CRITICAL: ReadableStream's async start() blocks ALL reads until the promise
+  // resolves — meaning zero bytes flow to the client during Claude generation.
+  // TransformStream solves this: writer.write() data is IMMEDIATELY readable.
+  const { readable, writable } = new TransformStream();
+  const writer = writable.getWriter();
 
-      try {
-        // ── Immediate first byte ──
-        send({ status: 'started', phase: 0 });
+  const send = async (msg: Record<string, unknown>) => {
+    try {
+      await writer.write(encoder.encode(JSON.stringify(msg) + '\n'));
+    } catch {
+      // Writer closed — safe to ignore
+    }
+  };
 
-        // ── Stream world JSON from Opus ──
-        // createClaudeStream returns a raw Anthropic MessageStream (async iterable)
-        // We iterate events directly — NO nested ReadableStream
-        const claudeStream = createClaudeStream(
-          'world_building',
-          fullSystemPrompt,
-          [{ role: 'user', content: userMessage }],
-          { maxTokens: 16384 }
-        );
+  // Fire-and-forget: async work runs independently, pushing data as it goes.
+  // The readable side is returned immediately as the Response body.
+  (async () => {
+    try {
+      // ── Immediate first byte — proves connection is alive ──
+      console.log('[WorldGenesis] Starting generation...');
+      await send({ status: 'started', phase: 0 });
 
-        let fullText = '';
-        let lastProgressTime = Date.now();
+      // ── Stream world JSON from Opus ──
+      // createClaudeStream returns the raw Anthropic MessageStream (async iterable)
+      // Tokens arrive every ~100ms, keeping the connection alive
+      const claudeStream = createClaudeStream(
+        'world_building',
+        fullSystemPrompt,
+        [{ role: 'user', content: userMessage }],
+        { maxTokens: 16384 }
+      );
 
-        for await (const event of claudeStream) {
-          if (
-            event.type === 'content_block_delta' &&
-            event.delta.type === 'text_delta'
-          ) {
-            fullText += event.delta.text;
+      let fullText = '';
+      let lastProgressTime = Date.now();
+      let tokenCount = 0;
 
-            // Send progress update every 3 seconds (keeps connection alive)
-            if (Date.now() - lastProgressTime > 3000) {
-              const estimatedPhase = Math.min(Math.floor(fullText.length / 4000), 3);
-              send({ status: 'generating', phase: estimatedPhase, chars: fullText.length });
-              lastProgressTime = Date.now();
-            }
+      for await (const event of claudeStream) {
+        if (
+          event.type === 'content_block_delta' &&
+          event.delta.type === 'text_delta'
+        ) {
+          fullText += event.delta.text;
+          tokenCount++;
+
+          // Send progress update every 3 seconds
+          if (Date.now() - lastProgressTime > 3000) {
+            const estimatedPhase = Math.min(Math.floor(fullText.length / 4000), 3);
+            await send({ status: 'generating', phase: estimatedPhase, chars: fullText.length });
+            lastProgressTime = Date.now();
           }
         }
-
-        send({ status: 'processing', phase: 3 });
-
-        // ── Parse the accumulated JSON ──
-        const cleaned = fullText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-        let worldRecord: WorldRecord;
-        try {
-          worldRecord = JSON.parse(cleaned) as WorldRecord;
-        } catch (parseError) {
-          console.error('[WorldGenesis] JSON parse failed. Raw text length:', fullText.length);
-          console.error('[WorldGenesis] First 500 chars:', fullText.slice(0, 500));
-          send({ error: 'World generation produced invalid JSON. Please try again.' });
-          controller.close();
-          return;
-        }
-
-        // Ensure required fields
-        worldRecord.id = worldRecord.id || crypto.randomUUID();
-        worldRecord.createdAt = worldRecord.createdAt || new Date().toISOString();
-
-        // ── Save World to Supabase ──
-        let worldRow;
-        try {
-          worldRow = await createWorld(userId, worldRecord);
-        } catch (dbError) {
-          console.warn('[WorldGenesis] Supabase save failed, continuing local-only:', dbError);
-          worldRow = { id: worldRecord.id };
-        }
-
-        // ── Build Character record ──
-        const character = buildCharacterFromInput(charInput, worldRow.id);
-        character.userId = userId;
-        worldRecord.characterId = character.id;
-
-        let characterRow;
-        try {
-          characterRow = await createCharacter(userId, worldRow.id, character);
-        } catch (dbError) {
-          console.warn('[WorldGenesis] Character save failed, continuing local-only:', dbError);
-          characterRow = { id: character.id };
-        }
-
-        // ── Send completed world + character data ──
-        send({
-          status: 'complete',
-          data: {
-            worldId: worldRow.id,
-            characterId: characterRow.id,
-            world: worldRecord,
-            character,
-            worldSummary: {
-              name: worldRecord.worldName,
-              type: worldRecord.worldType,
-              genre: worldRecord.primaryGenre,
-              tone: worldRecord.narrativeTone,
-              threat: worldRecord.mainThreat.name,
-              villain: worldRecord.villainCore.name,
-            },
-          },
-        });
-      } catch (error) {
-        console.error('[WorldGenesis] Error:', error);
-        send({ error: error instanceof Error ? error.message : 'Failed to generate world. Please try again.' });
       }
 
-      controller.close();
-    },
-  });
+      console.log(`[WorldGenesis] Claude finished. ${tokenCount} chunks, ${fullText.length} chars.`);
+      await send({ status: 'processing', phase: 3 });
 
-  return new Response(stream, {
+      // ── Parse the accumulated JSON ──
+      const cleaned = fullText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+      let worldRecord: WorldRecord;
+      try {
+        worldRecord = JSON.parse(cleaned) as WorldRecord;
+      } catch (parseError) {
+        console.error('[WorldGenesis] JSON parse failed. Raw text length:', fullText.length);
+        console.error('[WorldGenesis] First 500 chars:', fullText.slice(0, 500));
+        console.error('[WorldGenesis] Last 500 chars:', fullText.slice(-500));
+        await send({ error: 'World generation produced invalid JSON. Please try again.' });
+        await writer.close();
+        return;
+      }
+
+      // Ensure required fields
+      worldRecord.id = worldRecord.id || crypto.randomUUID();
+      worldRecord.createdAt = worldRecord.createdAt || new Date().toISOString();
+
+      // ── Save World to Supabase ──
+      let worldRow;
+      try {
+        worldRow = await createWorld(userId, worldRecord);
+      } catch (dbError) {
+        console.warn('[WorldGenesis] Supabase save failed, continuing local-only:', dbError);
+        worldRow = { id: worldRecord.id };
+      }
+
+      // ── Build Character record ──
+      const character = buildCharacterFromInput(charInput, worldRow.id);
+      character.userId = userId;
+      worldRecord.characterId = character.id;
+
+      let characterRow;
+      try {
+        characterRow = await createCharacter(userId, worldRow.id, character);
+      } catch (dbError) {
+        console.warn('[WorldGenesis] Character save failed, continuing local-only:', dbError);
+        characterRow = { id: character.id };
+      }
+
+      console.log('[WorldGenesis] Sending complete data. World:', worldRecord.worldName);
+
+      // ── Send completed world + character data ──
+      await send({
+        status: 'complete',
+        data: {
+          worldId: worldRow.id,
+          characterId: characterRow.id,
+          world: worldRecord,
+          character,
+          worldSummary: {
+            name: worldRecord.worldName,
+            type: worldRecord.worldType,
+            genre: worldRecord.primaryGenre,
+            tone: worldRecord.narrativeTone,
+            threat: worldRecord.mainThreat.name,
+            villain: worldRecord.villainCore.name,
+          },
+        },
+      });
+    } catch (error) {
+      console.error('[WorldGenesis] Error:', error);
+      await send({ error: error instanceof Error ? error.message : 'Failed to generate world. Please try again.' });
+    }
+
+    try { await writer.close(); } catch { /* already closed */ }
+  })();
+
+  // Return the readable side immediately — bytes flow as writer.write() is called
+  return new Response(readable, {
     headers: {
       'Content-Type': 'application/x-ndjson',
       'Cache-Control': 'no-cache, no-transform',
