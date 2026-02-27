@@ -8,7 +8,7 @@
 // ============================================================
 
 import { NextRequest } from 'next/server';
-import { streamClaude } from '@/lib/ai-orchestrator';
+import { createClaudeStream } from '@/lib/ai-orchestrator';
 import { buildWorldGenesisPrompt } from '@/lib/prompts/world-genesis';
 import { createWorld, createCharacter } from '@/lib/services/database';
 import type { WorldRecord } from '@/lib/types/world';
@@ -152,36 +152,33 @@ export async function POST(request: NextRequest) {
         send({ status: 'started', phase: 0 });
 
         // ── Stream world JSON from Opus ──
-        // streamClaude returns a ReadableStream where tokens arrive every ~100ms
-        // We accumulate the text and send progress to the client
-        const aiStream = await streamClaude(
+        // createClaudeStream returns a raw Anthropic MessageStream (async iterable)
+        // We iterate events directly — NO nested ReadableStream
+        const claudeStream = createClaudeStream(
           'world_building',
           fullSystemPrompt,
           [{ role: 'user', content: userMessage }],
           { maxTokens: 16384 }
         );
 
-        const reader = aiStream.getReader();
-        const decoder = new TextDecoder();
         let fullText = '';
         let lastProgressTime = Date.now();
 
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          fullText += decoder.decode(value, { stream: true });
+        for await (const event of claudeStream) {
+          if (
+            event.type === 'content_block_delta' &&
+            event.delta.type === 'text_delta'
+          ) {
+            fullText += event.delta.text;
 
-          // Send progress update every 3 seconds (keeps connection alive)
-          if (Date.now() - lastProgressTime > 3000) {
-            // Estimate phase by how much JSON has been generated
-            const estimatedPhase = Math.min(Math.floor(fullText.length / 4000), 3);
-            send({ status: 'generating', phase: estimatedPhase, chars: fullText.length });
-            lastProgressTime = Date.now();
+            // Send progress update every 3 seconds (keeps connection alive)
+            if (Date.now() - lastProgressTime > 3000) {
+              const estimatedPhase = Math.min(Math.floor(fullText.length / 4000), 3);
+              send({ status: 'generating', phase: estimatedPhase, chars: fullText.length });
+              lastProgressTime = Date.now();
+            }
           }
         }
-
-        // Flush any remaining bytes
-        fullText += decoder.decode();
 
         send({ status: 'processing', phase: 3 });
 

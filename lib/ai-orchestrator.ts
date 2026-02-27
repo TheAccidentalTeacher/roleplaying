@@ -105,6 +105,34 @@ export interface ClaudeMessage {
 }
 
 /**
+ * Create a raw Anthropic MessageStream (async iterable).
+ * Use this when you need to iterate events directly inside another
+ * ReadableStream — avoids nested ReadableStream issues on Vercel.
+ */
+export function createClaudeStream(
+  task: AITask,
+  systemPrompt: string,
+  messages: ClaudeMessage[],
+  options?: {
+    maxTokens?: number
+    temperature?: number
+    model?: string
+  }
+) {
+  const model = options?.model ?? getModelForTask(task)
+  const maxTokens = options?.maxTokens ?? 1024
+  const temperature = options?.temperature ?? 0.8
+
+  return anthropic.messages.stream({
+    model,
+    max_tokens: maxTokens,
+    temperature,
+    system: systemPrompt,
+    messages,
+  })
+}
+
+/**
  * Stream a Claude response. Returns a ReadableStream of text chunks.
  */
 export async function streamClaude(
