@@ -12,7 +12,7 @@ interface AchievementPopupProps {
 function getRarityStyle(rarity: Achievement['rarity']): { border: string; glow: string; text: string } {
   switch (rarity) {
     case 'common':
-      return { border: 'border-gray-500', glow: 'shadow-gray-500/20', text: 'text-gray-300' };
+      return { border: 'border-slate-500', glow: 'shadow-slate-500/20', text: 'text-slate-300' };
     case 'uncommon':
       return { border: 'border-green-500', glow: 'shadow-green-500/20', text: 'text-green-400' };
     case 'rare':
@@ -56,7 +56,7 @@ export default function AchievementPopup({
     >
       <div
         className={`
-          bg-dark-800 rounded-lg border-2 ${style.border} shadow-lg ${style.glow}
+          bg-slate-900 rounded-lg border-2 ${style.border} shadow-lg ${style.glow}
           p-4 max-w-xs cursor-pointer
         `}
         onClick={() => {
@@ -68,7 +68,7 @@ export default function AchievementPopup({
         <div className="flex items-center gap-2 mb-1">
           <span className="text-2xl">{achievement.icon}</span>
           <div>
-            <p className="text-xs text-dark-400 uppercase tracking-wider font-bold">
+            <p className="text-xs text-slate-500 uppercase tracking-wider font-bold">
               Achievement Unlocked!
             </p>
             <h3 className={`font-cinzel font-bold ${style.text}`}>
@@ -76,7 +76,7 @@ export default function AchievementPopup({
             </h3>
           </div>
         </div>
-        <p className="text-xs text-dark-300 mt-1">{achievement.description}</p>
+        <p className="text-xs text-slate-400 mt-1">{achievement.description}</p>
         <p className={`text-[10px] mt-2 capitalize ${style.text}`}>
           {achievement.rarity}
         </p>

@@ -457,11 +457,22 @@ When game state changes occur, include these at the END of your response (after 
   "quest_update": { "id": "quest-id", "status": "active|completed|failed" } | null,
   "npc_met": { "name": "NPC Name", "attitude": "friendly|neutral|hostile" } | null,
   "combat_start": boolean | null,
-  "combat_end": boolean | null
+  "combat_end": boolean | null,
+  "rest": "short" | "long" | null,
+  "scene_image": "A vivid image prompt describing the scene" | null,
+  "shop_open": { "shop_type": "blacksmith|alchemist|general-store|magic-shop|etc", "merchant_name": "NPC Name", "shop_name": "The Gilded Flask" } | null,
+  "travel": { "destination": "City Name", "terrain": "forest|mountains|plains|desert|swamp|etc", "distance_hours": 8, "method": "walking|mounted|ship", "pace": "slow|normal|fast" } | null,
+  "crafting_open": { "station_type": "forge|alchemy_lab|enchanting_table|tannery|kitchen|workshop", "station_quality": "basic|good|excellent" } | null,
+  "skill_challenge": { "name": "Challenge Name", "description": "What the player must overcome", "complexity": "simple|standard|complex|epic", "allowed_skills": ["athletics", "acrobatics", "stealth"], "stakes": "What happens on failure" } | null
 }
 \`\`\`
 
-Only include fields that actually changed. Omit null fields.`;
+Only include fields that actually changed. Omit null fields.
+Use shop_open when the player enters a shop, asks to trade, or a merchant offers their wares. The UI will generate appropriate stock — just provide the shop type and merchant info.
+Use travel when the player sets out on a journey to a distant location. This triggers the travel UI with segment-by-segment progression, encounters, and discoveries. Only use for significant journeys (not walking across town). Estimate terrain and distance_hours based on the world geography.
+Use crafting_open when the player uses a crafting station, workbench, forge, alchemy lab, or similar. The UI will show available recipes.
+Use skill_challenge for extended ability challenges like chases, negotiations, heists, or survival scenarios that need multiple skill checks to resolve. Choose complexity based on narrative importance.
+Use scene_image SPARINGLY — only for truly dramatic moments like: arriving at a new major location, boss encounters, pivotal story reveals, or breathtaking vistas. Write it as a detailed visual description suitable for AI image generation.`;
 }
 
 // ─── GENRE VOICE HELPER ─────────────────────────────────────

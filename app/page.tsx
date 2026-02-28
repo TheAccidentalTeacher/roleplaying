@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { Sword, BookOpen, Skull, Stars, Sparkles } from 'lucide-react'
+import { Sword, BookOpen, Stars, Sparkles } from 'lucide-react'
 
 const AMBIENT_PARTICLES = Array.from({ length: 12 }, (_, i) => ({
   id: i,

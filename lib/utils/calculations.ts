@@ -267,14 +267,14 @@ export function getEncounterDifficulty(
   partyLevel: number,
   partySize: number,
   totalEnemyCR: number
-): 'trivial' | 'easy' | 'medium' | 'hard' | 'deadly' {
+): 'trivial' | 'easy' | 'moderate' | 'hard' | 'deadly' {
   // Simplified difficulty calculation
   const effectivePartyStrength = partyLevel * partySize;
   const ratio = totalEnemyCR / effectivePartyStrength;
 
   if (ratio < 0.25) return 'trivial';
   if (ratio < 0.5) return 'easy';
-  if (ratio < 0.75) return 'medium';
+  if (ratio < 0.75) return 'moderate';
   if (ratio < 1.0) return 'hard';
   return 'deadly';
 }

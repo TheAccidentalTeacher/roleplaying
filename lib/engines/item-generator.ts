@@ -6,7 +6,7 @@
 
 import type { Item, ItemRarity, LootDrop, Material } from '@/lib/types/items';
 import type { Genre } from '@/lib/types/world';
-import { roll, d4, d6, d8, d10, d12, d20 } from '@/lib/utils/dice';
+import { d4, d6, d8, d10 } from '@/lib/utils/dice';
 
 // ---- Rarity weights by encounter difficulty ----
 
@@ -275,7 +275,7 @@ export function parseAIItem(json: Record<string, unknown>): Item {
     statBonuses: json.statBonuses as Item['statBonuses'] | undefined,
     specialEffects: (json.specialEffects as string[]) || [],
     equippable: (json.equippable as boolean) ?? false,
-    equipSlot: json.equipSlot as string | undefined,
+    equipSlot: json.equipSlot as Item['equipSlot'],
     stackable: (json.stackable as boolean) ?? false,
     quantity: 1,
     maxStackSize: (json.equippable as boolean) ? 1 : 20,

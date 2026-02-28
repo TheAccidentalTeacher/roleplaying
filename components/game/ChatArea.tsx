@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState, useCallback } from 'react';
 import MessageBubble from './MessageBubble';
 import { Spinner } from '@/components/ui';
 
@@ -26,11 +26,34 @@ export default function ChatArea({
 }: ChatAreaProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const [showScrollBtn, setShowScrollBtn] = useState(false);
 
-  // Auto-scroll to bottom on new messages
-  useEffect(() => {
+  const scrollToBottom = useCallback(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, streamingContent]);
+  }, []);
+
+  // Auto-scroll to bottom on new messages (only if already near bottom)
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const distFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    // Auto-scroll if user is within 150px of the bottom
+    if (distFromBottom < 150) {
+      scrollToBottom();
+    }
+  }, [messages, streamingContent, scrollToBottom]);
+
+  // Detect scroll position to show/hide "scroll to bottom" button
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const handleScroll = () => {
+      const distFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+      setShowScrollBtn(distFromBottom > 200);
+    };
+    el.addEventListener('scroll', handleScroll, { passive: true });
+    return () => el.removeEventListener('scroll', handleScroll);
+  }, []);
 
   return (
     <div
@@ -52,6 +75,19 @@ export default function ChatArea({
             The Dungeon Master is preparing your world. Describe what you want
             to do, and the story will unfold before you.
           </p>
+        </div>
+      )}
+
+      {/* Onboarding tips — show after first DM message for new players */}
+      {messages.length >= 1 && messages.length <= 3 && !isLoading && !streamingContent && (
+        <div className="max-w-3xl mx-auto mb-4">
+          <div className="bg-sky-500/10 border border-sky-500/20 rounded-xl px-4 py-3 text-xs text-sky-300/80 space-y-1.5 animate-fadeIn">
+            <p className="font-semibold text-sky-300">💡 Quick Tips</p>
+            <p>• Type anything — <span className="text-slate-400 italic">&quot;I open the door&quot;</span>, <span className="text-slate-400 italic">&quot;I talk to the innkeeper&quot;</span>, <span className="text-slate-400 italic">&quot;I search for traps&quot;</span></p>
+            <p>• Use the <span className="text-sky-400">action buttons</span> below for common actions like Attack, Search, or Rest</p>
+            <p>• Click <span className="text-sky-400">numbered choices</span> or <span className="text-sky-400">🎲 dice buttons</span> when they appear in the story</p>
+            <p>• Your HP ❤️ and gold 💰 are tracked in the top bar</p>
+          </div>
         </div>
       )}
 
@@ -88,6 +124,17 @@ export default function ChatArea({
         {/* Scroll anchor */}
         <div ref={bottomRef} />
       </div>
+
+      {/* Scroll to bottom button */}
+      {showScrollBtn && (
+        <button
+          onClick={scrollToBottom}
+          className="sticky bottom-4 float-right mr-2 w-9 h-9 bg-slate-800 border border-slate-600 rounded-full flex items-center justify-center text-slate-300 hover:bg-slate-700 hover:text-white shadow-lg transition-all animate-fadeIn z-10"
+          title="Scroll to bottom"
+        >
+          ↓
+        </button>
+      )}
     </div>
   );
 }

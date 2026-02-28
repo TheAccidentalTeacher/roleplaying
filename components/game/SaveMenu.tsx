@@ -44,8 +44,8 @@ export default function SaveMenu({ currentPayload, onLoad, onClose }: SaveMenuPr
     setTimeout(() => setMessage(''), 2000);
   };
 
-  const handleLoad = (save: SaveState) => {
-    const payload = loadSave(save.id);
+  const handleLoad = async (save: SaveState) => {
+    const payload = await loadSave(save.id);
     if (payload) {
       onLoad(payload);
     } else {
@@ -79,27 +79,28 @@ export default function SaveMenu({ currentPayload, onLoad, onClose }: SaveMenuPr
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-      <div className="bg-dark-800 border border-dark-600 rounded-lg w-full max-w-lg mx-4 max-h-[80vh] flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" role="dialog" aria-modal="true" aria-label="Save and Load">
+      <div className="bg-slate-900 border border-slate-700 rounded-lg w-full max-w-lg mx-4 max-h-[80vh] flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-dark-600">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-700">
           <h2 className="font-cinzel text-lg text-primary-400">Save &amp; Load</h2>
           <button
             onClick={onClose}
-            className="text-dark-400 hover:text-dark-200 text-xl transition-colors"
+            className="text-slate-500 hover:text-slate-400 text-xl transition-colors"
+            aria-label="Close save menu"
           >
             ✕
           </button>
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b border-dark-600">
+        <div className="flex border-b border-slate-700">
           <button
             onClick={() => setTab('save')}
             className={`flex-1 py-2 text-sm font-medium transition-colors ${
               tab === 'save'
                 ? 'text-primary-400 border-b-2 border-primary-400'
-                : 'text-dark-400 hover:text-dark-200'
+                : 'text-slate-500 hover:text-slate-400'
             }`}
           >
             Save
@@ -109,7 +110,7 @@ export default function SaveMenu({ currentPayload, onLoad, onClose }: SaveMenuPr
             className={`flex-1 py-2 text-sm font-medium transition-colors ${
               tab === 'load'
                 ? 'text-primary-400 border-b-2 border-primary-400'
-                : 'text-dark-400 hover:text-dark-200'
+                : 'text-slate-500 hover:text-slate-400'
             }`}
           >
             Load ({saves.length})
@@ -142,17 +143,17 @@ export default function SaveMenu({ currentPayload, onLoad, onClose }: SaveMenuPr
                   value={saveLabel}
                   onChange={(e) => setSaveLabel(e.target.value)}
                   placeholder="Save label (optional)"
-                  className="w-full bg-dark-700 border border-dark-600 rounded p-2 text-sm text-dark-200 focus:outline-none focus:border-primary-500"
+                  className="w-full bg-slate-800 border border-slate-700 rounded p-2 text-sm text-slate-400 focus:outline-none focus:border-primary-500"
                 />
                 <button
                   onClick={handleManualSave}
-                  className="w-full py-2 bg-dark-600 hover:bg-dark-500 rounded text-sm font-medium transition-colors"
+                  className="w-full py-2 bg-slate-700 hover:bg-slate-600 rounded text-sm font-medium transition-colors"
                 >
                   💾 Save Game
                 </button>
               </div>
 
-              <p className="text-xs text-dark-500 text-center">
+              <p className="text-xs text-slate-600 text-center">
                 Auto-saves happen at key story moments.
               </p>
             </div>
@@ -161,19 +162,19 @@ export default function SaveMenu({ currentPayload, onLoad, onClose }: SaveMenuPr
           {tab === 'load' && (
             <div className="space-y-2">
               {saves.length === 0 ? (
-                <p className="text-sm text-dark-400 text-center py-8">No saves found.</p>
+                <p className="text-sm text-slate-500 text-center py-8">No saves found.</p>
               ) : (
                 saves.map((save) => (
                   <div
                     key={save.id}
-                    className="flex items-center gap-3 p-3 bg-dark-700 border border-dark-600 rounded hover:border-dark-500 transition-colors"
+                    className="flex items-center gap-3 p-3 bg-slate-800 border border-slate-700 rounded hover:border-slate-600 transition-colors"
                   >
                     <span className="text-lg">{saveTypeIcon(save.saveType)}</span>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-dark-200 truncate">
+                      <p className="text-sm font-medium text-slate-400 truncate">
                         {save.label || 'Unnamed Save'}
                       </p>
-                      <p className="text-xs text-dark-400">
+                      <p className="text-xs text-slate-500">
                         {save.character.name} Lv.{save.character.level} &middot;{' '}
                         {save.currentLocation} &middot; {formatDate(save.createdAt)}
                       </p>

@@ -22,13 +22,13 @@ export default function CompanionCard({
     <div
       className={`rounded-lg border p-3 transition-all ${
         isActive
-          ? 'bg-dark-700 border-primary-600/50 ring-1 ring-primary-500/20'
-          : 'bg-dark-800 border-dark-600'
+          ? 'bg-slate-800 border-primary-600/50 ring-1 ring-primary-500/20'
+          : 'bg-slate-900 border-slate-700'
       }`}
     >
       <div className="flex items-start gap-3">
         {/* Portrait */}
-        <div className="w-12 h-12 rounded-lg bg-dark-600 flex items-center justify-center text-xl shrink-0">
+        <div className="w-12 h-12 rounded-lg bg-slate-700 flex items-center justify-center text-xl shrink-0">
           {companion.portraitUrl ? (
             <img
               src={companion.portraitUrl}
@@ -50,7 +50,7 @@ export default function CompanionCard({
               </span>
             )}
           </div>
-          <p className="text-xs text-dark-400 capitalize">
+          <p className="text-xs text-slate-500 capitalize">
             {companion.race} • {companion.role.replace('-', ' ')}
           </p>
 
@@ -67,7 +67,7 @@ export default function CompanionCard({
           )}
 
           {/* Attitude */}
-          <p className="text-[10px] text-dark-500 mt-1">
+          <p className="text-[10px] text-slate-600 mt-1">
             {companion.currentEmotionalState}
           </p>
         </div>
@@ -86,7 +86,7 @@ export default function CompanionCard({
         {onTalk && (
           <button
             onClick={onTalk}
-            className="flex-1 px-2 py-1 text-xs bg-dark-600 hover:bg-dark-500 rounded transition-colors"
+            className="flex-1 px-2 py-1 text-xs bg-slate-700 hover:bg-slate-600 rounded transition-colors"
           >
             Talk
           </button>
@@ -94,7 +94,7 @@ export default function CompanionCard({
         {onDismiss && (
           <button
             onClick={onDismiss}
-            className="px-2 py-1 text-xs bg-dark-700 hover:bg-red-900/50 text-dark-400 hover:text-red-300 rounded transition-colors"
+            className="px-2 py-1 text-xs bg-slate-800 hover:bg-red-900/50 text-slate-500 hover:text-red-300 rounded transition-colors"
           >
             Dismiss
           </button>

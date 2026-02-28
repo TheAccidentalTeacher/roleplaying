@@ -239,7 +239,15 @@ export function updateQuestProgress(
   objectiveId: string,
   completed: boolean
 ): Quest {
-  const updated = { ...quest, updatedAt: new Date().toISOString() };
+  // Deep-copy acts to avoid mutating original Zustand state
+  const updated = {
+    ...quest,
+    updatedAt: new Date().toISOString(),
+    acts: quest.acts.map((a) => ({
+      ...a,
+      objectives: a.objectives.map((o) => ({ ...o })),
+    })),
+  };
 
   // Find and update the objective
   for (const act of updated.acts) {

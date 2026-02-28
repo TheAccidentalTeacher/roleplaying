@@ -25,10 +25,10 @@ export default function EpilogueView({ legacy, onNewGamePlus, onReturnToHall }: 
       {/* Header */}
       <div className="text-center space-y-2">
         <p className="text-4xl">{retirement.icon}</p>
-        <h1 className="font-cinzel text-3xl font-bold text-dark-100">
+        <h1 className="font-cinzel text-3xl font-bold text-slate-300">
           {legacy.finalTitle}
         </h1>
-        <p className="font-cinzel text-lg text-dark-300">
+        <p className="font-cinzel text-lg text-slate-400">
           {legacy.characterName} — {legacy.characterClass} Level {legacy.characterLevel}
         </p>
         <p className={`text-sm ${retirement.color}`}>{retirement.text}</p>
@@ -37,25 +37,25 @@ export default function EpilogueView({ legacy, onNewGamePlus, onReturnToHall }: 
       {/* Portrait */}
       {legacy.portraitUrl && (
         <div className="flex justify-center">
-          <div className="w-32 h-32 rounded-lg border-2 border-dark-600 overflow-hidden">
+          <div className="w-32 h-32 rounded-lg border-2 border-slate-700 overflow-hidden">
             <img src={legacy.portraitUrl} alt={legacy.characterName} className="w-full h-full object-cover" />
           </div>
         </div>
       )}
 
       {/* Epilogue text */}
-      <div className="bg-dark-800 rounded-lg border border-dark-600 p-6">
-        <h2 className="font-cinzel text-sm text-dark-400 uppercase tracking-wider mb-3">
+      <div className="bg-slate-900 rounded-lg border border-slate-700 p-6">
+        <h2 className="font-cinzel text-sm text-slate-500 uppercase tracking-wider mb-3">
           The Final Chapter
         </h2>
-        <div className="text-dark-200 leading-relaxed whitespace-pre-wrap font-merriweather text-sm">
+        <div className="text-slate-400 leading-relaxed whitespace-pre-wrap font-merriweather text-sm">
           {legacy.epilogue}
         </div>
       </div>
 
       {/* Statistics */}
       <div>
-        <h2 className="font-cinzel text-sm text-dark-400 uppercase tracking-wider mb-3">
+        <h2 className="font-cinzel text-sm text-slate-500 uppercase tracking-wider mb-3">
           Legend Statistics
         </h2>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -71,10 +71,10 @@ export default function EpilogueView({ legacy, onNewGamePlus, onReturnToHall }: 
             { label: 'Secrets', value: legacy.secretsDiscovered, icon: '🔮' },
             { label: 'Gold Spent', value: legacy.goldSpent, icon: '💸' },
           ].map((stat) => (
-            <div key={stat.label} className="bg-dark-800 rounded-lg border border-dark-700 p-3 text-center">
+            <div key={stat.label} className="bg-slate-900 rounded-lg border border-slate-800 p-3 text-center">
               <p className="text-lg mb-1">{stat.icon}</p>
-              <p className="font-bold text-dark-100">{stat.value}</p>
-              <p className="text-[10px] text-dark-500 uppercase">{stat.label}</p>
+              <p className="font-bold text-slate-300">{stat.value}</p>
+              <p className="text-[10px] text-slate-600 uppercase">{stat.label}</p>
             </div>
           ))}
         </div>
@@ -83,18 +83,18 @@ export default function EpilogueView({ legacy, onNewGamePlus, onReturnToHall }: 
       {/* Achievements */}
       {legacy.achievements.length > 0 && (
         <div>
-          <h2 className="font-cinzel text-sm text-dark-400 uppercase tracking-wider mb-3">
+          <h2 className="font-cinzel text-sm text-slate-500 uppercase tracking-wider mb-3">
             Achievements Earned ({legacy.achievements.length})
           </h2>
           <div className="flex flex-wrap gap-2">
             {legacy.achievements.map((a) => (
               <div
                 key={a.id}
-                className="flex items-center gap-1.5 px-2 py-1 bg-dark-800 rounded-lg border border-dark-700"
+                className="flex items-center gap-1.5 px-2 py-1 bg-slate-900 rounded-lg border border-slate-800"
                 title={a.description}
               >
                 <span>{a.icon}</span>
-                <span className="text-xs text-dark-300">{a.name}</span>
+                <span className="text-xs text-slate-400">{a.name}</span>
               </div>
             ))}
           </div>
@@ -104,12 +104,12 @@ export default function EpilogueView({ legacy, onNewGamePlus, onReturnToHall }: 
       {/* World Changes */}
       {legacy.worldChanges.length > 0 && (
         <div>
-          <h2 className="font-cinzel text-sm text-dark-400 uppercase tracking-wider mb-3">
+          <h2 className="font-cinzel text-sm text-slate-500 uppercase tracking-wider mb-3">
             World Impact
           </h2>
           <ul className="space-y-1">
             {legacy.worldChanges.map((change, i) => (
-              <li key={i} className="flex items-start gap-2 text-sm text-dark-300">
+              <li key={i} className="flex items-start gap-2 text-sm text-slate-400">
                 <span className="text-primary-400 mt-0.5">•</span>
                 {change}
               </li>
@@ -119,7 +119,7 @@ export default function EpilogueView({ legacy, onNewGamePlus, onReturnToHall }: 
       )}
 
       {/* Actions */}
-      <div className="flex gap-3 justify-center pt-4 border-t border-dark-700">
+      <div className="flex gap-3 justify-center pt-4 border-t border-slate-800">
         {onNewGamePlus && (
           <button
             onClick={onNewGamePlus}
@@ -131,7 +131,7 @@ export default function EpilogueView({ legacy, onNewGamePlus, onReturnToHall }: 
         {onReturnToHall && (
           <button
             onClick={onReturnToHall}
-            className="px-6 py-3 bg-dark-600 hover:bg-dark-500 rounded-lg font-medium transition-colors"
+            className="px-6 py-3 bg-slate-700 hover:bg-slate-600 rounded-lg font-medium transition-colors"
           >
             🏛️ Hall of Heroes
           </button>

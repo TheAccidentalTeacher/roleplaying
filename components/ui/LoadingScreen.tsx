@@ -50,7 +50,7 @@ export function LoadingScreen({ message, showFlavor = true }: LoadingScreenProps
   }, [showFlavor]);
 
   return (
-    <div className="min-h-screen bg-dark-900 flex flex-col items-center justify-center p-4">
+    <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4">
       {/* Spinning d20 */}
       <div className="relative w-20 h-20 mb-8">
         <div className="absolute inset-0 animate-spin-slow">
@@ -120,18 +120,18 @@ export function LoadingScreen({ message, showFlavor = true }: LoadingScreenProps
 
       {/* Message */}
       {message && (
-        <p className="font-cinzel text-xl text-dark-100 mb-4">{message}</p>
+        <p className="font-cinzel text-xl text-slate-300 mb-4">{message}</p>
       )}
 
       {/* Loading bar */}
-      <div className="w-64 h-1.5 bg-dark-700 rounded-full overflow-hidden mb-6">
+      <div className="w-64 h-1.5 bg-slate-800 rounded-full overflow-hidden mb-6">
         <div className="h-full bg-primary-500 rounded-full animate-loading-bar" />
       </div>
 
       {/* Flavor text */}
       {showFlavor && (
         <p
-          className={`text-dark-400 text-sm italic transition-opacity duration-300 ${
+          className={`text-slate-500 text-sm italic transition-opacity duration-300 ${
             fade ? 'opacity-100' : 'opacity-0'
           }`}
         >

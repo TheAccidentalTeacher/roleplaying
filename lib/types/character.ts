@@ -3,8 +3,6 @@
 // Reference: PLAYER-HANDBOOK.md, BRAINSTORM.md
 // ============================================================
 
-import type { Genre } from './world';
-
 // ---- Enums & Union Types ----
 
 export type CreationMode = 'quick-spark' | 'questionnaire' | 'builder' | 'import' | 'collaborative';

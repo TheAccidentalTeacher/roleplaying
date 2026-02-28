@@ -16,7 +16,7 @@ import type {
   CombatRewards,
   CombatResult,
 } from '@/lib/types/combat';
-import type { Character, ActiveCondition, AbilityName } from '@/lib/types/character';
+import type { Character, ActiveCondition } from '@/lib/types/character';
 import type { EnemyStatBlock } from '@/lib/types/encounter';
 import { roll, rollMultiple, advantage, disadvantage } from '@/lib/utils/dice';
 import { getAbilityModifier } from '@/lib/utils/calculations';
@@ -54,6 +54,7 @@ export function startCombat(
     terrainEffects: options?.terrain ?? [],
     environmentalHazards: options?.hazards ?? [],
     lightingCondition: options?.lighting ?? 'bright',
+    playerConditions: [],
     concentrationSpells: [],
     deathMode: 'story',
     encounterName: options?.encounterName ?? 'Combat',
@@ -228,7 +229,10 @@ export function getAvailableActions(
 }
 
 function isBonusAction(type: CombatActionType): boolean {
-  return false; // Specific bonus actions depend on class features
+  // Standard 5e bonus actions — class-specific bonus actions
+  // are handled at a higher level via `bonusAction` flag on CombatAction
+  const bonusActionTypes: CombatActionType[] = [];
+  return bonusActionTypes.includes(type);
 }
 
 // ============================================================
@@ -300,8 +304,16 @@ export function executeAttack(
   const hpChange: { entityId: string; amount: number }[] = [];
 
   if (hits) {
-    // Simplified damage: 1d8 + mod (longsword equivalent)
-    const damageDie = character.hitPoints.hitDice.dieType || 8;
+    // Determine weapon damage die based on class (not hit die!)
+    // Classes typically use: warrior/paladin → d10, rogue → d6, monk → d8, mage/cleric → d6, ranger → d8, bard → d8
+    const weaponDieByClass: Record<string, number> = {
+      warrior: 10, fighter: 10, barbarian: 12, paladin: 10,
+      rogue: 6, monk: 8, ranger: 8, bard: 8,
+      mage: 6, wizard: 6, sorcerer: 6, warlock: 8,
+      cleric: 8, druid: 8, artificer: 8,
+    };
+    const charClass = character.class?.toLowerCase() || '';
+    const damageDie = weaponDieByClass[charClass] || 8; // Default to longsword (d8)
     const damageBase = roll(damageDie);
     const critBonus = isCritical ? roll(damageDie) : 0;
     const damageMod = Math.max(strMod, dexMod);
@@ -315,12 +327,6 @@ export function executeAttack(
       type: 'slashing',
       isCritical,
     };
-
-    // Apply damage to target
-    target.hp.current = Math.max(0, target.hp.current - totalDamage);
-    if (target.hp.current <= 0) {
-      target.isAlive = false;
-    }
 
     hpChange.push({ entityId: target.id, amount: -totalDamage });
   }
@@ -345,10 +351,13 @@ export function executeAttack(
     hpChange,
   };
 
-  // Update state
-  const updatedEnemies = state.enemies.map((e) =>
-    e.id === targetId ? { ...target } : e
-  );
+  // Update state — immutably apply damage to the target
+  const totalDmg = damageRoll?.total ?? 0;
+  const updatedEnemies = state.enemies.map((e) => {
+    if (e.id !== targetId) return e;
+    const newHP = Math.max(0, e.hp.current - totalDmg);
+    return { ...e, hp: { ...e.hp, current: newHP }, isAlive: newHP > 0 };
+  });
 
   const updatedTurn: CombatTurn = {
     turnNumber: (state.currentTurn?.turnNumber ?? 0) + 1,
@@ -378,7 +387,8 @@ export function executeAttack(
 export function executeEnemyAttack(
   state: CombatState,
   enemy: EnemyStatBlock,
-  characterHP: { current: number; max: number }
+  characterHP: { current: number; max: number },
+  characterAC: number = 10
 ): { state: CombatState; result: ActionResult; damageDealt: number } {
   if (!enemy.isAlive || enemy.attacks.length === 0) {
     return {
@@ -393,23 +403,35 @@ export function executeEnemyAttack(
     };
   }
 
+  // Check if player has dodge or hidden conditions → enemy attacks with disadvantage
+  const playerConditions = state.playerConditions ?? [];
+  const playerIsDodging = playerConditions.some((c) => c.type === 'dodging');
+  const playerIsHidden = playerConditions.some((c) => c.type === 'hidden');
+  const enemyHasDisadvantage = playerIsDodging || playerIsHidden;
+
   // Pick the first available attack
   const attack = enemy.attacks[0];
-  const d20 = roll(20);
+  let d20: number;
+  if (enemyHasDisadvantage) {
+    d20 = disadvantage();
+  } else {
+    d20 = roll(20);
+  }
   const isCritical = d20 === 20;
   const isCriticalFail = d20 === 1;
   const attackTotal = d20 + attack.toHit;
 
-  // Simplified: player AC comes from state
-  const playerAC = 10; // Will be passed properly from character
+  // Use the actual player AC passed from character
+  const playerAC = characterAC;
   const hits = isCritical || (!isCriticalFail && attackTotal >= playerAC);
 
   let damageDealt = 0;
   let damageRoll: DamageRoll | undefined;
 
   if (hits) {
-    // Parse damage formula (simplified: extract numbers)
+    // Parse damage formula: supports "1d8+3", "2d6+5", "1d10", etc.
     const damageMatch = attack.damage.match(/(\d+)d(\d+)/);
+    const modMatch = attack.damage.match(/[+-]\s*(\d+)/);
     let baseDamage = roll(8); // fallback
     if (damageMatch) {
       const numDice = parseInt(damageMatch[1]);
@@ -417,8 +439,21 @@ export function executeEnemyAttack(
       const rolls = rollMultiple(numDice, dieSize);
       baseDamage = rolls.reduce((a, b) => a + b, 0);
     }
-    // Add modifier (estimated from attack formula)
-    const damageMod = Math.floor(attack.toHit / 2);
+    // Use explicit modifier from damage string, or compute from enemy ability scores
+    let damageMod: number;
+    if (modMatch) {
+      damageMod = parseInt(modMatch[1]);
+      // Check if it was a minus sign
+      if (attack.damage.includes('-')) damageMod = -damageMod;
+    } else {
+      // Derive from the enemy's best physical ability (STR for melee, DEX for ranged)
+      const strMod = getAbilityModifier(enemy.str);
+      const dexMod = getAbilityModifier(enemy.dex);
+      // Heuristic: if toHit is closer to DEX+prof, it's likely ranged
+      const profBonus = Math.max(2, Math.floor((enemy.level + 7) / 4));
+      const isLikelyDex = Math.abs(attack.toHit - (dexMod + profBonus)) < Math.abs(attack.toHit - (strMod + profBonus));
+      damageMod = isLikelyDex ? dexMod : strMod;
+    }
     damageDealt = baseDamage + damageMod + (isCritical ? baseDamage : 0);
 
     damageRoll = {
@@ -511,12 +546,16 @@ export function advanceTurn(state: CombatState): CombatState {
   const phase: CombatPhase =
     nextEntity?.entityType === 'player' ? 'player-action' : 'enemy-turn';
 
+  // Clear player combat conditions (dodge, hidden, etc.) when it's the player's turn again
+  const clearPlayerConditions = nextEntity?.entityType === 'player';
+
   return {
     ...state,
     turns,
     turnIndex: nextIndex,
     roundNumber,
     phase,
+    playerConditions: clearPlayerConditions ? [] : (state.playerConditions ?? []),
     currentTurn: {
       turnNumber: turns.length + 1,
       roundNumber,
@@ -537,8 +576,12 @@ export function advanceTurn(state: CombatState): CombatState {
 
 /**
  * Check if combat should end.
+ * @param playerHP Optional — pass current player HP to detect defeat.
  */
-export function checkCombatEnd(state: CombatState): {
+export function checkCombatEnd(
+  state: CombatState,
+  playerHP?: number
+): {
   ended: boolean;
   result?: CombatResult;
 } {
@@ -546,7 +589,10 @@ export function checkCombatEnd(state: CombatState): {
   const allEnemiesDead = state.enemies.every((e) => !e.isAlive);
   if (allEnemiesDead) return { ended: true, result: 'victory' };
 
-  // Player dead = defeat (checked externally since we don't have live HP here)
+  // Player dead = defeat
+  if (playerHP !== undefined && playerHP <= 0) {
+    return { ended: true, result: 'defeat' };
+  }
 
   // Flee was chosen
   if (state.result === 'fled') return { ended: true, result: 'fled' };

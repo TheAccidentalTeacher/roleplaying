@@ -13,7 +13,7 @@ interface ItemCardProps {
 }
 
 const rarityColors: Record<ItemRarity, { border: string; bg: string; text: string; glow: string }> = {
-  junk: { border: 'border-gray-600/40', bg: 'bg-gray-800/20', text: 'text-gray-400', glow: '' },
+  junk: { border: 'border-slate-600/40', bg: 'bg-slate-800/20', text: 'text-slate-400', glow: '' },
   common: { border: 'border-slate-500/40', bg: 'bg-slate-800/30', text: 'text-slate-300', glow: '' },
   uncommon: { border: 'border-green-500/40', bg: 'bg-green-900/10', text: 'text-green-400', glow: '' },
   rare: { border: 'border-blue-500/40', bg: 'bg-blue-900/10', text: 'text-blue-400', glow: 'shadow-blue-500/10 shadow-md' },
@@ -125,7 +125,7 @@ export default function ItemCard({
         ))}
         {item.specialEffects.map((effect, i) => (
           <span
-            key={i}
+            key={`effect-${effect}`}
             className="text-[10px] bg-purple-500/10 border border-purple-500/20 text-purple-300 px-1.5 py-0.5 rounded"
           >
             ✨ {effect}

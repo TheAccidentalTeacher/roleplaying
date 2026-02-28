@@ -6,6 +6,7 @@
 
 import type { Character } from '@/lib/types/character';
 import { d20 } from '@/lib/utils/dice';
+import { getProficiencyBonus } from '@/lib/utils/calculations';
 
 // ---- Skill Challenge Types (inline, not in separate type file) ----
 
@@ -123,7 +124,7 @@ function attemptWithDC(
     (s) => s.name.toLowerCase() === skillName.toLowerCase()
   );
   const abilityMod = skill ? character.abilityScores[skill.ability as keyof typeof character.abilityScores]?.modifier || 0 : 0;
-  const profBonus = Math.ceil(character.level / 4) + 1;
+  const profBonus = getProficiencyBonus(character.level);
   const bonus = abilityMod + (skill?.proficient ? profBonus : 0) + (skill?.expertise ? profBonus : 0) - repeatPenalty;
 
   // Creative approach bonus

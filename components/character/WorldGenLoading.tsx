@@ -194,13 +194,14 @@ export default function WorldGenLoading({ character, storyHook }: WorldGenLoadin
     };
 
     generateWorld();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [retryCount]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleRetry = () => {
     setError(null);
     setPhase(0);
-    setRetryCount((prev) => prev + 1);
-    hasStarted.current = false;
+    setStreamedText('');
+    hasStarted.current = false; // Allow the effect to re-run
+    setRetryCount((prev) => prev + 1); // Triggers the useEffect via dependency
   };
 
   if (error) {

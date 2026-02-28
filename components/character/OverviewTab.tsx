@@ -2,7 +2,6 @@
 
 import type { Character } from '@/lib/types/character';
 import { Shield, Heart, Zap, Footprints } from 'lucide-react';
-import { getAbilityModifier } from '@/lib/utils/calculations';
 
 interface OverviewTabProps {
   character: Character;
@@ -69,7 +68,7 @@ export default function OverviewTab({ character }: OverviewTabProps) {
             {character.hitPoints.max}
           </span>
         </div>
-        <div className="w-full h-3 bg-slate-800 rounded-full overflow-hidden">
+        <div className="w-full h-3 bg-slate-800 rounded-full overflow-hidden relative">
           {character.hitPoints.temporary > 0 && (
             <div
               className="h-full bg-cyan-500/50 rounded-full absolute"

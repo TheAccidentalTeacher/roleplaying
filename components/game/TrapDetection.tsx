@@ -52,7 +52,7 @@ export default function TrapDetection({
           <span className="text-amber-400 text-lg animate-pulse">⚠️</span>
           <h3 className="font-cinzel font-bold text-amber-300">Something Feels Wrong...</h3>
         </div>
-        <p className="text-sm text-dark-300 mb-3">
+        <p className="text-sm text-slate-400 mb-3">
           Your instincts tell you something is amiss. The area ahead seems suspicious.
         </p>
         <div className="flex gap-2">
@@ -64,13 +64,13 @@ export default function TrapDetection({
           </button>
           <button
             onClick={onAvoid}
-            className="px-4 py-2 bg-dark-600 hover:bg-dark-500 rounded text-sm transition-colors"
+            className="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded text-sm transition-colors"
           >
             Proceed Carefully
           </button>
           <button
             onClick={onTrigger}
-            className="px-4 py-2 bg-dark-700 hover:bg-dark-600 rounded text-sm text-dark-400 transition-colors"
+            className="px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded text-sm text-slate-500 transition-colors"
           >
             Ignore
           </button>
@@ -86,12 +86,12 @@ export default function TrapDetection({
           <span className="text-red-400 text-lg">💣</span>
           <h3 className="font-cinzel font-bold text-red-300">{trapName}</h3>
         </div>
-        <span className="text-xs px-2 py-0.5 bg-dark-700 rounded text-dark-400 capitalize">
+        <span className="text-xs px-2 py-0.5 bg-slate-800 rounded text-slate-500 capitalize">
           {trapType}
         </span>
       </div>
 
-      <p className="text-sm text-dark-300 mb-3">{trapDescription}</p>
+      <p className="text-sm text-slate-400 mb-3">{trapDescription}</p>
 
       {/* Details toggle */}
       <button
@@ -103,17 +103,17 @@ export default function TrapDetection({
 
       {showDetails && (
         <div className="mb-3 grid grid-cols-2 gap-2 text-xs animate-slideUp">
-          <div className="bg-dark-800 rounded p-2">
-            <span className="text-dark-500">Detection DC</span>
-            <p className="font-bold text-dark-200">{trapDC}</p>
+          <div className="bg-slate-900 rounded p-2">
+            <span className="text-slate-600">Detection DC</span>
+            <p className="font-bold text-slate-400">{trapDC}</p>
           </div>
-          <div className="bg-dark-800 rounded p-2">
-            <span className="text-dark-500">Disarm DC</span>
-            <p className="font-bold text-dark-200">{disarmDC}</p>
+          <div className="bg-slate-900 rounded p-2">
+            <span className="text-slate-600">Disarm DC</span>
+            <p className="font-bold text-slate-400">{disarmDC}</p>
           </div>
           {damage && (
-            <div className="bg-dark-800 rounded p-2 col-span-2">
-              <span className="text-dark-500">Damage</span>
+            <div className="bg-slate-900 rounded p-2 col-span-2">
+              <span className="text-slate-600">Damage</span>
               <p className="font-bold text-red-400">{damage}</p>
             </div>
           )}
@@ -129,7 +129,7 @@ export default function TrapDetection({
         </button>
         <button
           onClick={onAvoid}
-          className="flex-1 px-4 py-2 bg-dark-600 hover:bg-dark-500 rounded text-sm transition-colors"
+          className="flex-1 px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded text-sm transition-colors"
         >
           🚶 Go Around
         </button>

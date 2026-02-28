@@ -10,17 +10,17 @@ export default function Error({
   reset: () => void;
 }) {
   return (
-    <div className="min-h-screen bg-dark-900 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
       <div className="text-center max-w-md">
         <p className="text-6xl mb-4">⚡</p>
         <h1 className="font-cinzel text-3xl text-red-400 mb-3">
           A Rift in Reality
         </h1>
-        <p className="text-dark-300 mb-4">
+        <p className="text-slate-400 mb-4">
           Something has gone terribly wrong. The fabric of the world has torn,
           but fear not — it can be mended.
         </p>
-        <p className="text-xs text-dark-500 mb-6 break-all">
+        <p className="text-xs text-slate-600 mb-6 break-all">
           {error.message || 'An unexpected error occurred'}
         </p>
         <div className="flex gap-3 justify-center">
@@ -32,7 +32,7 @@ export default function Error({
           </button>
           <a
             href="/"
-            className="px-6 py-3 bg-dark-600 hover:bg-dark-500 rounded-lg font-medium transition-colors"
+            className="px-6 py-3 bg-slate-700 hover:bg-slate-600 rounded-lg font-medium transition-colors"
           >
             Return Home
           </a>

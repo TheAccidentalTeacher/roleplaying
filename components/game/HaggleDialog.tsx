@@ -88,24 +88,24 @@ export default function HaggleDialog({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-      <div className="bg-dark-800 border border-dark-600 rounded-lg p-6 max-w-md w-full mx-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" role="dialog" aria-modal="true" aria-label="Haggling">
+      <div className="bg-slate-900 border border-slate-700 rounded-lg p-6 max-w-md w-full mx-4">
         <h3 className="font-cinzel text-lg text-primary-400 mb-1">Haggling</h3>
-        <p className="text-sm text-dark-300 mb-4">
+        <p className="text-sm text-slate-400 mb-4">
           <span className="text-amber-400">{item.name}</span> — asking price:{' '}
           <span className="text-amber-400">{originalPrice}g</span>
         </p>
 
         {phase === 'argue' && (
           <>
-            <p className="text-xs text-dark-400 mb-2">
+            <p className="text-xs text-slate-500 mb-2">
               Make your case. A persuasive argument lowers the DC.
             </p>
             <textarea
               value={argument}
               onChange={(e) => setArgument(e.target.value)}
               placeholder="Why should the merchant lower the price?"
-              className="w-full h-20 bg-dark-700 border border-dark-600 rounded p-2 text-sm text-dark-200 resize-none focus:outline-none focus:border-primary-500"
+              className="w-full h-20 bg-slate-800 border border-slate-700 rounded p-2 text-sm text-slate-400 resize-none focus:outline-none focus:border-primary-500"
             />
             <div className="flex gap-2 mt-3">
               <button
@@ -116,7 +116,7 @@ export default function HaggleDialog({
               </button>
               <button
                 onClick={onCancel}
-                className="px-4 py-2 bg-dark-600 hover:bg-dark-500 rounded text-sm transition-colors"
+                className="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded text-sm transition-colors"
               >
                 Cancel
               </button>
@@ -127,28 +127,28 @@ export default function HaggleDialog({
         {phase === 'rolling' && (
           <div className="text-center py-8">
             <div className="text-4xl animate-bounce">🎲</div>
-            <p className="text-sm text-dark-300 mt-2">Rolling Persuasion...</p>
+            <p className="text-sm text-slate-400 mt-2">Rolling Persuasion...</p>
           </div>
         )}
 
         {phase === 'result' && rollResult && (
           <div className="space-y-3">
             {/* Roll display */}
-            <div className="bg-dark-700 rounded p-3 text-center">
-              <p className="text-xs text-dark-400 mb-1">Persuasion Check</p>
+            <div className="bg-slate-800 rounded p-3 text-center">
+              <p className="text-xs text-slate-500 mb-1">Persuasion Check</p>
               <div className="flex items-center justify-center gap-2 text-lg">
                 <span className={`font-bold ${rollResult.roll === 20 ? 'text-green-400' : rollResult.roll === 1 ? 'text-red-400' : 'text-white'}`}>
                   🎲 {rollResult.roll}
                 </span>
-                <span className="text-dark-400">+</span>
+                <span className="text-slate-500">+</span>
                 <span className="text-primary-400">
                   {charismaModifier + (hasPersuasion ? proficiencyBonus : 0)}
                 </span>
-                <span className="text-dark-400">=</span>
+                <span className="text-slate-500">=</span>
                 <span className={`font-bold ${rollResult.success ? 'text-green-400' : 'text-red-400'}`}>
                   {rollResult.total}
                 </span>
-                <span className="text-dark-400 text-sm">(DC {rollResult.dc})</span>
+                <span className="text-slate-500 text-sm">(DC {rollResult.dc})</span>
               </div>
             </div>
 
@@ -161,13 +161,13 @@ export default function HaggleDialog({
               <p className={rollResult.success ? 'text-green-400' : 'text-red-400'}>
                 {rollResult.success ? '✓ Success!' : '✗ Failed'}
               </p>
-              <p className="text-dark-300 mt-1 italic">{rollResult.reaction}</p>
+              <p className="text-slate-400 mt-1 italic">{rollResult.reaction}</p>
             </div>
 
             {/* Price comparison */}
             <div className="flex items-center justify-between text-sm">
-              <span className="text-dark-400">Original: {originalPrice}g</span>
-              <span className={rollResult.finalPrice < originalPrice ? 'text-green-400' : rollResult.finalPrice > originalPrice ? 'text-red-400' : 'text-dark-200'}>
+              <span className="text-slate-500">Original: {originalPrice}g</span>
+              <span className={rollResult.finalPrice < originalPrice ? 'text-green-400' : rollResult.finalPrice > originalPrice ? 'text-red-400' : 'text-slate-400'}>
                 Final: {rollResult.finalPrice}g
               </span>
             </div>

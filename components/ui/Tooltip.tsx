@@ -45,7 +45,7 @@ export default function Tooltip({
       {children}
       {visible && (
         <div
-          className={`absolute z-50 ${posStyles[position]} px-2.5 py-1.5 bg-slate-800 border border-slate-600 rounded-lg text-xs text-slate-200 whitespace-nowrap shadow-lg pointer-events-none animate-fadeIn`}
+          className={`absolute z-[55] ${posStyles[position]} px-2.5 py-1.5 bg-slate-800 border border-slate-600 rounded-lg text-xs text-slate-200 whitespace-nowrap shadow-lg pointer-events-none animate-fadeIn`}
         >
           {content}
         </div>

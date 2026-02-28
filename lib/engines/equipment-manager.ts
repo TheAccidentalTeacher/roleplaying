@@ -203,10 +203,19 @@ export function compareItems(
     };
   }
 
-  // Compare damage
+  // Compare damage (parse dice formulas like "1d8+3" into average values)
   if (candidate.damage && equipped.damage) {
-    if (candidate.damage > equipped.damage) better.push('Damage');
-    else if (candidate.damage < equipped.damage) worse.push('Damage');
+    const avgDamage = (d: string): number => {
+      const m = d.match(/(\d+)d(\d+)/);
+      const modM = d.match(/[+-]\s*(\d+)$/);
+      const base = m ? parseInt(m[1]) * (parseInt(m[2]) + 1) / 2 : 0;
+      const mod = modM ? parseInt(modM[0].replace(/\s/g, '')) : 0;
+      return base + mod;
+    };
+    const candAvg = avgDamage(candidate.damage);
+    const equipAvg = avgDamage(equipped.damage);
+    if (candAvg > equipAvg) better.push('Damage');
+    else if (candAvg < equipAvg) worse.push('Damage');
     else equal.push('Damage');
   } else if (candidate.damage && !equipped.damage) {
     better.push('Damage');

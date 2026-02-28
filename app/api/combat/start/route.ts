@@ -1,12 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { callClaudeJSON, streamClaude } from '@/lib/ai-orchestrator';
+import { callGPTJSON } from '@/lib/ai-orchestrator';
 import {
   startCombat,
   rollInitiative,
   getAvailableActions,
 } from '@/lib/engines/combat-engine';
-import type { EnemyStatBlock } from '@/lib/types/encounter';
+import {
+  buildEncounterPrompt,
+  parseAIEncounter,
+} from '@/lib/engines/encounter-generator';
 import type { Character } from '@/lib/types/character';
+import type { WorldRecord } from '@/lib/types/world';
+import type { TerrainType, TimeOfDay } from '@/lib/types/exploration';
 
 export const maxDuration = 60;
 
@@ -15,100 +20,70 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const {
       character,
+      world,
       encounterDescription,
-      enemyCount = 2,
       difficulty = 'moderate',
-      terrain = [],
-      genre = 'high-fantasy',
+      terrain = 'plains',
+      timeOfDay = 'midday',
+      regionName,
     } = body as {
       character: Character;
-      encounterDescription: string;
-      enemyCount?: number;
-      difficulty?: string;
-      terrain?: string[];
-      genre?: string;
+      world?: WorldRecord;
+      encounterDescription?: string;
+      difficulty?: 'easy' | 'moderate' | 'hard' | 'deadly';
+      terrain?: TerrainType;
+      timeOfDay?: TimeOfDay;
+      regionName?: string;
     };
 
     if (!character) {
       return NextResponse.json({ error: 'Character required' }, { status: 400 });
     }
 
-    // 1. Generate enemy stat blocks via AI
-    const enemyPrompt = `Generate ${enemyCount} enemy stat blocks for a ${difficulty} difficulty combat encounter.
-    
-Context:
-- Player is a Level ${character.level} ${character.race} ${character.class}
-- Player AC: ${character.armorClass}, HP: ${character.hitPoints.current}/${character.hitPoints.max}
-- Encounter: ${encounterDescription}
-- Genre: ${genre}
+    // Build prompt using encounter-generator (leverages world bestiary + encounter tables)
+    const prompt = world
+      ? buildEncounterPrompt({
+          world,
+          character,
+          terrain,
+          timeOfDay,
+          difficulty,
+          context: encounterDescription,
+          regionName,
+        })
+      : `Generate a ${difficulty} combat encounter for a Level ${character.level} ${character.race} ${character.class}.
+${encounterDescription ? `Context: ${encounterDescription}` : ''}
+Return JSON: { "encounterName": "...", "description": "...", "enemies": [...], "terrain": "${terrain}", "environmentalEffects": [], "lighting": "bright" }
+Each enemy needs: id, name, type, challengeRating, hp ({current, max}), ac, speed, abilityScores ({str, dex, con, int, wis, cha}), attacks ([{name, attackBonus, damage, damageType}]), specialAbilities, reactions, tactics, resistances, immunities, vulnerabilities, conditionImmunities, savingThrows, xpValue, isAlive, description.`;
 
-Generate enemies appropriate for this encounter. Each enemy must have this EXACT JSON structure:
-{
-  "id": "unique-id",
-  "name": "Enemy Name",
-  "type": "humanoid",
-  "level": 2,
-  "hp": { "current": 20, "max": 20 },
-  "ac": 13,
-  "speed": "30 ft",
-  "str": 14, "dex": 12, "con": 13, "int": 10, "wis": 11, "cha": 8,
-  "attacks": [
-    {
-      "name": "Sword",
-      "type": "melee",
-      "toHit": 4,
-      "damage": "1d8+2",
-      "damageType": "slashing"
-    }
-  ],
-  "specialAbilities": [],
-  "reactions": [],
-  "resistances": [],
-  "vulnerabilities": [],
-  "immunities": [],
-  "conditionImmunities": [],
-  "savingThrowBonuses": {},
-  "tactics": {
-    "preferredTargets": "closest enemy",
-    "openingMove": "charge",
-    "retreatCondition": "below 25% HP",
-    "groupBehavior": "fight together",
-    "specialTriggers": []
-  },
-  "morale": 70,
-  "moraleBreakpoint": 25,
-  "intelligenceLevel": "average",
-  "threatContribution": 1,
-  "xpValue": 100,
-  "isAlive": true
-}
+    const raw = await callGPTJSON<Record<string, unknown>>(
+      'combat_resolution',
+      prompt,
+      'Generate combat encounter'
+    );
 
-Return a JSON object: { "enemies": [...], "encounterName": "...", "openingNarration": "..." }`;
+    // Parse using encounter-generator's structured parser
+    const parsed = parseAIEncounter(raw);
 
-    const generated = await callClaudeJSON<{
-      enemies: EnemyStatBlock[];
-      encounterName: string;
-      openingNarration: string;
-    }>('combat_resolution', enemyPrompt, 'Generate enemies');
-
-    // 2. Initialize combat
-    let combatState = startCombat(character.id, generated.enemies, {
+    // Initialize combat state
+    let combatState = startCombat(character.id, parsed.enemies, {
       mode: 'detailed',
-      terrain,
-      encounterName: generated.encounterName,
+      terrain: [parsed.terrain],
+      encounterName: parsed.encounterName,
     });
 
-    // 3. Roll initiative
     combatState = rollInitiative(combatState, character);
 
-    // 4. Get available actions
     const availableActions = getAvailableActions(combatState, character);
     combatState = { ...combatState, availableActions };
 
     return NextResponse.json({
       combatState,
-      narration: generated.openingNarration,
-      enemies: generated.enemies,
+      narration: parsed.description,
+      enemies: parsed.enemies,
+      encounterName: parsed.encounterName,
+      environmentalEffects: parsed.environmentalEffects,
+      lighting: parsed.lighting,
     });
   } catch (error) {
     console.error('Combat start error:', error);

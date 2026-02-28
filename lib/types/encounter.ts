@@ -68,11 +68,10 @@ export interface TacticTrigger {
 }
 
 export interface EnemyTactics {
-  preferredTargets: string;
-  openingMove: string;
-  retreatCondition: string;
-  groupBehavior: string;
-  specialTriggers: TacticTrigger[];
+  preferredRange: 'melee' | 'ranged' | 'mixed';
+  targetPriority: 'weakest' | 'spellcaster' | 'healer' | 'closest' | 'random' | string;
+  fleeThreshold: number;
+  specialBehavior: string;
 }
 
 export interface BestiaryEntry {

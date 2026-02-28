@@ -5,6 +5,7 @@
 
 import React, { useState } from 'react';
 import type { Character } from '@/lib/types/character';
+import Button from '@/components/ui/Button';
 
 interface RestMenuProps {
   character: Character;
@@ -28,7 +29,7 @@ export default function RestMenu({
   const avgPerDie = Math.floor(hp.hitDice.dieType / 2) + 1 + character.abilityScores.con.modifier;
 
   return (
-    <div className="bg-dark-800 border border-dark-600 rounded-lg p-6 max-w-md mx-auto">
+    <div className="bg-slate-900 border border-slate-700 rounded-lg p-6 max-w-md mx-auto">
       <h2 className="font-cinzel text-xl text-primary-400 mb-4">Rest &amp; Recovery</h2>
 
       <div className="mb-4 flex gap-3 text-sm">
@@ -37,9 +38,9 @@ export default function RestMenu({
       </div>
 
       {/* Short Rest */}
-      <div className="border border-dark-600 rounded-lg p-4 mb-4">
+      <div className="border border-slate-700 rounded-lg p-4 mb-4">
         <h3 className="font-cinzel text-lg mb-2">Short Rest</h3>
-        <p className="text-sm text-dark-300 mb-3">
+        <p className="text-sm text-slate-400 mb-3">
           Rest for 1 hour. Spend hit dice to recover HP. Some abilities recharge.
         </p>
 
@@ -49,10 +50,10 @@ export default function RestMenu({
           <p className="text-sm text-red-400 mb-2">No hit dice remaining.</p>
         ) : (
           <div className="flex items-center gap-3 mb-3">
-            <label className="text-sm text-dark-300">Hit dice to spend:</label>
+            <label className="text-sm text-slate-400">Hit dice to spend:</label>
             <input
               type="range"
-              min={0}
+              min={1}
               max={hd.remaining}
               value={hitDiceToSpend}
               onChange={(e) => setHitDiceToSpend(Number(e.target.value))}
@@ -63,24 +64,26 @@ export default function RestMenu({
         )}
 
         {hitDiceToSpend > 0 && missingHP > 0 && (
-          <p className="text-xs text-dark-400 mb-3">
+          <p className="text-xs text-slate-500 mb-3">
             Est. recovery: ~{Math.min(missingHP, hitDiceToSpend * Math.max(1, avgPerDie))} HP
           </p>
         )}
 
-        <button
+        <Button
           onClick={() => onShortRest(hitDiceToSpend)}
           disabled={missingHP === 0 && hitDiceToSpend === 0}
-          className="w-full py-2 rounded bg-primary-600 hover:bg-primary-500 disabled:opacity-40 disabled:cursor-not-allowed text-sm font-medium transition-colors"
+          variant="primary"
+          size="md"
+          className="w-full"
         >
           Take Short Rest
-        </button>
+        </Button>
       </div>
 
       {/* Long Rest */}
-      <div className="border border-dark-600 rounded-lg p-4 mb-4">
+      <div className="border border-slate-700 rounded-lg p-4 mb-4">
         <h3 className="font-cinzel text-lg mb-2">Long Rest</h3>
-        <p className="text-sm text-dark-300 mb-3">
+        <p className="text-sm text-slate-400 mb-3">
           Rest for 8 hours. Recover all HP, half your hit dice, and all spell slots.
         </p>
 
@@ -90,7 +93,7 @@ export default function RestMenu({
           </p>
         )}
 
-        <div className="text-xs text-dark-400 space-y-1 mb-3">
+        <div className="text-xs text-slate-500 space-y-1 mb-3">
           <p>• Full HP recovery</p>
           <p>• Recover {Math.max(1, Math.floor(hd.total / 2))} hit dice</p>
           <p>• All spell slots restored</p>
@@ -98,20 +101,24 @@ export default function RestMenu({
           <p>• Expired conditions removed</p>
         </div>
 
-        <button
+        <Button
           onClick={onLongRest}
-          className="w-full py-2 rounded bg-amber-700 hover:bg-amber-600 text-sm font-medium transition-colors"
+          variant="gold"
+          size="md"
+          className="w-full"
         >
           Set Up Camp
-        </button>
+        </Button>
       </div>
 
-      <button
+      <Button
         onClick={onCancel}
-        className="w-full py-2 text-sm text-dark-400 hover:text-dark-200 transition-colors"
+        variant="ghost"
+        size="md"
+        className="w-full"
       >
         Cancel
-      </button>
+      </Button>
     </div>
   );
 }

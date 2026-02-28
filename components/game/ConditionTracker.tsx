@@ -35,7 +35,7 @@ const conditionIcons: Record<string, string> = {
 };
 
 const conditionColors: Record<string, string> = {
-  blinded: 'border-gray-500/40 text-gray-300',
+  blinded: 'border-slate-500/40 text-slate-300',
   charmed: 'border-pink-500/40 text-pink-300',
   frightened: 'border-yellow-500/40 text-yellow-300',
   poisoned: 'border-green-500/40 text-green-300',

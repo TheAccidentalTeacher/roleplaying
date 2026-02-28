@@ -1,6 +1,8 @@
 // ============================================================
 // SAVE SERVICE
 // Auto-save, quick save, manual save, load, list, delete
+// Primary: localStorage (instant, offline-capable)
+// Secondary: Supabase via /api/saves (cloud backup, cross-device)
 // Reference: SESSION-STRUCTURE.md
 // ============================================================
 
@@ -30,7 +32,7 @@ export interface SavePayload {
   messages: Array<{ role: string; content: string }>;
 }
 
-// ---- Save Index (persisted) ----
+// ---- Save Index (persisted in localStorage) ----
 
 interface SaveIndex {
   saves: SaveState[];
@@ -49,6 +51,28 @@ function getSaveIndex(): SaveIndex {
 function writeSaveIndex(index: SaveIndex): void {
   if (typeof window === 'undefined') return;
   localStorage.setItem(SAVE_INDEX_KEY, JSON.stringify(index));
+}
+
+// ---- Cloud Sync Helpers (fire-and-forget) ----
+
+function syncToCloud(
+  characterId: string,
+  saveType: 'auto' | 'quick' | 'manual',
+  payload: SavePayload,
+  label: string,
+  localId: string
+): void {
+  fetch('/api/saves', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ characterId, saveType, payload, label, localId }),
+  }).catch((err) => {
+    console.warn('[save-service] Cloud sync failed (will retry on next save):', err.message);
+  });
+}
+
+function deleteFromCloud(saveId: string): void {
+  fetch(`/api/saves/${encodeURIComponent(saveId)}`, { method: 'DELETE' }).catch(() => {});
 }
 
 // ---- Save Functions ----
@@ -90,7 +114,7 @@ function createSave(
     playTimeAtSave: 0,
   };
 
-  // Store payload
+  // Store payload in localStorage
   if (typeof window !== 'undefined') {
     localStorage.setItem(SAVE_PREFIX + id, JSON.stringify(payload));
   }
@@ -116,19 +140,42 @@ function createSave(
   }
 
   writeSaveIndex(index);
+
+  // Fire-and-forget cloud sync
+  syncToCloud(character.id, type, payload, label, id);
+
   return saveState;
 }
 
 // ---- Load ----
 
-export function loadSave(saveId: string): SavePayload | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    const raw = localStorage.getItem(SAVE_PREFIX + saveId);
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
+export async function loadSave(saveId: string): Promise<SavePayload | null> {
+  // 1) Try localStorage first (instant)
+  if (typeof window !== 'undefined') {
+    try {
+      const raw = localStorage.getItem(SAVE_PREFIX + saveId);
+      if (raw) return JSON.parse(raw) as SavePayload;
+    } catch { /* fall through */ }
   }
+
+  // 2) Fallback: try Supabase via API
+  try {
+    const res = await fetch(`/api/saves/${encodeURIComponent(saveId)}`);
+    if (res.ok) {
+      const row = await res.json();
+      if (row?.save_data) {
+        // Cache locally for next time
+        if (typeof window !== 'undefined') {
+          localStorage.setItem(SAVE_PREFIX + saveId, JSON.stringify(row.save_data));
+        }
+        return row.save_data as SavePayload;
+      }
+    }
+  } catch (err) {
+    console.warn('[save-service] Cloud load failed:', err);
+  }
+
+  return null;
 }
 
 // ---- List ----
@@ -149,6 +196,10 @@ export function deleteSave(saveId: string): boolean {
   const index = getSaveIndex();
   index.saves = index.saves.filter((s) => s.id !== saveId);
   writeSaveIndex(index);
+
+  // Also delete from cloud
+  deleteFromCloud(saveId);
+
   return true;
 }
 
@@ -159,6 +210,7 @@ export function deleteAllSaves(characterId: string): number {
   const toRemove = index.saves.filter((s) => s.characterId === characterId);
   for (const s of toRemove) {
     localStorage.removeItem(SAVE_PREFIX + s.id);
+    deleteFromCloud(s.id);
   }
   index.saves = index.saves.filter((s) => s.characterId !== characterId);
   writeSaveIndex(index);

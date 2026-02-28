@@ -10,7 +10,7 @@ interface DialogueOption {
   attitudeRequired?: string;
   isAggressive?: boolean;
   isDeceptive?: boolean;
-  isPersusive?: boolean;
+  isPersuasive?: boolean;
   tooltip?: string;
 }
 
@@ -30,7 +30,7 @@ function getSkillColor(skill: string): string {
     'perception': 'text-green-400',
     'investigation': 'text-cyan-400',
     'athletics': 'text-orange-400',
-    'stealth': 'text-gray-400',
+    'stealth': 'text-slate-400',
   };
   return colors[skill.toLowerCase()] || 'text-primary-400';
 }
@@ -38,7 +38,7 @@ function getSkillColor(skill: string): string {
 function getOptionIcon(option: DialogueOption): string {
   if (option.isAggressive) return '⚔️';
   if (option.isDeceptive) return '🎭';
-  if (option.isPersusive) return '💬';
+  if (option.isPersuasive) return '💬';
   if (option.skillCheck) return '🎲';
   return '▸';
 }
@@ -49,7 +49,7 @@ export default function DialogueChoices({ options, onSelect, disabled = false, n
   return (
     <div className="space-y-2">
       {npcName && (
-        <p className="text-xs text-dark-400 mb-1">Choose your response to {npcName}:</p>
+        <p className="text-xs text-slate-500 mb-1">Choose your response to {npcName}:</p>
       )}
       {options.map((option, index) => (
         <button
@@ -59,16 +59,16 @@ export default function DialogueChoices({ options, onSelect, disabled = false, n
           className={`
             w-full text-left p-3 rounded-lg border transition-all group
             ${disabled
-              ? 'opacity-50 cursor-not-allowed border-dark-700 bg-dark-800'
-              : 'border-dark-600 bg-dark-800/50 hover:bg-dark-700 hover:border-primary-600/50 cursor-pointer'
+              ? 'opacity-50 cursor-not-allowed border-slate-800 bg-slate-900'
+              : 'border-slate-700 bg-slate-900/50 hover:bg-slate-800 hover:border-primary-600/50 cursor-pointer'
             }
           `}
         >
           <div className="flex items-start gap-2">
             <span className="text-sm mt-0.5 shrink-0">{getOptionIcon(option)}</span>
             <div className="flex-1 min-w-0">
-              <p className="text-sm text-dark-100 group-hover:text-white transition-colors">
-                <span className="text-dark-500 mr-1">{index + 1}.</span>
+              <p className="text-sm text-slate-300 group-hover:text-white transition-colors">
+                <span className="text-slate-600 mr-1">{index + 1}.</span>
                 {option.text}
               </p>
               {option.skillCheck && (
@@ -82,7 +82,7 @@ export default function DialogueChoices({ options, onSelect, disabled = false, n
                 </p>
               )}
               {option.tooltip && (
-                <p className="text-xs text-dark-500 mt-1 italic">{option.tooltip}</p>
+                <p className="text-xs text-slate-600 mt-1 italic">{option.tooltip}</p>
               )}
             </div>
           </div>

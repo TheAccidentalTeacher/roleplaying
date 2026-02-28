@@ -9,11 +9,11 @@ import type {
   CraftingResult,
   CraftingSkill,
   Material,
-  Item,
 } from '@/lib/types/items';
 import type { Character } from '@/lib/types/character';
 import type { WorldRecord } from '@/lib/types/world';
 import { d20 } from '@/lib/utils/dice';
+import { getProficiencyBonus } from '@/lib/utils/calculations';
 
 // ---- Quality Tiers (WoW-style proc system) ----
 
@@ -77,7 +77,7 @@ export function craft(
 
   // Determine ability modifier (INT or DEX based on skill)
   const abilityMod = getCraftingAbilityMod(recipe.skill, character);
-  const profBonus = Math.ceil(character.level / 4) + 1;
+  const profBonus = getProficiencyBonus(character.level);
   const rollResult = d20();
   const total = rollResult + abilityMod + profBonus;
   const success = total >= recipe.difficultyDC;

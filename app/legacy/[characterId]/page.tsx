@@ -24,14 +24,14 @@ export default function LegacyPage() {
 
   if (!legacy) {
     return (
-      <div className="min-h-screen bg-dark-900 flex items-center justify-center">
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
         <div className="text-center">
           <p className="text-4xl mb-4">📜</p>
-          <h1 className="font-cinzel text-2xl text-dark-300 mb-2">Legacy Not Found</h1>
-          <p className="text-dark-500 mb-4">This hero&apos;s tale has been lost to time.</p>
+          <h1 className="font-cinzel text-2xl text-slate-400 mb-2">Legacy Not Found</h1>
+          <p className="text-slate-600 mb-4">This hero&apos;s tale has been lost to time.</p>
           <button
             onClick={() => router.push('/')}
-            className="px-4 py-2 bg-dark-600 hover:bg-dark-500 rounded transition-colors"
+            className="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded transition-colors"
           >
             Return Home
           </button>
@@ -41,7 +41,7 @@ export default function LegacyPage() {
   }
 
   return (
-    <div className="min-h-screen bg-dark-900 py-8">
+    <div className="min-h-screen bg-slate-950 py-8">
       <EpilogueView
         legacy={legacy}
         onReturnToHall={() => router.push('/')}

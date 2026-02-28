@@ -56,7 +56,7 @@ export interface Item {
 
   // Equipment
   equippable: boolean;
-  equipSlot?: string;
+  equipSlot?: import('./character').EquipSlot;
   isEquipped?: boolean;
 
   // Stacking & Weight

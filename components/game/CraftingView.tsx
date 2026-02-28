@@ -32,15 +32,15 @@ interface CraftingViewProps {
 
 function getRarityColor(rarity: ItemRarity): string {
   switch (rarity) {
-    case 'junk': return 'border-gray-600 text-gray-400';
-    case 'common': return 'border-gray-500 text-gray-300';
+    case 'junk': return 'border-slate-600 text-slate-400';
+    case 'common': return 'border-slate-500 text-slate-300';
     case 'uncommon': return 'border-green-600 text-green-400';
     case 'rare': return 'border-blue-600 text-blue-400';
     case 'epic': return 'border-purple-600 text-purple-400';
     case 'legendary': return 'border-amber-600 text-amber-400';
     case 'mythic': return 'border-red-600 text-red-400';
     case 'artifact': return 'border-pink-600 text-pink-400';
-    default: return 'border-gray-600 text-gray-300';
+    default: return 'border-slate-600 text-slate-300';
   }
 }
 
@@ -62,22 +62,22 @@ export default function CraftingView({
   const selected = recipes.find((r) => r.id === selectedRecipe);
 
   return (
-    <div className="bg-dark-800 rounded-lg border border-dark-600 overflow-hidden max-h-[80vh] flex flex-col">
+    <div className="bg-slate-900 rounded-lg border border-slate-700 overflow-hidden max-h-[80vh] flex flex-col">
       {/* Header */}
-      <div className="p-4 bg-dark-700/50 border-b border-dark-600 flex items-center justify-between">
+      <div className="p-4 bg-slate-800/50 border-b border-slate-700 flex items-center justify-between">
         <h2 className="font-cinzel text-xl font-bold">⚒️ Crafting</h2>
         {currentStation && (
-          <span className="text-sm text-dark-300">Station: {currentStation}</span>
+          <span className="text-sm text-slate-400">Station: {currentStation}</span>
         )}
         {onClose && (
-          <button onClick={onClose} className="text-dark-400 hover:text-dark-200 transition-colors">
+          <button onClick={onClose} className="text-slate-500 hover:text-slate-400 transition-colors" aria-label="Close crafting">
             ✕
           </button>
         )}
       </div>
 
       {/* Category tabs */}
-      <div className="flex gap-1 p-2 overflow-x-auto border-b border-dark-700">
+      <div className="flex gap-1 p-2 overflow-x-auto border-b border-slate-800">
         {categories.map((cat) => (
           <button
             key={cat}
@@ -85,7 +85,7 @@ export default function CraftingView({
             className={`px-3 py-1 rounded text-sm capitalize whitespace-nowrap transition-colors ${
               selectedCategory === cat
                 ? 'bg-primary-600 text-white'
-                : 'bg-dark-700 text-dark-300 hover:bg-dark-600'
+                : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
             }`}
           >
             {cat}
@@ -95,7 +95,7 @@ export default function CraftingView({
 
       <div className="flex flex-1 overflow-hidden">
         {/* Recipe List */}
-        <div className="w-1/2 border-r border-dark-700 overflow-y-auto p-2 space-y-1">
+        <div className="w-1/2 border-r border-slate-800 overflow-y-auto p-2 space-y-1">
           {filtered.map((recipe) => {
             const canCraft = recipe.materials.every((m) => m.available >= m.required) && recipe.unlocked;
             const isSelected = selectedRecipe === recipe.id;
@@ -106,8 +106,8 @@ export default function CraftingView({
                 onClick={() => setSelectedRecipe(recipe.id)}
                 className={`w-full text-left p-3 rounded-lg border transition-all ${
                   isSelected
-                    ? 'bg-dark-600 border-primary-500'
-                    : 'bg-dark-800 border-dark-700 hover:border-dark-500'
+                    ? 'bg-slate-700 border-primary-500'
+                    : 'bg-slate-900 border-slate-800 hover:border-slate-600'
                 } ${!recipe.unlocked ? 'opacity-40' : ''}`}
               >
                 <div className="flex items-center justify-between">
@@ -119,13 +119,13 @@ export default function CraftingView({
                   )}
                 </div>
                 {recipe.unlocked && (
-                  <p className="text-xs text-dark-400 mt-1">{recipe.category}</p>
+                  <p className="text-xs text-slate-500 mt-1">{recipe.category}</p>
                 )}
               </button>
             );
           })}
           {filtered.length === 0 && (
-            <p className="text-dark-500 text-sm text-center py-8">No recipes found</p>
+            <p className="text-slate-600 text-sm text-center py-8">No recipes found</p>
           )}
         </div>
 
@@ -136,11 +136,11 @@ export default function CraftingView({
               <h3 className={`font-cinzel text-lg font-bold ${getRarityColor(selected.resultRarity).split(' ')[1]}`}>
                 {selected.name}
               </h3>
-              <p className="text-sm text-dark-300">{selected.description}</p>
+              <p className="text-sm text-slate-400">{selected.description}</p>
 
               {/* Materials */}
               <div>
-                <h4 className="text-xs font-bold text-dark-400 uppercase mb-2">Materials</h4>
+                <h4 className="text-xs font-bold text-slate-500 uppercase mb-2">Materials</h4>
                 <div className="space-y-1">
                   {selected.materials.map((mat, i) => {
                     const hasEnough = mat.available >= mat.required;
@@ -149,7 +149,7 @@ export default function CraftingView({
                         key={i}
                         className="flex items-center justify-between text-sm"
                       >
-                        <span className={hasEnough ? 'text-dark-200' : 'text-red-400'}>
+                        <span className={hasEnough ? 'text-slate-400' : 'text-red-400'}>
                           {mat.name}
                         </span>
                         <span className={hasEnough ? 'text-green-400' : 'text-red-400'}>
@@ -163,20 +163,20 @@ export default function CraftingView({
 
               {/* Stats */}
               <div className="grid grid-cols-2 gap-2 text-xs">
-                <div className="bg-dark-700 rounded p-2">
-                  <span className="text-dark-400">DC</span>
+                <div className="bg-slate-800 rounded p-2">
+                  <span className="text-slate-500">DC</span>
                   <p className="font-bold">{selected.craftingDC}</p>
                 </div>
-                <div className="bg-dark-700 rounded p-2">
-                  <span className="text-dark-400">Your Bonus</span>
+                <div className="bg-slate-800 rounded p-2">
+                  <span className="text-slate-500">Your Bonus</span>
                   <p className="font-bold text-primary-400">+{characterSkillBonus}</p>
                 </div>
-                <div className="bg-dark-700 rounded p-2">
-                  <span className="text-dark-400">Time</span>
+                <div className="bg-slate-800 rounded p-2">
+                  <span className="text-slate-500">Time</span>
                   <p className="font-bold">{selected.craftingTimeMinutes}min</p>
                 </div>
-                <div className="bg-dark-700 rounded p-2">
-                  <span className="text-dark-400">Success</span>
+                <div className="bg-slate-800 rounded p-2">
+                  <span className="text-slate-500">Success</span>
                   <p className="font-bold">
                     {Math.min(95, Math.max(5, (21 - selected.craftingDC + characterSkillBonus) * 5))}%
                   </p>
@@ -184,8 +184,8 @@ export default function CraftingView({
               </div>
 
               {selected.requiredStation && (
-                <p className="text-xs text-dark-400">
-                  Requires: <span className="text-dark-300">{selected.requiredStation}</span>
+                <p className="text-xs text-slate-500">
+                  Requires: <span className="text-slate-400">{selected.requiredStation}</span>
                   {currentStation === selected.requiredStation ? (
                     <span className="text-green-400 ml-2">✓</span>
                   ) : (
@@ -201,14 +201,14 @@ export default function CraftingView({
                 className={`w-full py-3 rounded-lg font-cinzel font-bold transition-all ${
                   selected.materials.every((m) => m.available >= m.required)
                     ? 'bg-primary-600 hover:bg-primary-500 text-white'
-                    : 'bg-dark-700 text-dark-500 cursor-not-allowed'
+                    : 'bg-slate-800 text-slate-600 cursor-not-allowed'
                 }`}
               >
                 ⚒️ Craft
               </button>
             </div>
           ) : (
-            <div className="flex items-center justify-center h-full text-dark-500 text-sm">
+            <div className="flex items-center justify-center h-full text-slate-600 text-sm">
               Select a recipe to view details
             </div>
           )}

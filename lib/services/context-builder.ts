@@ -16,7 +16,6 @@ import {
   getCharacter,
   getRecentMessages,
   getWorldNPCs,
-  getActiveQuests,
   getChronicle,
 } from './database';
 

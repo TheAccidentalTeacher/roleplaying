@@ -12,15 +12,15 @@ interface PriceTagProps {
 
 function getRarityColor(rarity: ItemRarity): string {
   switch (rarity) {
-    case 'junk': return 'text-gray-500';
-    case 'common': return 'text-gray-300';
+    case 'junk': return 'text-slate-500';
+    case 'common': return 'text-slate-300';
     case 'uncommon': return 'text-green-400';
     case 'rare': return 'text-blue-400';
     case 'epic': return 'text-purple-400';
     case 'legendary': return 'text-amber-400';
     case 'mythic': return 'text-red-400';
     case 'artifact': return 'text-pink-400';
-    default: return 'text-gray-300';
+    default: return 'text-slate-300';
   }
 }
 
@@ -41,7 +41,7 @@ export default function PriceTag({
     <span className={`inline-flex items-center gap-1 ${textSize}`}>
       <span className={`${iconSize}`}>🪙</span>
       {isDiscounted && basePrice !== finalPrice && (
-        <span className="line-through text-dark-500">{basePrice}</span>
+        <span className="line-through text-slate-600">{basePrice}</span>
       )}
       <span className={`font-bold ${getRarityColor(rarity)}`}>
         {finalPrice}

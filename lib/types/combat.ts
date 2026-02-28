@@ -3,7 +3,7 @@
 // Reference: BRAINSTORM.md (Combat System section)
 // ============================================================
 
-import type { AbilityName, Character, ActiveCondition, PartyMember } from './character';
+import type { AbilityName, ActiveCondition, PartyMember } from './character';
 import type { EnemyStatBlock } from './encounter';
 
 // ---- Enums & Union Types ----
@@ -152,6 +152,9 @@ export interface CombatState {
   terrainEffects: string[];
   environmentalHazards: string[];
   lightingCondition: 'bright' | 'dim' | 'darkness' | 'magical-darkness';
+
+  // Player combat conditions (dodge, hidden, etc.) — cleared each round
+  playerConditions: ActiveCondition[];
 
   // State tracking
   concentrationSpells: { casterId: string; spellName: string }[];

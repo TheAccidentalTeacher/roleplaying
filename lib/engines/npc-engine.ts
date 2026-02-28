@@ -14,7 +14,6 @@ import type {
   DialogueContext,
 } from '@/lib/types/npc';
 import type { WorldRecord, Genre } from '@/lib/types/world';
-import type { Character } from '@/lib/types/character';
 
 // ---- NPC generation prompt ----
 
@@ -139,7 +138,7 @@ export function getAttitudeTier(score: number): AttitudeTier {
   return 'allied';
 }
 
-export function getRelationshipType(score: number, history: string[]): RelationshipType {
+export function getRelationshipType(score: number, _history?: string[]): RelationshipType {
   if (score <= -60) return 'enemy';
   if (score <= -20) return 'rival';
   if (score <= 5) return 'stranger';

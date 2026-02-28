@@ -45,7 +45,7 @@ export default function DiscoveryPopup({
       onClick={handleDismiss}
     >
       <div
-        className={`bg-dark-800 border border-dark-500 rounded-lg p-6 max-w-sm w-full mx-4 transform transition-transform duration-300 ${
+        className={`bg-slate-900 border border-slate-600 rounded-lg p-6 max-w-sm w-full mx-4 transform transition-transform duration-300 ${
           visible ? 'scale-100' : 'scale-90'
         }`}
         onClick={(e) => e.stopPropagation()}
@@ -56,7 +56,7 @@ export default function DiscoveryPopup({
         <h3 className={`font-cinzel text-lg text-center mb-2 ${config.color}`}>
           {config.label}
         </h3>
-        <p className="text-sm text-dark-300 text-center mb-4">
+        <p className="text-sm text-slate-400 text-center mb-4">
           {discovery.description}
         </p>
         {discovery.investigationResult && (
@@ -81,7 +81,7 @@ export default function DiscoveryPopup({
             onClick={handleDismiss}
             className={`${
               onInvestigate ? 'flex-1' : 'w-full'
-            } py-2 bg-dark-600 hover:bg-dark-500 rounded text-sm font-medium transition-colors`}
+            } py-2 bg-slate-700 hover:bg-slate-600 rounded text-sm font-medium transition-colors`}
           >
             Continue
           </button>

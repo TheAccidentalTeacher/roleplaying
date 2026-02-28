@@ -109,14 +109,17 @@ export async function POST(req: NextRequest) {
     let fullResponse = '';
 
     // Process the stream: pass through to client AND capture for saving
+    const decoder = new TextDecoder();
     (async () => {
       try {
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
-          fullResponse += new TextDecoder().decode(value);
+          fullResponse += decoder.decode(value, { stream: true });
           await writer.write(value);
         }
+      } catch (err) {
+        console.error('Stream processing error:', err);
       } finally {
         await writer.close();
         // Save the complete DM response to Supabase

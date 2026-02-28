@@ -17,7 +17,7 @@ interface CombatViewProps {
 }
 
 export default function CombatView({ character, onCombatEnd }: CombatViewProps) {
-  const { combatState, setCombatState } = useGameStore();
+  const { combatState, setCombatState, updateActiveCharacter } = useGameStore();
   const [selectedTargetId, setSelectedTargetId] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [combatLog, setCombatLog] = useState<ActionResult[]>([]);
@@ -64,6 +64,16 @@ export default function CombatView({ character, onCombatEnd }: CombatViewProps) 
         // Update combat state
         setCombatState(data.combatState);
 
+        // Apply player damage — update character HP in the store
+        if (data.updatedPlayerHP) {
+          updateActiveCharacter({
+            hitPoints: {
+              ...character.hitPoints,
+              current: data.updatedPlayerHP.current,
+            },
+          });
+        }
+
         // Append action results to log
         if (data.results && Array.isArray(data.results)) {
           setCombatLog((prev) => [...prev, ...data.results]);
@@ -76,11 +86,8 @@ export default function CombatView({ character, onCombatEnd }: CombatViewProps) 
 
         // Clear target selection after action
         setSelectedTargetId(null);
-
-        // Check if combat ended
-        if (data.combatState.phase === 'combat-end') {
-          onCombatEnd?.(data.combatState);
-        }
+        // Note: onCombatEnd is called from the "Continue Adventure" button — not here
+        // to avoid double-firing the combat summary message
       } catch (err) {
         console.error('Combat action error:', err);
         setError(err instanceof Error ? err.message : 'Something went wrong');
@@ -110,6 +117,57 @@ export default function CombatView({ character, onCombatEnd }: CombatViewProps) 
 
           {/* Player conditions */}
           <ConditionTracker conditions={character.conditions} label="Your status" />
+
+          {/* Mobile-only: initiative + target selector (hidden on sm+ where sidebar shows) */}
+          <div className="sm:hidden space-y-2">
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              {combatState.initiativeOrder.map((entry, i) => {
+                const isActive = i === combatState.turnIndex;
+                const enemy = combatState.enemies.find((e) => e.id === entry.entityId);
+                const isDead = enemy && !enemy.isAlive;
+                return (
+                  <div
+                    key={entry.entityId}
+                    className={`flex-shrink-0 px-2 py-1 rounded text-[10px] font-medium border ${
+                      isActive
+                        ? 'border-sky-500/50 bg-sky-500/20 text-sky-300'
+                        : isDead
+                          ? 'border-slate-700/50 bg-slate-800/50 text-slate-600 line-through'
+                          : 'border-slate-700/50 bg-slate-800/50 text-slate-400'
+                    }`}
+                  >
+                    {entry.entityType === 'player' ? '⚔️' : isDead ? '💀' : '👹'}{' '}
+                    {entry.entityName.split(' ')[0]}
+                    {enemy && enemy.isAlive && (
+                      <span className="ml-1 text-red-400">
+                        {Math.round((enemy.hp.current / enemy.hp.max) * 100)}%
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {isPlayerTurn && !isCombatOver && (
+              <div className="flex flex-wrap gap-1.5">
+                {combatState.enemies
+                  .filter((e) => e.isAlive)
+                  .map((enemy) => (
+                    <button
+                      key={enemy.id}
+                      onClick={() => setSelectedTargetId(enemy.id)}
+                      className={`px-2.5 py-1.5 rounded text-xs border transition ${
+                        selectedTargetId === enemy.id
+                          ? 'border-red-500/50 bg-red-500/20 text-red-300'
+                          : 'border-slate-700/50 bg-slate-800/50 text-slate-400 hover:border-red-500/30'
+                      }`}
+                    >
+                      🎯 {enemy.name} ({enemy.hp.current}/{enemy.hp.max})
+                    </button>
+                  ))}
+              </div>
+            )}
+          </div>
 
           {/* Error message */}
           {error && (

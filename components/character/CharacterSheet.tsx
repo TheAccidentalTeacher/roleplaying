@@ -6,7 +6,7 @@ import OverviewTab from './OverviewTab';
 import AbilitiesTab from './AbilitiesTab';
 import InventoryTab from './InventoryTab';
 import JournalTab from './JournalTab';
-import { User, Swords, ShoppingBag, BookOpen, Sparkles } from 'lucide-react';
+import { User, ShoppingBag, BookOpen, Sparkles } from 'lucide-react';
 
 type SheetTab = 'overview' | 'abilities' | 'inventory' | 'journal';
 

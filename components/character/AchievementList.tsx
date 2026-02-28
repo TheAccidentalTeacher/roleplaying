@@ -10,7 +10,7 @@ interface AchievementListProps {
 function getRarityStyle(rarity: Achievement['rarity']): { bg: string; border: string; text: string } {
   switch (rarity) {
     case 'common':
-      return { bg: 'bg-gray-900/30', border: 'border-gray-700', text: 'text-gray-300' };
+      return { bg: 'bg-slate-900/30', border: 'border-slate-700', text: 'text-slate-300' };
     case 'uncommon':
       return { bg: 'bg-green-900/20', border: 'border-green-800', text: 'text-green-400' };
     case 'rare':
@@ -38,7 +38,7 @@ export default function AchievementList({ achievements, totalPossible }: Achieve
       <div className="flex items-center justify-between">
         <h3 className="font-cinzel text-lg font-bold">🏆 Achievements</h3>
         {totalPossible && (
-          <span className="text-sm text-dark-400">
+          <span className="text-sm text-slate-500">
             {achievements.length}/{totalPossible}
           </span>
         )}
@@ -46,7 +46,7 @@ export default function AchievementList({ achievements, totalPossible }: Achieve
 
       {/* Progress bar */}
       {totalPossible && (
-        <div className="h-2 bg-dark-700 rounded-full overflow-hidden">
+        <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
           <div
             className="h-full bg-primary-500 rounded-full transition-all"
             style={{ width: `${(achievements.length / totalPossible) * 100}%` }}
@@ -75,9 +75,9 @@ export default function AchievementList({ achievements, totalPossible }: Achieve
                     <span className="text-xl">{achievement.icon}</span>
                     <div className="flex-1 min-w-0">
                       <p className={`text-sm font-bold ${style.text}`}>{achievement.name}</p>
-                      <p className="text-xs text-dark-400">{achievement.description}</p>
+                      <p className="text-xs text-slate-500">{achievement.description}</p>
                     </div>
-                    <span className="text-[10px] text-dark-500 shrink-0">
+                    <span className="text-[10px] text-slate-600 shrink-0">
                       {new Date(achievement.earnedAt).toLocaleDateString()}
                     </span>
                   </div>
@@ -89,7 +89,7 @@ export default function AchievementList({ achievements, totalPossible }: Achieve
       })}
 
       {achievements.length === 0 && (
-        <p className="text-dark-500 text-sm text-center py-4">
+        <p className="text-slate-600 text-sm text-center py-4">
           No achievements earned yet. Keep adventuring!
         </p>
       )}

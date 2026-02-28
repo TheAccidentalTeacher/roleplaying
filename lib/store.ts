@@ -7,32 +7,8 @@ import type { GameClock, Weather } from '@/lib/types/exploration'
 import type { SessionStructure, PacingState } from '@/lib/types/session'
 import type { Quest } from '@/lib/types/quest'
 import type { NPC } from '@/lib/types/npc'
-import type { UIState, ChatMessage, Toast, ModalState, UserSettings } from '@/lib/types/ui'
-
-// ---- Legacy Character type (backward compat for existing pages) ----
-// These pages will be rewritten in Phase 1.3 / 2.2
-export interface Character {
-  id: string
-  name: string
-  class: string
-  level: number
-  experience: number
-  hitPoints: {
-    current: number
-    max: number
-  }
-  stats: {
-    strength: number
-    dexterity: number
-    constitution: number
-    intelligence: number
-    wisdom: number
-    charisma: number
-  }
-  background: string
-  inventory: string[]
-  gold: number
-}
+import type { UIState, UserSettings } from '@/lib/types/ui'
+import { getTimeOfDay } from '@/lib/engines/clock-engine'
 
 export interface Message {
   role: 'user' | 'assistant' | 'system'
@@ -103,14 +79,11 @@ const defaultUIState: UIState = {
 // ---- State interface ----
 
 export interface GameState {
-  // ---- Legacy fields (backward compat) ----
-  character: Character | null
+  // ---- Core fields ----
   messages: Message[]
   currentLocation: string
-  questLog: string[]
   isLoading: boolean
 
-  // ---- New full-system fields ----
   // Characters & World
   characters: FullCharacter[]
   activeCharacterId: string | null
@@ -135,16 +108,13 @@ export interface GameState {
   // UI
   uiState: UIState
 
-  // ---- Legacy actions (backward compat) ----
-  setCharacter: (character: Character) => void
+  // ---- Actions ----
   addMessage: (message: Message) => void
   setMessages: (messages: Message[]) => void
   updateLocation: (location: string) => void
-  addQuest: (quest: string) => void
   setLoading: (loading: boolean) => void
   resetGame: () => void
 
-  // ---- New actions ----
   // Characters
   setActiveCharacter: (character: FullCharacter) => void
   updateActiveCharacter: (updates: Partial<FullCharacter>) => void
@@ -179,13 +149,6 @@ export interface GameState {
   updateNPC: (npcId: string, updates: Partial<NPC>) => void
 
   // UI
-  setUIState: (updates: Partial<UIState>) => void
-  addToast: (toast: Toast) => void
-  removeToast: (id: string) => void
-  setModal: (modal: ModalState) => void
-  closeModal: () => void
-  addChatMessage: (message: ChatMessage) => void
-  setChatMessages: (messages: ChatMessage[]) => void
   setSettings: (updates: Partial<UserSettings>) => void
 }
 
@@ -194,14 +157,11 @@ export interface GameState {
 export const useGameStore = create<GameState>()(
   persist(
     (set) => ({
-      // ---- Legacy defaults ----
-      character: null,
+      // ---- Defaults ----
       messages: [],
       currentLocation: 'Unknown',
-      questLog: [],
       isLoading: false,
 
-      // ---- New defaults ----
       characters: [],
       activeCharacterId: null,
       activeWorld: null,
@@ -215,8 +175,7 @@ export const useGameStore = create<GameState>()(
       knownNPCs: [],
       uiState: defaultUIState,
 
-      // ---- Legacy actions ----
-      setCharacter: (character) => set({ character }),
+      // ---- Actions ----
 
       addMessage: (message) =>
         set((state) => ({
@@ -227,19 +186,12 @@ export const useGameStore = create<GameState>()(
 
       updateLocation: (location) => set({ currentLocation: location }),
 
-      addQuest: (quest) =>
-        set((state) => ({
-          questLog: [...state.questLog, quest],
-        })),
-
       setLoading: (loading) => set({ isLoading: loading }),
 
       resetGame: () =>
         set({
-          character: null,
           messages: [],
           currentLocation: 'Unknown',
-          questLog: [],
           isLoading: false,
           characters: [],
           activeCharacterId: null,
@@ -303,16 +255,54 @@ export const useGameStore = create<GameState>()(
 
       advanceTime: (hours) =>
         set((state) => {
-          const newHour = state.gameClock.hour + hours
-          const newDay = state.gameClock.day + Math.floor(newHour / 24)
-          const timeOfDay = getTimeOfDay(newHour % 24)
+          let newHour = state.gameClock.hour + hours
+          let newDay = state.gameClock.day
+          let newMonth = state.gameClock.month
+          let newYear = state.gameClock.year
+          let daysSinceStart = state.gameClock.daysSinceStart
+
+          // Roll over hours → days
+          while (newHour >= 24) {
+            newHour -= 24
+            newDay += 1
+            daysSinceStart += 1
+          }
+          while (newHour < 0) {
+            newHour += 24
+            newDay -= 1
+            daysSinceStart -= 1
+          }
+
+          // Roll over days → months (30 days per month)
+          while (newDay > 30) {
+            newDay -= 30
+            newMonth += 1
+          }
+
+          // Roll over months → years (12 months per year)
+          while (newMonth > 12) {
+            newMonth -= 12
+            newYear += 1
+          }
+
+          // Derive season from month
+          let currentSeason = state.gameClock.currentSeason
+          if (newMonth >= 3 && newMonth <= 5) currentSeason = 'spring'
+          else if (newMonth >= 6 && newMonth <= 8) currentSeason = 'summer'
+          else if (newMonth >= 9 && newMonth <= 11) currentSeason = 'autumn'
+          else currentSeason = 'winter'
+
+          const timeOfDay = getTimeOfDay(Math.floor(newHour))
           return {
             gameClock: {
               ...state.gameClock,
-              hour: newHour % 24,
+              hour: Math.floor(newHour),
               day: newDay,
-              daysSinceStart: state.gameClock.daysSinceStart + Math.floor(hours / 24),
+              month: newMonth,
+              year: newYear,
+              daysSinceStart: Math.max(0, daysSinceStart),
               timeOfDay,
+              currentSeason,
             },
           }
         }),
@@ -354,53 +344,6 @@ export const useGameStore = create<GameState>()(
         })),
 
       // ---- UI ----
-      setUIState: (updates) =>
-        set((state) => ({
-          uiState: { ...state.uiState, ...updates },
-        })),
-
-      addToast: (toast) =>
-        set((state) => ({
-          uiState: {
-            ...state.uiState,
-            toasts: [...state.uiState.toasts, toast],
-          },
-        })),
-
-      removeToast: (id) =>
-        set((state) => ({
-          uiState: {
-            ...state.uiState,
-            toasts: state.uiState.toasts.filter((t) => t.id !== id),
-          },
-        })),
-
-      setModal: (modal) =>
-        set((state) => ({
-          uiState: { ...state.uiState, modal },
-        })),
-
-      closeModal: () =>
-        set((state) => ({
-          uiState: {
-            ...state.uiState,
-            modal: { isOpen: false, type: null },
-          },
-        })),
-
-      addChatMessage: (message) =>
-        set((state) => ({
-          uiState: {
-            ...state.uiState,
-            chatMessages: [...state.uiState.chatMessages, message],
-          },
-        })),
-
-      setChatMessages: (messages) =>
-        set((state) => ({
-          uiState: { ...state.uiState, chatMessages: messages },
-        })),
-
       setSettings: (updates) =>
         set((state) => ({
           uiState: {
@@ -412,8 +355,7 @@ export const useGameStore = create<GameState>()(
     {
       name: 'ai-rpg-storage',
       partialize: (state) => ({
-        // Persist only essential state, not transient UI
-        character: state.character,
+        // Persist essential game state
         characters: state.characters,
         activeCharacterId: state.activeCharacterId,
         activeWorld: state.activeWorld,
@@ -421,6 +363,16 @@ export const useGameStore = create<GameState>()(
         gameClock: state.gameClock,
         weather: state.weather,
         currentLocation: state.currentLocation,
+        // Persist messages so chat history survives refresh
+        messages: state.messages,
+        activeQuests: state.activeQuests,
+        knownNPCs: state.knownNPCs,
+        // Persist combat so refresh mid-fight resumes properly
+        combatState: state.combatState,
+        // Persist session so session number & recap survive refresh
+        sessionState: state.sessionState,
+        // Persist pacing so encounter/rest cadence survives refresh
+        pacingState: state.pacingState,
         uiState: {
           settings: state.uiState.settings,
         },
@@ -429,15 +381,4 @@ export const useGameStore = create<GameState>()(
   )
 )
 
-// ---- Helper ----
-
-function getTimeOfDay(hour: number): 'dawn' | 'morning' | 'midday' | 'afternoon' | 'dusk' | 'evening' | 'night' | 'midnight' {
-  if (hour >= 5 && hour < 7) return 'dawn'
-  if (hour >= 7 && hour < 11) return 'morning'
-  if (hour >= 11 && hour < 13) return 'midday'
-  if (hour >= 13 && hour < 17) return 'afternoon'
-  if (hour >= 17 && hour < 19) return 'dusk'
-  if (hour >= 19 && hour < 21) return 'evening'
-  if (hour >= 21 || hour < 1) return 'night'
-  return 'midnight'
-}
+// getTimeOfDay imported from @/lib/engines/clock-engine

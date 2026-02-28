@@ -19,7 +19,7 @@ function getPriorityBadge(priority: string): { bg: string; text: string; label: 
     case 'main': return { bg: 'bg-amber-900/40', text: 'text-amber-400', label: 'Main Quest' };
     case 'side': return { bg: 'bg-blue-900/40', text: 'text-blue-400', label: 'Side Quest' };
     case 'personal': return { bg: 'bg-purple-900/40', text: 'text-purple-400', label: 'Personal' };
-    default: return { bg: 'bg-dark-700', text: 'text-dark-400', label: priority };
+    default: return { bg: 'bg-slate-800', text: 'text-slate-500', label: priority };
   }
 }
 
@@ -41,8 +41,8 @@ export default function QuestTracker({
       onClick={onClick}
       className={`w-full text-left p-3 rounded-lg border transition-all ${
         isActive
-          ? 'bg-dark-800 border-dark-600 hover:border-dark-500'
-          : 'bg-dark-900 border-dark-700 opacity-60'
+          ? 'bg-slate-900 border-slate-700 hover:border-slate-600'
+          : 'bg-slate-950 border-slate-800 opacity-60'
       }`}
     >
       {/* Header */}
@@ -54,10 +54,10 @@ export default function QuestTracker({
       </div>
 
       {/* Description */}
-      <p className="text-xs text-dark-400 mb-2 line-clamp-2">{description}</p>
+      <p className="text-xs text-slate-500 mb-2 line-clamp-2">{description}</p>
 
       {/* Progress bar */}
-      <div className="w-full h-1 bg-dark-700 rounded-full mb-2">
+      <div className="w-full h-1 bg-slate-800 rounded-full mb-2">
         <div
           className="h-full bg-primary-500 rounded-full transition-all"
           style={{ width: `${progress}%` }}
@@ -68,16 +68,16 @@ export default function QuestTracker({
       <div className="space-y-0.5">
         {objectives.map((obj, i) => (
           <div key={i} className="flex items-start gap-1.5 text-xs">
-            <span className={`shrink-0 ${obj.completed ? 'text-green-400' : 'text-dark-500'}`}>
+            <span className={`shrink-0 ${obj.completed ? 'text-green-400' : 'text-slate-600'}`}>
               {obj.completed ? '✓' : '○'}
             </span>
             <span
               className={`${
                 obj.completed
-                  ? 'text-dark-500 line-through'
+                  ? 'text-slate-600 line-through'
                   : obj.optional
-                    ? 'text-dark-400 italic'
-                    : 'text-dark-300'
+                    ? 'text-slate-500 italic'
+                    : 'text-slate-400'
               }`}
             >
               {obj.text}
@@ -88,7 +88,7 @@ export default function QuestTracker({
       </div>
 
       {/* Progress count */}
-      <p className="text-[10px] text-dark-500 mt-1.5">
+      <p className="text-[10px] text-slate-600 mt-1.5">
         {completed}/{total} objectives
       </p>
     </button>

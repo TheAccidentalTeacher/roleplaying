@@ -126,6 +126,14 @@ export async function POST(req: NextRequest) {
   try {
     const { field, context, selectedText, enhanceDirection } = (await req.json()) as HelpRequest;
 
+    const VALID_FIELDS: HelpField[] = [
+      'name', 'description', 'storyHook', 'backstory', 'motivation',
+      'fears', 'mannerisms', 'connections', 'trait', 'ideal', 'bond', 'flaw', 'enhance',
+    ];
+    if (!VALID_FIELDS.includes(field)) {
+      return NextResponse.json({ error: `Invalid field: ${field}` }, { status: 400 });
+    }
+
     const characterSummary = buildCharacterSummary(context);
 
     let prompt: string;

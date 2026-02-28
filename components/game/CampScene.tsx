@@ -52,16 +52,16 @@ export default function CampScene({
   const [selectedActivity, setSelectedActivity] = useState<CampActivity | null>(null);
 
   return (
-    <div className="bg-dark-800 border border-dark-600 rounded-lg overflow-hidden">
+    <div className="bg-slate-900 border border-slate-700 rounded-lg overflow-hidden">
       {/* Phase header */}
-      <div className="bg-dark-700 px-4 py-3 border-b border-dark-600 flex items-center justify-between">
+      <div className="bg-slate-800 px-4 py-3 border-b border-slate-700 flex items-center justify-between">
         <h2 className="font-cinzel text-lg text-amber-400">
           {currentPhase === 'setup' && '🏕️ Setting Up Camp'}
           {currentPhase === 'activities' && '🔥 Campfire'}
           {currentPhase === 'watch' && '🌙 Night Watch'}
           {currentPhase === 'dawn' && '🌅 Dawn'}
         </h2>
-        <span className="text-xs text-dark-400">
+        <span className="text-xs text-slate-500">
           Safety: {camp.safetyRating}%
         </span>
       </div>
@@ -70,11 +70,11 @@ export default function CampScene({
         {/* Setup phase */}
         {currentPhase === 'setup' && (
           <div className="space-y-3">
-            <p className="text-sm text-dark-300">
+            <p className="text-sm text-slate-400">
               You find a spot to camp: <span className="text-primary-400">{camp.location}</span>
             </p>
             <div className="flex flex-wrap gap-2 text-xs">
-              <span className="px-2 py-1 bg-dark-700 rounded">
+              <span className="px-2 py-1 bg-slate-800 rounded">
                 Shelter: {camp.shelterType.replace('_', ' ')}
               </span>
               {camp.campfireLit && (
@@ -98,7 +98,7 @@ export default function CampScene({
         {/* Activities phase */}
         {currentPhase === 'activities' && (
           <div className="space-y-3">
-            <p className="text-sm text-dark-300 mb-2">
+            <p className="text-sm text-slate-400 mb-2">
               Choose an evening activity before turning in.
             </p>
 
@@ -116,10 +116,10 @@ export default function CampScene({
                     disabled={done}
                     className={`p-2 rounded border text-left text-xs transition-colors ${
                       done
-                        ? 'border-dark-700 bg-dark-800 opacity-40 cursor-not-allowed'
+                        ? 'border-slate-800 bg-slate-900 opacity-40 cursor-not-allowed'
                         : selectedActivity === act
                         ? 'border-primary-500 bg-primary-900/30'
-                        : 'border-dark-600 bg-dark-700 hover:border-dark-500'
+                        : 'border-slate-700 bg-slate-800 hover:border-slate-600'
                     }`}
                   >
                     <span className="text-base mr-1">{info.icon}</span>
@@ -133,9 +133,9 @@ export default function CampScene({
             {/* Completed activities */}
             {completedActivities.length > 0 && (
               <div className="mt-3 space-y-2">
-                <p className="text-xs text-dark-400 font-medium">Completed:</p>
+                <p className="text-xs text-slate-500 font-medium">Completed:</p>
                 {completedActivities.map((ca, i) => (
-                  <div key={i} className="text-xs text-dark-300 bg-dark-700 rounded p-2">
+                  <div key={i} className="text-xs text-slate-400 bg-slate-800 rounded p-2">
                     <span className="text-primary-400">{ACTIVITY_LABELS[ca.activity]?.icon} {ACTIVITY_LABELS[ca.activity]?.label}:</span>{' '}
                     {ca.result}
                     {ca.mechanicalEffect && (
@@ -148,7 +148,7 @@ export default function CampScene({
 
             <button
               onClick={onAdvancePhase}
-              className="w-full py-2 mt-2 bg-dark-600 hover:bg-dark-500 rounded text-sm font-medium transition-colors"
+              className="w-full py-2 mt-2 bg-slate-700 hover:bg-slate-600 rounded text-sm font-medium transition-colors"
             >
               Turn In for the Night
             </button>
@@ -158,7 +158,7 @@ export default function CampScene({
         {/* Watch phase */}
         {currentPhase === 'watch' && (
           <div className="space-y-3">
-            <p className="text-sm text-dark-300">The night passes...</p>
+            <p className="text-sm text-slate-400">The night passes...</p>
 
             {watchEvents.length > 0 ? (
               <div className="space-y-2">
@@ -168,10 +168,10 @@ export default function CampScene({
                     className={`rounded p-3 text-sm ${
                       evt.combatTriggered
                         ? 'bg-red-900/30 border border-red-700'
-                        : 'bg-dark-700 border border-dark-600'
+                        : 'bg-slate-800 border border-slate-700'
                     }`}
                   >
-                    <p className={evt.combatTriggered ? 'text-red-400' : 'text-dark-300'}>
+                    <p className={evt.combatTriggered ? 'text-red-400' : 'text-slate-400'}>
                       {evt.description}
                     </p>
                     {evt.combatTriggered && onCombatTriggered && (
@@ -209,7 +209,7 @@ export default function CampScene({
         {/* Dawn phase */}
         {currentPhase === 'dawn' && (
           <div className="space-y-3">
-            <p className="text-sm text-dark-300">
+            <p className="text-sm text-slate-400">
               {dawnNarration || 'The first light of dawn creeps across the horizon. You feel refreshed.'}
             </p>
             <div className="bg-green-900/20 border border-green-800 rounded p-3 text-sm">

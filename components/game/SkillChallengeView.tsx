@@ -27,21 +27,21 @@ export default function SkillChallengeView({
   const progress = getChallengeProgress(challenge);
 
   return (
-    <div className="bg-dark-800 border border-dark-600 rounded-lg overflow-hidden">
+    <div className="bg-slate-900 border border-slate-700 rounded-lg overflow-hidden">
       {/* Header */}
-      <div className="bg-dark-700 px-4 py-3 border-b border-dark-600">
+      <div className="bg-slate-800 px-4 py-3 border-b border-slate-700">
         <h2 className="font-cinzel text-lg text-primary-400">{challenge.name}</h2>
-        <p className="text-sm text-dark-300">{challenge.description}</p>
+        <p className="text-sm text-slate-400">{challenge.description}</p>
       </div>
 
       {/* Progress bars */}
-      <div className="px-4 py-3 space-y-2 border-b border-dark-600">
+      <div className="px-4 py-3 space-y-2 border-b border-slate-700">
         <div>
           <div className="flex justify-between text-xs mb-1">
             <span className="text-green-400">Successes: {progress.successFraction}</span>
-            <span className="text-dark-400">{progress.status}</span>
+            <span className="text-slate-500">{progress.status}</span>
           </div>
-          <div className="h-2 bg-dark-600 rounded-full overflow-hidden">
+          <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
             <div
               className="h-full bg-green-500 transition-all duration-500"
               style={{ width: `${Math.min(100, progress.successPct)}%` }}
@@ -52,7 +52,7 @@ export default function SkillChallengeView({
           <div className="flex justify-between text-xs mb-1">
             <span className="text-red-400">Failures: {progress.failureFraction}</span>
           </div>
-          <div className="h-2 bg-dark-600 rounded-full overflow-hidden">
+          <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
             <div
               className="h-full bg-red-500 transition-all duration-500"
               style={{ width: `${Math.min(100, progress.failurePct)}%` }}
@@ -79,7 +79,7 @@ export default function SkillChallengeView({
 
         {/* Narration log */}
         {challenge.narration.length > 0 && !lastResult && (
-          <div className="bg-dark-700 rounded p-3 text-xs text-dark-300 max-h-32 overflow-y-auto space-y-1">
+          <div className="bg-slate-800 rounded p-3 text-xs text-slate-400 max-h-32 overflow-y-auto space-y-1">
             {challenge.narration.map((n, i) => (
               <p key={i}>{n}</p>
             ))}
@@ -115,7 +115,7 @@ export default function SkillChallengeView({
           <>
             {/* Skill selection */}
             <div>
-              <p className="text-xs text-dark-400 font-medium mb-2">Choose a skill:</p>
+              <p className="text-xs text-slate-500 font-medium mb-2">Choose a skill:</p>
               <div className="grid grid-cols-2 gap-2">
                 {challenge.allowedSkills.map((s) => {
                   const justUsed =
@@ -129,16 +129,16 @@ export default function SkillChallengeView({
                         selectedSkill === s.skill
                           ? 'border-primary-500 bg-primary-900/30'
                           : justUsed
-                          ? 'border-amber-700 bg-dark-700 opacity-60'
-                          : 'border-dark-600 bg-dark-700 hover:border-dark-500'
+                          ? 'border-amber-700 bg-slate-800 opacity-60'
+                          : 'border-slate-700 bg-slate-800 hover:border-slate-600'
                       }`}
                     >
                       <span className="font-medium">{s.skill}</span>
-                      <span className="text-dark-500 ml-1">(DC {s.dc})</span>
+                      <span className="text-slate-600 ml-1">(DC {s.dc})</span>
                       {justUsed && (
                         <span className="text-amber-500 ml-1">(+2 DC)</span>
                       )}
-                      <p className="text-dark-400 mt-0.5">{s.description}</p>
+                      <p className="text-slate-500 mt-0.5">{s.description}</p>
                     </button>
                   );
                 })}
@@ -148,14 +148,14 @@ export default function SkillChallengeView({
             {/* Approach */}
             {selectedSkill && (
               <div>
-                <p className="text-xs text-dark-400 mb-1">
+                <p className="text-xs text-slate-500 mb-1">
                   Describe your approach (optional, creative approaches get a bonus):
                 </p>
                 <textarea
                   value={approach}
                   onChange={(e) => setApproach(e.target.value)}
                   placeholder="How do you use this skill?"
-                  className="w-full h-16 bg-dark-700 border border-dark-600 rounded p-2 text-sm text-dark-200 resize-none focus:outline-none focus:border-primary-500"
+                  className="w-full h-16 bg-slate-800 border border-slate-700 rounded p-2 text-sm text-slate-400 resize-none focus:outline-none focus:border-primary-500"
                 />
               </div>
             )}

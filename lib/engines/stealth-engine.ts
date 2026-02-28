@@ -14,6 +14,7 @@ import type {
 } from '@/lib/types/stealth';
 import type { Character } from '@/lib/types/character';
 import { d20 } from '@/lib/utils/dice';
+import { getProficiencyBonus } from '@/lib/utils/calculations';
 
 // ---- Stealth Roll ----
 
@@ -22,22 +23,37 @@ export function calculateStealth(
   extraModifiers: StealthModifier[] = []
 ): { roll: number; bonus: number; total: number; modifiers: StealthModifier[] } {
   const dexMod = character.abilityScores.dex.modifier;
-  const profBonus = Math.ceil(character.level / 4) + 1;
+  const profBonus = getProficiencyBonus(character.level);
   const hasStealth = character.skills.some(
     (s) => s.name.toLowerCase() === 'stealth' && s.proficient
   );
 
   const baseBonus = dexMod + (hasStealth ? profBonus : 0);
 
-  // Armor penalty
+  // Armor penalty — only medium and heavy armor impose stealth penalties
   const armorModifiers: StealthModifier[] = [];
   if (character.equipment.chest) {
-    // Heavy armor typically imposes disadvantage, we apply a flat penalty
-    armorModifiers.push({
-      source: 'armor',
-      modifier: -2,
-      description: 'Armor penalty to stealth',
-    });
+    const chestItem = character.inventory.find(
+      (name) => name.toLowerCase() === (character.equipment.chest || '').toLowerCase()
+    );
+    const armorName = (chestItem || character.equipment.chest || '').toLowerCase();
+    const isHeavy = /\b(plate|splint|chain\s?mail|ring\s?mail)\b/.test(armorName);
+    const isMedium = /\b(half[- ]plate|breastplate|scale|hide|chain\s?shirt)\b/.test(armorName);
+    if (isHeavy) {
+      armorModifiers.push({
+        source: 'armor',
+        modifier: -5,
+        description: 'Heavy armor stealth disadvantage (flat penalty)',
+      });
+    } else if (isMedium && !/\b(breastplate|half[- ]plate)\b/.test(armorName)) {
+      // Scale mail, hide, and chain shirt impose disadvantage; breastplate/half-plate do not
+      armorModifiers.push({
+        source: 'armor',
+        modifier: -2,
+        description: 'Medium armor stealth penalty',
+      });
+    }
+    // Light armor (leather, padded, studded leather) — no penalty
   }
 
   // Conditions

@@ -206,6 +206,7 @@ export async function callClaude(
   })
 
   const block = response.content[0]
+  if (!block) return ''
   return block.type === 'text' ? block.text : ''
 }
 
@@ -323,8 +324,10 @@ export async function generateImage(
       size,
       quality,
     })
+    const url = response.data?.[0]?.url;
+    if (!url) throw new Error('Image generation returned no URL (gpt-image-1)');
     return {
-      url: response.data?.[0]?.url ?? '',
+      url,
       revisedPrompt: response.data?.[0]?.revised_prompt,
       model,
     }
@@ -339,8 +342,10 @@ export async function generateImage(
     quality,
     style: options?.style ?? 'vivid',
   })
+  const url = response.data?.[0]?.url;
+  if (!url) throw new Error('Image generation returned no URL (dall-e-3)');
   return {
-    url: response.data?.[0]?.url ?? '',
+    url,
     revisedPrompt: response.data?.[0]?.revised_prompt,
     model,
   }
@@ -362,11 +367,24 @@ export async function callClaudeJSON<T>(
 
 IMPORTANT: Respond ONLY with valid JSON. No markdown, no explanation, no code blocks. Just raw JSON.`
 
-  const text = await callClaude(task, fullSystem, [{ role: 'user', content: userMessage }], options)
+  const maxAttempts = 2
+  let lastError: Error | null = null
 
-  // Strip any accidental markdown code fences
-  const cleaned = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
-  return JSON.parse(cleaned) as T
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const text = await callClaude(task, fullSystem, [{ role: 'user', content: userMessage }], options)
+
+    // Strip any accidental markdown code fences
+    const cleaned = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+    try {
+      return JSON.parse(cleaned) as T
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err))
+      // On first failure, retry — the model sometimes produces trailing text
+      if (attempt === 0) continue
+    }
+  }
+
+  throw new Error(`callClaudeJSON failed after ${maxAttempts} attempts: ${lastError?.message}`)
 }
 
 export async function callGPTJSON<T>(
@@ -375,41 +393,27 @@ export async function callGPTJSON<T>(
   userMessage: string,
   options?: { maxTokens?: number; model?: string }
 ): Promise<T> {
-  const text = await callGPT(task, [
-    { role: 'system', content: `${systemMessage}\n\nRespond ONLY with valid JSON. No markdown, no explanation.` },
-    { role: 'user', content: userMessage },
-  ], options)
+  const maxAttempts = 2
+  let lastError: Error | null = null
 
-  const cleaned = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
-  return JSON.parse(cleaned) as T
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const text = await callGPT(task, [
+      { role: 'system', content: `${systemMessage}\n\nRespond ONLY with valid JSON. No markdown, no explanation.` },
+      { role: 'user', content: userMessage },
+    ], options)
+
+    const cleaned = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+    try {
+      return JSON.parse(cleaned) as T
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err))
+      if (attempt === 0) continue
+    }
+  }
+
+  throw new Error(`callGPTJSON failed after ${maxAttempts} attempts: ${lastError?.message}`)
 }
 
-// ─── COST TRACKING (Optional Logging) ─────────────────────────────────────────
-
-export interface UsageRecord {
-  task: AITask
-  model: string
-  inputTokens: number
-  outputTokens: number
-  estimatedCostUSD: number
-  timestamp: number
-}
-
-const TOKEN_COSTS_PER_M: Record<string, { input: number; output: number }> = {
-  // Anthropic (from your screenshot)
-  'claude-opus-4-6':    { input: 5.00,  output: 25.00 },
-  'claude-sonnet-4-6':  { input: 3.00,  output: 15.00 },
-  'claude-haiku-4-5':   { input: 1.00,  output:  5.00 },
-  // OpenAI (from your GPT-5.2 screenshot)
-  'gpt-5.2':            { input: 1.75,  output: 14.00 },
-  'gpt-5':              { input: 1.25,  output: 10.00 },
-  'gpt-5-mini':         { input: 0.25,  output:  1.00 },
-  'o3':                 { input: 10.00, output: 40.00 },
-  'o4-mini':            { input: 1.10,  output:  4.40 },
-}
-
-export function estimateCost(model: string, inputTokens: number, outputTokens: number): number {
-  const costs = TOKEN_COSTS_PER_M[model]
-  if (!costs) return 0
-  return (inputTokens / 1_000_000) * costs.input + (outputTokens / 1_000_000) * costs.output
-}
+// ─── COST REFERENCE (not tracked at runtime) ──────────────────────────────────
+// Anthropic: opus $5/$25, sonnet $3/$15, haiku $1/$5 per million tokens
+// OpenAI: gpt-5.2 $1.75/$14, gpt-5 $1.25/$10, gpt-5-mini $0.25/$1, o3 $10/$40, o4-mini $1.10/$4.40

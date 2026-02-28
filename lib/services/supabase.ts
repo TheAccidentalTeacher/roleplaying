@@ -27,11 +27,18 @@ export function getSupabase(): SupabaseClient {
 }
 
 // Server-side client for API routes (uses service role key — bypasses RLS)
+let adminInstance: SupabaseClient | null = null;
+
 export function getSupabaseAdmin(): SupabaseClient {
+  if (adminInstance) return adminInstance;
   const serviceKey = process.env.SUPABASE_SERVICE_KEY ?? '';
-  return createClient(supabaseUrl, serviceKey, {
+  if (!serviceKey) {
+    console.warn('[Supabase] Missing SUPABASE_SERVICE_KEY. Server-side DB calls will fail.');
+  }
+  adminInstance = createClient(supabaseUrl, serviceKey, {
     auth: { persistSession: false },
   });
+  return adminInstance;
 }
 
 export default getSupabase;

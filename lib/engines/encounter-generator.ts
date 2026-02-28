@@ -4,9 +4,9 @@
 // Reference: ENCOUNTER-SYSTEM.md
 // ============================================================
 
-import type { EnemyStatBlock, EncounterSeed, BestiaryEntry } from '@/lib/types/encounter';
+import type { EnemyStatBlock } from '@/lib/types/encounter';
 import type { Character } from '@/lib/types/character';
-import type { WorldRecord, Genre } from '@/lib/types/world';
+import type { WorldRecord } from '@/lib/types/world';
 import type { TerrainType, TimeOfDay, WeatherCondition } from '@/lib/types/exploration';
 import { d20, d6, d4 } from '@/lib/utils/dice';
 
@@ -74,7 +74,7 @@ export function buildEncounterPrompt(params: {
   character: Character;
   terrain: TerrainType;
   timeOfDay: TimeOfDay;
-  difficulty: 'easy' | 'medium' | 'hard' | 'deadly';
+  difficulty: 'easy' | 'moderate' | 'hard' | 'deadly';
   context?: string;
   regionName?: string;
 }): string {
@@ -182,7 +182,14 @@ export function parseAIEncounter(json: Record<string, unknown>): {
       int: abs.int ?? (e.int as number) ?? 10,
       wis: abs.wis ?? (e.wis as number) ?? 10,
       cha: abs.cha ?? (e.cha as number) ?? 10,
-      attacks: (e.attacks as EnemyStatBlock['attacks']) || [],
+      attacks: ((e.attacks as Array<Record<string, unknown>>) || []).map((atk) => ({
+        name: (atk.name as string) || 'Attack',
+        type: ((atk.type as string) || 'melee') as 'melee' | 'ranged' | 'spell' | 'special',
+        toHit: (atk.toHit as number) ?? (atk.attackBonus as number) ?? 0,
+        damage: (atk.damage as string) || '1d4',
+        damageType: (atk.damageType as string) || 'bludgeoning',
+        specialEffect: (atk.specialEffect as string) ?? (atk.description as string) ?? undefined,
+      })) as EnemyStatBlock['attacks'],
       specialAbilities: (e.specialAbilities as EnemyStatBlock['specialAbilities']) || [],
       reactions: (e.reactions as EnemyStatBlock['reactions']) || [],
       tactics: (e.tactics as EnemyStatBlock['tactics']) || {
@@ -201,7 +208,7 @@ export function parseAIEncounter(json: Record<string, unknown>): {
       intelligenceLevel: ((e.intelligenceLevel as string) || 'average') as EnemyStatBlock['intelligenceLevel'],
       threatContribution: (e.threatContribution as number) ?? 1,
       xpValue: (e.xpValue as number) || 50,
-      lootTable: e.lootTable as string | undefined,
+      lootTable: typeof e.lootTable === 'object' ? JSON.stringify(e.lootTable) : (e.lootTable as string | undefined),
       isAlive: true,
     };
   });
@@ -222,13 +229,13 @@ export function getEncounterDifficulty(
   totalEnemyCR: number,
   partyLevel: number,
   partySize: number = 1
-): 'trivial' | 'easy' | 'medium' | 'hard' | 'deadly' {
+): 'trivial' | 'easy' | 'moderate' | 'hard' | 'deadly' {
   const effectiveCR = totalEnemyCR / partySize;
   const ratio = effectiveCR / partyLevel;
 
   if (ratio <= 0.25) return 'trivial';
   if (ratio <= 0.5) return 'easy';
-  if (ratio <= 1.0) return 'medium';
+  if (ratio <= 1.0) return 'moderate';
   if (ratio <= 1.5) return 'hard';
   return 'deadly';
 }

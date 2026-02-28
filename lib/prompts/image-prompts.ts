@@ -3,8 +3,6 @@
 // Constructs detailed, art-style-aware prompts for image gen.
 // ============================================================
 
-import type { Genre } from '@/lib/types/world';
-
 // Map genre to default art style
 const GENRE_ART_STYLES: Record<string, string> = {
   'high-fantasy': 'epic fantasy art, detailed oil painting style, dramatic lighting, rich colors',

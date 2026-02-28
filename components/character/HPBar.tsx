@@ -38,21 +38,21 @@ export default function HPBar({
       {/* Numbers */}
       {showNumbers && (
         <div className="flex justify-between text-xs mb-0.5">
-          <span className="text-dark-300">HP</span>
+          <span className="text-slate-400">HP</span>
           <span>
-            <span className={current <= max * 0.3 ? 'text-red-400 font-bold' : 'text-dark-200'}>
+            <span className={current <= max * 0.3 ? 'text-red-400 font-bold' : 'text-slate-400'}>
               {current}
             </span>
             {temporary > 0 && (
               <span className="text-cyan-400">(+{temporary})</span>
             )}
-            <span className="text-dark-500">/{max}</span>
+            <span className="text-slate-600">/{max}</span>
           </span>
         </div>
       )}
 
       {/* Bar */}
-      <div className={`w-full ${heights[size]} bg-dark-700 rounded-full overflow-hidden relative`}>
+      <div className={`w-full ${heights[size]} bg-slate-800 rounded-full overflow-hidden relative`}>
         {/* HP portion */}
         <div
           className={`absolute left-0 top-0 h-full rounded-full ${getBarColor(hpPercent)} ${

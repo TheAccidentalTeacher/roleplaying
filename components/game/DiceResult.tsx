@@ -41,7 +41,7 @@ export default function DiceResult({
               ? 'bg-green-900/20 border-green-500/30'
               : success === false
                 ? 'bg-red-900/20 border-red-500/30'
-                : 'bg-dark-800 border-dark-600'
+                : 'bg-slate-900 border-slate-700'
         }
         ${animate ? 'animate-slideUp' : ''}
       `}
@@ -49,7 +49,7 @@ export default function DiceResult({
     >
       {/* Label */}
       {label && (
-        <p className="text-xs text-dark-400 mb-1 font-medium">{label}</p>
+        <p className="text-xs text-slate-500 mb-1 font-medium">{label}</p>
       )}
 
       {/* Die visual */}
@@ -61,22 +61,22 @@ export default function DiceResult({
               ? 'text-amber-300 bg-amber-800/40'
               : isNatural1
                 ? 'text-red-400 bg-red-800/40'
-                : 'text-white bg-dark-700'
+                : 'text-white bg-slate-800'
             }
           `}
         >
           {total}
         </div>
-        <span className="absolute -top-1 -right-1 text-[10px] text-dark-400 bg-dark-800 px-1 rounded">
+        <span className="absolute -top-1 -right-1 text-[10px] text-slate-500 bg-slate-900 px-1 rounded">
           d{dieType}
         </span>
       </div>
 
       {/* Breakdown */}
       {breakdown ? (
-        <p className="text-xs text-dark-400">{breakdown}</p>
+        <p className="text-xs text-slate-500">{breakdown}</p>
       ) : modifier !== 0 ? (
-        <p className="text-xs text-dark-400">
+        <p className="text-xs text-slate-500">
           {roll} {modifier >= 0 ? '+' : ''}{modifier}
         </p>
       ) : null}
@@ -89,7 +89,7 @@ export default function DiceResult({
           }`}
         >
           {success ? '✓ SUCCESS' : '✗ FAILURE'}{' '}
-          <span className="font-normal text-dark-500">(DC {dc})</span>
+          <span className="font-normal text-slate-600">(DC {dc})</span>
         </p>
       )}
 
@@ -105,7 +105,7 @@ export default function DiceResult({
       {onClose && (
         <button
           onClick={onClose}
-          className="text-xs text-dark-500 hover:text-dark-300 mt-2 transition-colors"
+          className="text-xs text-slate-600 hover:text-slate-400 mt-2 transition-colors"
         >
           dismiss
         </button>

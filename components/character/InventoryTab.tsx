@@ -7,6 +7,64 @@ interface InventoryTabProps {
   character: Character;
 }
 
+// ---- Rarity inference from item name keywords ----
+
+type InferredRarity = 'junk' | 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary' | 'mythic' | 'artifact';
+
+const rarityKeywords: [RegExp, InferredRarity][] = [
+  [/\b(artifact|divine|godly)\b/i, 'artifact'],
+  [/\b(mythic|primordial)\b/i, 'mythic'],
+  [/\b(legendary|ancient|elder)\b/i, 'legendary'],
+  [/\b(epic|greater|superior)\b/i, 'epic'],
+  [/\b(rare|fine|enchanted|magic|magical|\+[2-3])\b/i, 'rare'],
+  [/\b(uncommon|quality|blessed|\+1)\b/i, 'uncommon'],
+  [/\b(rusty|broken|crude|worn|tattered|junk)\b/i, 'junk'],
+];
+
+const typeKeywords: [RegExp, string][] = [
+  [/\b(sword|axe|mace|dagger|bow|crossbow|staff|spear|halberd|hammer|rapier|scimitar|flail|lance|weapon|blade|glaive|club)\b/i, 'weapon'],
+  [/\b(armor|plate|chainmail|mail|breastplate|shield|helm|helmet|gauntlet)\b/i, 'armor'],
+  [/\b(potion|elixir|tonic|brew|draught|vial)\b/i, 'potion'],
+  [/\b(scroll|tome|spellbook|grimoire)\b/i, 'scroll'],
+  [/\b(ring|amulet|necklace|bracelet|pendant|circlet|crown|tiara)\b/i, 'magic'],
+  [/\b(ration|food|bread|meat|cheese|fruit|berry)\b/i, 'food'],
+  [/\b(rope|torch|lantern|tinderbox|tool|kit|pick|shovel)\b/i, 'tool'],
+  [/\b(arrow|bolt|bullet|ammunition)\b/i, 'ammunition'],
+  [/\b(gem|jewel|gold|coin|treasure|ruby|emerald|sapphire|diamond)\b/i, 'treasure'],
+  [/\b(key|lockpick)\b/i, 'key'],
+];
+
+const typeIcons: Record<string, string> = {
+  weapon: '⚔️', armor: '🛡️', potion: '🧪', scroll: '📜', magic: '✨',
+  food: '🍖', tool: '🔧', ammunition: '🏹', treasure: '💎', key: '🗝️',
+  unknown: '📦',
+};
+
+const rarityStyles: Record<InferredRarity, { border: string; text: string; dot: string }> = {
+  junk: { border: 'border-slate-700/40', text: 'text-slate-400', dot: 'bg-slate-500' },
+  common: { border: 'border-slate-600/40', text: 'text-slate-300', dot: 'bg-slate-400' },
+  uncommon: { border: 'border-green-500/30', text: 'text-green-400', dot: 'bg-green-500' },
+  rare: { border: 'border-blue-500/30', text: 'text-blue-400', dot: 'bg-blue-500' },
+  epic: { border: 'border-purple-500/30', text: 'text-purple-400', dot: 'bg-purple-500' },
+  legendary: { border: 'border-amber-500/30', text: 'text-amber-400', dot: 'bg-amber-500' },
+  mythic: { border: 'border-red-500/30', text: 'text-red-400', dot: 'bg-red-500' },
+  artifact: { border: 'border-amber-300/50', text: 'text-amber-300', dot: 'bg-amber-300' },
+};
+
+function inferRarity(name: string): InferredRarity {
+  for (const [pattern, rarity] of rarityKeywords) {
+    if (pattern.test(name)) return rarity;
+  }
+  return 'common';
+}
+
+function inferType(name: string): string {
+  for (const [pattern, type] of typeKeywords) {
+    if (pattern.test(name)) return type;
+  }
+  return 'unknown';
+}
+
 const EQUIP_SLOT_LABELS: Record<EquipSlot, string> = {
   head: '🎩 Head',
   neck: '📿 Neck',
@@ -73,19 +131,29 @@ export default function InventoryTab({ character }: InventoryTabProps) {
         </h4>
         {equippedSlots.length > 0 ? (
           <div className="space-y-1">
-            {equippedSlots.map((slot) => (
-              <div
-                key={slot}
-                className="flex items-center justify-between bg-slate-800/40 border border-slate-700/30 rounded-lg px-3 py-2"
-              >
-                <span className="text-[10px] text-slate-500 w-24 flex-shrink-0">
-                  {EQUIP_SLOT_LABELS[slot]}
-                </span>
-                <span className="text-xs text-slate-200 truncate flex-1 text-right">
-                  {character.equipment[slot]}
-                </span>
-              </div>
-            ))}
+            {equippedSlots.map((slot) => {
+              const itemName = character.equipment[slot] || '';
+              const rarity = inferRarity(itemName);
+              const styles = rarityStyles[rarity];
+              return (
+                <div
+                  key={slot}
+                  className={`flex items-center justify-between rounded-lg px-3 py-2 border ${styles.border} bg-slate-800/40`}
+                >
+                  <span className="text-[10px] text-slate-500 w-24 flex-shrink-0">
+                    {EQUIP_SLOT_LABELS[slot]}
+                  </span>
+                  <div className="flex items-center gap-1.5 flex-1 justify-end min-w-0">
+                    <span className={`text-xs font-medium truncate ${styles.text}`}>
+                      {itemName}
+                    </span>
+                    {rarity !== 'common' && (
+                      <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${styles.dot}`} title={rarity} />
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         ) : (
           <p className="text-xs text-slate-600 italic text-center py-2">
@@ -102,16 +170,28 @@ export default function InventoryTab({ character }: InventoryTabProps) {
           </h4>
         </div>
         {character.inventory.length > 0 ? (
-          <div className="space-y-0.5 max-h-60 overflow-y-auto">
-            {character.inventory.map((item, i) => (
-              <div
-                key={i}
-                className="flex items-center gap-2 px-3 py-1.5 bg-slate-800/30 rounded text-xs text-slate-300 hover:bg-slate-800/50 transition-colors"
-              >
-                <span className="text-slate-600">•</span>
-                {item}
-              </div>
-            ))}
+          <div className="space-y-1 max-h-60 overflow-y-auto">
+            {character.inventory.map((item, i) => {
+              const rarity = inferRarity(item);
+              const itemType = inferType(item);
+              const styles = rarityStyles[rarity];
+              const icon = typeIcons[itemType] || typeIcons.unknown;
+
+              return (
+                <div
+                  key={`${item}-${i}`}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-lg border transition-colors hover:brightness-110 cursor-default ${styles.border} bg-slate-800/30`}
+                >
+                  <span className="text-sm flex-shrink-0">{icon}</span>
+                  <span className={`text-xs font-medium flex-1 truncate ${styles.text}`}>
+                    {item}
+                  </span>
+                  {rarity !== 'common' && (
+                    <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${styles.dot}`} title={rarity} />
+                  )}
+                </div>
+              );
+            })}
           </div>
         ) : (
           <p className="text-xs text-slate-600 italic text-center py-2">

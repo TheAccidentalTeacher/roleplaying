@@ -424,7 +424,7 @@ export interface RegionEncounterTable {
 export interface EncounterEntry {
   name: string;
   type: 'combat' | 'social' | 'environmental' | 'mystery' | 'merchant' | 'ambush';
-  difficulty: 'easy' | 'medium' | 'hard' | 'deadly';
+  difficulty: 'easy' | 'moderate' | 'hard' | 'deadly';
   description: string;
   creatures: string[];             // Creature template IDs or names
   levelRange: { min: number; max: number };

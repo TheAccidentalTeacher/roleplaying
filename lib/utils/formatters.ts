@@ -66,6 +66,7 @@ export function formatDate(clock: GameClock): string {
  */
 export function truncateText(text: string, maxLength: number): string {
   if (text.length <= maxLength) return text;
+  if (maxLength < 4) return text.slice(0, maxLength);
   return text.slice(0, maxLength - 3) + '...';
 }
 
@@ -80,7 +81,9 @@ export function formatXP(current: number, nextLevel: number): string {
  * Format a percentage: "73%"
  */
 export function formatPercent(value: number, decimals: number = 0): string {
-  return `${(value * 100).toFixed(decimals)}%`;
+  // If value > 1, treat as already a percentage
+  const pct = value > 1 ? value : value * 100;
+  return `${pct.toFixed(decimals)}%`;
 }
 
 /**
@@ -121,6 +124,7 @@ export function toTitleCase(str: string): string {
  */
 export function formatRarity(rarity: string): { label: string; color: string } {
   const rarityColors: Record<string, string> = {
+    junk: '#6b7280',
     common: '#9ca3af',
     uncommon: '#22c55e',
     rare: '#3b82f6',

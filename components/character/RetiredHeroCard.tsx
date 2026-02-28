@@ -22,10 +22,10 @@ export default function RetiredHeroCard({ legacy, isFavorite, onView, onToggleFa
   const badge = getRetirementBadge(legacy.causeOfRetirement);
 
   return (
-    <div className="bg-dark-800 rounded-lg border border-dark-600 overflow-hidden hover:border-dark-500 transition-all group">
+    <div className="bg-slate-900 rounded-lg border border-slate-700 overflow-hidden hover:border-slate-600 transition-all group">
       {/* Portrait row */}
       <div className="flex items-center gap-3 p-3">
-        <div className="w-14 h-14 rounded-lg bg-dark-700 flex items-center justify-center text-2xl shrink-0 border border-dark-600">
+        <div className="w-14 h-14 rounded-lg bg-slate-800 flex items-center justify-center text-2xl shrink-0 border border-slate-700">
           {legacy.portraitUrl ? (
             <img src={legacy.portraitUrl} alt={legacy.characterName} className="w-full h-full rounded-lg object-cover" />
           ) : (
@@ -45,7 +45,7 @@ export default function RetiredHeroCard({ legacy, isFavorite, onView, onToggleFa
               </button>
             )}
           </div>
-          <p className="text-xs text-dark-400">
+          <p className="text-xs text-slate-500">
             Level {legacy.characterLevel} {legacy.characterClass}
           </p>
           <p className={`text-[10px] ${badge.color}`}>
@@ -62,18 +62,18 @@ export default function RetiredHeroCard({ legacy, isFavorite, onView, onToggleFa
       </div>
 
       {/* Quick stats */}
-      <div className="grid grid-cols-3 gap-px bg-dark-700">
-        <div className="bg-dark-800 px-2 py-1 text-center">
+      <div className="grid grid-cols-3 gap-px bg-slate-800">
+        <div className="bg-slate-900 px-2 py-1 text-center">
           <p className="text-xs font-bold">{legacy.questsCompleted}</p>
-          <p className="text-[9px] text-dark-500">Quests</p>
+          <p className="text-[9px] text-slate-600">Quests</p>
         </div>
-        <div className="bg-dark-800 px-2 py-1 text-center">
+        <div className="bg-slate-900 px-2 py-1 text-center">
           <p className="text-xs font-bold">{legacy.enemiesDefeated}</p>
-          <p className="text-[9px] text-dark-500">Foes</p>
+          <p className="text-[9px] text-slate-600">Foes</p>
         </div>
-        <div className="bg-dark-800 px-2 py-1 text-center">
+        <div className="bg-slate-900 px-2 py-1 text-center">
           <p className="text-xs font-bold">{legacy.achievements.length}</p>
-          <p className="text-[9px] text-dark-500">Achieve</p>
+          <p className="text-[9px] text-slate-600">Achieve</p>
         </div>
       </div>
 
@@ -81,7 +81,7 @@ export default function RetiredHeroCard({ legacy, isFavorite, onView, onToggleFa
       {onView && (
         <button
           onClick={onView}
-          className="w-full py-2 text-xs text-dark-400 hover:text-dark-200 bg-dark-700/50 hover:bg-dark-700 transition-colors"
+          className="w-full py-2 text-xs text-slate-500 hover:text-slate-400 bg-slate-800/50 hover:bg-slate-800 transition-colors"
         >
           View Legacy →
         </button>

@@ -5,8 +5,6 @@
 
 import type {
   SessionStructure,
-  SessionOpening,
-  SessionClosing,
   PacingState,
   SessionPhase,
 } from '@/lib/types/session';
@@ -78,15 +76,8 @@ export function setPhase(
 }
 
 // ---- Pacing Engine ----
-
-export function updatePacing(
-  session: SessionStructure,
-  updates: Partial<PacingState>
-): SessionStructure {
-  const pacing = { ...session.pacingState, ...updates };
-  pacing.suggestedNextEncounterType = recommendEncounterType(pacing, session);
-  return { ...session, pacingState: pacing };
-}
+// NOTE: updatePacing lives in chronicle-engine.ts (canonical source).
+// This file provides recommendEncounterType and recordEncounter only.
 
 function recommendEncounterType(
   pacing: PacingState,

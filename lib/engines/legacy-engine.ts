@@ -8,7 +8,6 @@ import type { Character } from '@/lib/types/character';
 import type { WorldRecord } from '@/lib/types/world';
 import type {
   CharacterLegacy,
-  Achievement,
   NewGamePlusConfig,
   HallOfHeroesEntry,
 } from '@/lib/types/session';
@@ -164,101 +163,5 @@ The epilogue should:
 - End with a memorable final line`;
 }
 
-// ---- Achievement Checking ----
-
-export function checkAchievements(
-  character: Character,
-  event: string,
-  existingAchievements: Achievement[]
-): Achievement[] {
-  const earned: Achievement[] = [];
-  const has = (id: string) => existingAchievements.some((a) => a.id === id);
-  const now = new Date().toISOString();
-
-  // Level achievements
-  if (character.level >= 5 && !has('level-5')) {
-    earned.push({
-      id: 'level-5',
-      name: 'Seasoned Adventurer',
-      description: 'Reach level 5',
-      icon: '⭐',
-      rarity: 'common',
-      earnedAt: now,
-      characterId: character.id,
-    });
-  }
-  if (character.level >= 10 && !has('level-10')) {
-    earned.push({
-      id: 'level-10',
-      name: 'Veteran Hero',
-      description: 'Reach level 10',
-      icon: '🌟',
-      rarity: 'uncommon',
-      earnedAt: now,
-      characterId: character.id,
-    });
-  }
-  if (character.level >= 20 && !has('level-20')) {
-    earned.push({
-      id: 'level-20',
-      name: 'Living Legend',
-      description: 'Reach level 20',
-      icon: '👑',
-      rarity: 'legendary',
-      earnedAt: now,
-      characterId: character.id,
-    });
-  }
-
-  // Gold achievements
-  if (character.gold >= 1000 && !has('rich-1k')) {
-    earned.push({
-      id: 'rich-1k',
-      name: 'Well Off',
-      description: 'Accumulate 1,000 gold',
-      icon: '💰',
-      rarity: 'common',
-      earnedAt: now,
-      characterId: character.id,
-    });
-  }
-
-  // Event-based
-  if (event === 'first-combat-victory' && !has('first-blood')) {
-    earned.push({
-      id: 'first-blood',
-      name: 'First Blood',
-      description: 'Win your first combat encounter',
-      icon: '⚔️',
-      rarity: 'common',
-      earnedAt: now,
-      characterId: character.id,
-    });
-  }
-
-  if (event === 'critical-hit' && !has('crit-master')) {
-    earned.push({
-      id: 'crit-master',
-      name: 'Critical Strike',
-      description: 'Land a critical hit',
-      icon: '💥',
-      rarity: 'common',
-      earnedAt: now,
-      characterId: character.id,
-    });
-  }
-
-  if (event === 'survived-deadly-encounter' && !has('death-defier')) {
-    earned.push({
-      id: 'death-defier',
-      name: 'Death Defier',
-      description: 'Survive a deadly encounter',
-      icon: '💀',
-      rarity: 'rare',
-      earnedAt: now,
-      characterId: character.id,
-    });
-  }
-
-  return earned;
-}
+// NOTE: Achievement checking is handled by achievement-engine.ts (canonical source).
+// Previously a duplicate checkAchievements existed here — removed to avoid conflicting names/definitions.

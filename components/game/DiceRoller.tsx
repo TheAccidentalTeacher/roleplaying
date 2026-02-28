@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { roll, rollWithModifier } from '@/lib/utils/dice';
-import { getAbilityModifier, getSkillBonus } from '@/lib/utils/calculations';
+import { useState, useCallback, useRef, useEffect } from 'react';
+import { roll } from '@/lib/utils/dice';
+import { getAbilityModifier } from '@/lib/utils/calculations';
 
-interface DiceCheck {
+export interface DiceCheck {
   type: 'ability' | 'skill' | 'attack' | 'saving_throw' | 'custom';
   ability?: string;
   skill?: string;
@@ -45,6 +45,14 @@ export default function DiceRoller({
   const [rolling, setRolling] = useState(false);
   const [displayNumber, setDisplayNumber] = useState<number | null>(null);
   const [result, setResult] = useState<DiceRollResult | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Clean up interval on unmount
+  useEffect(() => {
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, []);
 
   // Calculate the modifier for this check
   const calculateModifier = (): number => {
@@ -92,11 +100,13 @@ export default function DiceRoller({
 
     // Animate: flash random numbers for ~1 second
     let count = 0;
-    const interval = setInterval(() => {
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    intervalRef.current = setInterval(() => {
       setDisplayNumber(Math.floor(Math.random() * 20) + 1);
       count++;
       if (count >= 15) {
-        clearInterval(interval);
+        clearInterval(intervalRef.current!);
+        intervalRef.current = null;
 
         // Actual roll
         let naturalRoll: number;
@@ -134,8 +144,6 @@ export default function DiceRoller({
         setRolling(false);
       }
     }, 60);
-
-    return () => clearInterval(interval);
   }, [check, mod, formatMod, label]);
 
   const handleCommit = () => {

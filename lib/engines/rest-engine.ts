@@ -6,7 +6,6 @@
 // ============================================================
 
 import type {
-  RestType,
   CampSetup,
   CampActivity,
   CampfireActivity,
@@ -18,7 +17,7 @@ import type {
   ExhaustionState,
 } from '@/lib/types/rest';
 import type { Character } from '@/lib/types/character';
-import { d20, d6, d8, d10, d12, roll } from '@/lib/utils/dice';
+import { roll } from '@/lib/utils/dice';
 
 // ---- Exhaustion effects ----
 

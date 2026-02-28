@@ -34,25 +34,25 @@ export default function TravelView({
   const arrived = currentSegmentIndex >= plan.segments.length;
 
   return (
-    <div className="bg-dark-800 border border-dark-600 rounded-lg overflow-hidden">
+    <div className="bg-slate-900 border border-slate-700 rounded-lg overflow-hidden">
       {/* Header */}
-      <div className="bg-dark-700 px-4 py-3 border-b border-dark-600">
+      <div className="bg-slate-800 px-4 py-3 border-b border-slate-700">
         <div className="flex items-center justify-between mb-1">
           <h2 className="font-cinzel text-lg text-primary-400">
             🧭 Traveling to {plan.to}
           </h2>
-          <span className="text-xs text-dark-400">
+          <span className="text-xs text-slate-500">
             {plan.totalDistanceHours}h total
           </span>
         </div>
         {/* Progress bar */}
-        <div className="h-2 bg-dark-600 rounded-full overflow-hidden">
+        <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
           <div
             className="h-full bg-primary-500 transition-all duration-500"
             style={{ width: `${arrived ? 100 : progress}%` }}
           />
         </div>
-        <div className="flex justify-between text-xs text-dark-400 mt-1">
+        <div className="flex justify-between text-xs text-slate-500 mt-1">
           <span>{plan.from}</span>
           <span>{plan.to}</span>
         </div>
@@ -66,7 +66,7 @@ export default function TravelView({
             <p className="text-lg text-primary-400 font-cinzel mb-2">
               You have arrived at {plan.to}
             </p>
-            <p className="text-sm text-dark-300 mb-4">
+            <p className="text-sm text-slate-400 mb-4">
               The journey took approximately {plan.totalDistanceHours} hours.
             </p>
             <button
@@ -81,16 +81,16 @@ export default function TravelView({
         {/* Current segment */}
         {!arrived && currentSeg && (
           <div className="space-y-4">
-            <div className="bg-dark-700 rounded p-3">
+            <div className="bg-slate-800 rounded p-3">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-dark-200">
+                <span className="text-sm font-medium text-slate-400">
                   Segment {currentSegmentIndex + 1} of {plan.segments.length}
                 </span>
-                <span className="text-xs text-dark-400">
+                <span className="text-xs text-slate-500">
                   {currentSeg.terrain} &middot; {currentSeg.distanceHours}h
                 </span>
               </div>
-              <p className="text-sm text-dark-300">{currentSeg.description}</p>
+              <p className="text-sm text-slate-400">{currentSeg.description}</p>
             </div>
 
             {/* Encounter warning */}
@@ -128,7 +128,7 @@ export default function TravelView({
                 </button>
                 <button
                   onClick={onCancel}
-                  className="px-4 py-2 bg-dark-600 hover:bg-dark-500 rounded text-sm font-medium transition-colors"
+                  className="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded text-sm font-medium transition-colors"
                 >
                   Stop
                 </button>
@@ -140,10 +140,10 @@ export default function TravelView({
         {/* Discoveries */}
         {discoveries.length > 0 && (
           <div className="mt-4">
-            <p className="text-xs text-dark-400 font-medium mb-2">Discoveries</p>
+            <p className="text-xs text-slate-500 font-medium mb-2">Discoveries</p>
             <div className="space-y-2">
               {discoveries.map((d, i) => (
-                <div key={i} className="bg-dark-700 border border-dark-600 rounded p-2 text-xs">
+                <div key={i} className="bg-slate-800 border border-slate-700 rounded p-2 text-xs">
                   <span className="text-amber-400 mr-1">
                     {d.type === 'landmark' && '🗿'}
                     {d.type === 'resource' && '💎'}
@@ -151,7 +151,7 @@ export default function TravelView({
                     {d.type === 'npc' && '👤'}
                     {d.type === 'anomaly' && '✨'}
                   </span>
-                  <span className="text-dark-300">{d.description}</span>
+                  <span className="text-slate-400">{d.description}</span>
                 </div>
               ))}
             </div>
@@ -159,7 +159,7 @@ export default function TravelView({
         )}
 
         {/* Resource consumption */}
-        <div className="mt-4 flex gap-4 text-xs text-dark-400">
+        <div className="mt-4 flex gap-4 text-xs text-slate-500">
           <span>Food: {plan.resourcesNeeded.foodRationsNeeded}</span>
           <span>Water: {plan.resourcesNeeded.waterNeeded}</span>
           {plan.resourcesNeeded.torchesNeeded > 0 && (

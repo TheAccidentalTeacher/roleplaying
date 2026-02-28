@@ -35,8 +35,8 @@ export default function SpellCard({ spell, onCast, disabled = false }: SpellCard
     <div
       className={`rounded-lg border transition-all ${
         spell.isPrepared
-          ? 'bg-dark-800 border-primary-700/50'
-          : 'bg-dark-900 border-dark-700 opacity-70'
+          ? 'bg-slate-900 border-primary-700/50'
+          : 'bg-slate-950 border-slate-800 opacity-70'
       }`}
     >
       {/* Header — always visible */}
@@ -52,39 +52,39 @@ export default function SpellCard({ spell, onCast, disabled = false }: SpellCard
               <span className="text-[10px] px-1 py-0.5 bg-purple-900/40 text-purple-300 rounded">R</span>
             )}
             {spell.level === 0 && (
-              <span className="text-[10px] px-1 py-0.5 bg-dark-600 text-dark-300 rounded">∞</span>
+              <span className="text-[10px] px-1 py-0.5 bg-slate-700 text-slate-400 rounded">∞</span>
             )}
           </div>
-          <p className="text-[10px] text-dark-400">
+          <p className="text-[10px] text-slate-500">
             {getLevelLabel(spell.level)} • {spell.school}
           </p>
         </div>
-        <span className="text-dark-500 text-xs">{expanded ? '▼' : '▶'}</span>
+        <span className="text-slate-600 text-xs">{expanded ? '▼' : '▶'}</span>
       </button>
 
       {/* Expanded Detail */}
       {expanded && (
-        <div className="px-3 pb-3 space-y-2 border-t border-dark-700 pt-2 animate-slideUp">
+        <div className="px-3 pb-3 space-y-2 border-t border-slate-800 pt-2 animate-slideUp">
           <div className="grid grid-cols-2 gap-1 text-xs">
             <div>
-              <span className="text-dark-500">Cast Time:</span>{' '}
-              <span className="text-dark-200">{spell.castingTime}</span>
+              <span className="text-slate-600">Cast Time:</span>{' '}
+              <span className="text-slate-400">{spell.castingTime}</span>
             </div>
             <div>
-              <span className="text-dark-500">Range:</span>{' '}
-              <span className="text-dark-200">{spell.range}</span>
+              <span className="text-slate-600">Range:</span>{' '}
+              <span className="text-slate-400">{spell.range}</span>
             </div>
             <div>
-              <span className="text-dark-500">Duration:</span>{' '}
-              <span className="text-dark-200">{spell.duration}</span>
+              <span className="text-slate-600">Duration:</span>{' '}
+              <span className="text-slate-400">{spell.duration}</span>
             </div>
             <div>
-              <span className="text-dark-500">Components:</span>{' '}
-              <span className="text-dark-200">{spell.components}</span>
+              <span className="text-slate-600">Components:</span>{' '}
+              <span className="text-slate-400">{spell.components}</span>
             </div>
           </div>
 
-          <p className="text-xs text-dark-300">{spell.description}</p>
+          <p className="text-xs text-slate-400">{spell.description}</p>
 
           {spell.damage && (
             <p className="text-xs text-red-400">Damage: {spell.damage}</p>
@@ -104,7 +104,7 @@ export default function SpellCard({ spell, onCast, disabled = false }: SpellCard
               disabled={disabled || !spell.isPrepared}
               className={`w-full mt-1 py-1.5 rounded text-xs font-medium transition-colors ${
                 disabled || !spell.isPrepared
-                  ? 'bg-dark-700 text-dark-500 cursor-not-allowed'
+                  ? 'bg-slate-800 text-slate-600 cursor-not-allowed'
                   : 'bg-primary-600 hover:bg-primary-500 text-white'
               }`}
             >

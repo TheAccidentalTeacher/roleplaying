@@ -62,7 +62,7 @@ export default function CombatLog({ entries, narration }: CombatLogProps) {
           const isPlayer = entry.actorName && !entry.actorId.startsWith('enemy-');
           return (
             <div
-              key={i}
+              key={`${entry.actorId}-${entry.action}-${i}`}
               className={`text-xs py-1 px-1.5 rounded ${
                 isPlayer
                   ? 'text-sky-300/90'

@@ -6,7 +6,6 @@
 
 import type {
   Merchant,
-  MerchantItem,
   HaggleAttempt,
   Transaction,
   PriceModifier,

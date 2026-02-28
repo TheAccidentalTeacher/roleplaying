@@ -1,13 +1,38 @@
 'use client';
 
+import { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { roll } from '@/lib/utils/dice';
 
 interface MessageBubbleProps {
   role: 'user' | 'assistant' | 'system';
   content: string;
   timestamp?: number;
   onActionClick?: (action: string) => void;
+}
+
+/** Detect "Roll dN+M for ..." patterns in DM text */
+interface DiceRequest {
+  full: string;     // e.g. "Roll a d20 + 3 for Perception"
+  sides: number;    // 20
+  modifier: number; // 3
+  label: string;    // "Perception"
+}
+
+function detectDiceRolls(text: string): DiceRequest[] {
+  const pattern = /\*?\*?Roll\s+(?:a\s+)?d(\d+)\s*(?:\+\s*(\d+))?\s*(?:for\s+(.+?))?(?:\*?\*?)/gi;
+  const results: DiceRequest[] = [];
+  let match: RegExpExecArray | null;
+  while ((match = pattern.exec(text)) !== null) {
+    results.push({
+      full: match[0],
+      sides: parseInt(match[1], 10),
+      modifier: match[2] ? parseInt(match[2], 10) : 0,
+      label: match[3]?.replace(/\*+$/g, '').trim() || 'Check',
+    });
+  }
+  return results;
 }
 
 export default function MessageBubble({
@@ -64,6 +89,7 @@ export default function MessageBubble({
 
   // Assistant / DM message
   const { narrative, actions } = parseActions(content);
+  const diceRequests = detectDiceRolls(narrative);
 
   return (
     <div className="flex justify-start my-4">
@@ -89,16 +115,22 @@ export default function MessageBubble({
           prose-code:text-amber-300 prose-code:bg-slate-800 prose-code:rounded prose-code:px-1
           prose-table:text-xs prose-td:px-2 prose-td:py-1 prose-th:px-2 prose-th:py-1
           prose-hr:border-slate-700
+          prose-img:rounded-xl prose-img:shadow-lg prose-img:border prose-img:border-slate-600/50 prose-img:max-h-[400px] prose-img:w-full prose-img:object-cover
         ">
           <ReactMarkdown remarkPlugins={[remarkGfm]}>{narrative}</ReactMarkdown>
         </div>
+
+        {/* Dice Roll Buttons */}
+        {diceRequests.length > 0 && onActionClick && (
+          <DiceRollButtons requests={diceRequests} onRollResult={(result) => onActionClick(result)} />
+        )}
 
         {/* Action Choices */}
         {actions.length > 0 && onActionClick && (
           <div className="flex flex-wrap gap-2 pl-2">
             {actions.map((action, i) => (
               <button
-                key={i}
+                key={`action-${i}-${action}`}
                 onClick={() => onActionClick(action)}
                 className="px-3 py-1.5 bg-slate-800 border border-sky-500/30 rounded-lg text-sm text-sky-300 hover:bg-sky-500/10 hover:border-sky-500/50 transition-all text-left"
               >
@@ -108,6 +140,62 @@ export default function MessageBubble({
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+// ---- Dice Roll Button Component ----
+function DiceRollButtons({
+  requests,
+  onRollResult,
+}: {
+  requests: DiceRequest[];
+  onRollResult: (result: string) => void;
+}) {
+  const [results, setResults] = useState<Record<number, { dieRoll: number; total: number } | null>>({});
+
+  const handleRoll = (idx: number, req: DiceRequest) => {
+    if (results[idx]) return; // Already rolled
+    const dieRoll = roll(req.sides);
+    const total = dieRoll + req.modifier;
+    setResults((prev) => ({ ...prev, [idx]: { dieRoll, total } }));
+    // Send the result as a message to the DM
+    const modStr = req.modifier > 0 ? ` + ${req.modifier}` : '';
+    onRollResult(
+      `I rolled a d${req.sides}${modStr} for ${req.label}: 🎲 ${dieRoll}${modStr} = **${total}**`
+    );
+  };
+
+  return (
+    <div className="flex flex-wrap gap-2 pl-2">
+      {requests.map((req, i) => {
+        const result = results[i];
+        const modStr = req.modifier > 0 ? `+${req.modifier}` : '';
+        return (
+          <button
+            key={`dice-${req.label}-${req.sides}`}
+            onClick={() => handleRoll(i, req)}
+            disabled={!!result}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${
+              result
+                ? 'bg-amber-900/30 border border-amber-500/30 text-amber-300 cursor-default'
+                : 'bg-amber-600/20 border border-amber-500/40 text-amber-300 hover:bg-amber-500/30 hover:border-amber-400 animate-pulse'
+            }`}
+          >
+            <span className="text-lg">🎲</span>
+            {result ? (
+              <span>
+                d{req.sides}{modStr} for {req.label}: {result.dieRoll}
+                {req.modifier > 0 ? ` + ${req.modifier}` : ''} = <strong>{result.total}</strong>
+              </span>
+            ) : (
+              <span>
+                Roll d{req.sides}{modStr} for {req.label}
+              </span>
+            )}
+          </button>
+        );
+      })}
     </div>
   );
 }

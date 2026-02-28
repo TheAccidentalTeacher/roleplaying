@@ -9,7 +9,6 @@ import type { NPC } from '@/lib/types/npc';
 import type { Item } from '@/lib/types/items';
 import type { Quest } from '@/lib/types/quest';
 import type { ChronicleEntry } from '@/lib/types/session';
-import type { SaveState } from '@/lib/types/session';
 import type { BestiaryEntry } from '@/lib/types/encounter';
 
 // ---- Row Types (what Supabase stores) ----
@@ -94,7 +93,7 @@ interface SaveStateRow {
   id: string;
   character_id: string;
   save_type: 'auto' | 'quick' | 'manual';
-  save_data: SaveState;
+  save_data: Record<string, unknown>;
   label: string | null;
   created_at: string;
 }
@@ -144,10 +143,15 @@ export async function getWorld(worldId: string): Promise<WorldRow | null> {
   return result.data as WorldRow;
 }
 
-export async function updateWorld(worldId: string, world: Partial<WorldRecord>): Promise<void> {
+export async function updateWorld(worldId: string, updates: Partial<WorldRecord>): Promise<void> {
+  // Read current data, merge, then write — avoids partial overwrite of JSONB
+  const existing = await getWorld(worldId);
+  const merged = existing
+    ? { ...(existing.world_data as unknown as Record<string, unknown>), ...(updates as unknown as Record<string, unknown>) }
+    : updates;
   const result = await db()
     .from('worlds')
-    .update({ world_data: world as unknown as Record<string, unknown>, updated_at: new Date().toISOString() })
+    .update({ world_data: merged as unknown as Record<string, unknown>, updated_at: new Date().toISOString() })
     .eq('id', worldId);
   handleError(result);
 }
@@ -187,11 +191,16 @@ export async function getCharacter(characterId: string): Promise<CharacterRow | 
   return result.data as CharacterRow;
 }
 
-export async function updateCharacter(characterId: string, character: Partial<Character>): Promise<void> {
+export async function updateCharacter(characterId: string, updates: Partial<Character>): Promise<void> {
+  // Read current data, merge, then write — avoids partial overwrite of JSONB
+  const existing = await getCharacter(characterId);
+  const merged = existing
+    ? { ...(existing.character_data as unknown as Record<string, unknown>), ...(updates as unknown as Record<string, unknown>) }
+    : updates;
   const result = await db()
     .from('characters')
     .update({
-      character_data: character as unknown as Record<string, unknown>,
+      character_data: merged as unknown as Record<string, unknown>,
       updated_at: new Date().toISOString(),
     })
     .eq('id', characterId);
@@ -317,9 +326,14 @@ export async function getNPC(npcId: string): Promise<NPCRow | null> {
 }
 
 export async function updateNPC(npcId: string, npc: Partial<NPC>): Promise<void> {
+  // Read current data, merge, then write — avoids partial overwrite of JSONB
+  const existing = await getNPC(npcId);
+  const merged = existing
+    ? { ...(existing.npc_data as unknown as Record<string, unknown>), ...(npc as unknown as Record<string, unknown>) }
+    : npc;
   const result = await db()
     .from('npcs')
-    .update({ npc_data: npc as unknown as Record<string, unknown>, updated_at: new Date().toISOString() })
+    .update({ npc_data: merged as unknown as Record<string, unknown>, updated_at: new Date().toISOString() })
     .eq('id', npcId);
   handleError(result);
 }
@@ -400,8 +414,13 @@ export async function getQuest(questId: string): Promise<QuestRow | null> {
 }
 
 export async function updateQuest(questId: string, quest: Partial<Quest>, status?: string): Promise<void> {
+  // Read current data, merge, then write — avoids partial overwrite of JSONB
+  const existing = await getQuest(questId);
+  const mergedData = existing
+    ? { ...(existing.quest_data as unknown as Record<string, unknown>), ...(quest as unknown as Record<string, unknown>) }
+    : quest;
   const update: Record<string, unknown> = {
-    quest_data: quest as unknown as Record<string, unknown>,
+    quest_data: mergedData as unknown as Record<string, unknown>,
     updated_at: new Date().toISOString(),
   };
   if (status) update.status = status;
@@ -504,14 +523,15 @@ export async function getChronicle(characterId: string): Promise<ChronicleRow[]>
 // SAVE STATES
 // ============================================================
 
-export async function createSave(characterId: string, saveType: 'auto' | 'quick' | 'manual', saveData: SaveState, label?: string): Promise<SaveStateRow> {
+export async function createSave(characterId: string, saveType: 'auto' | 'quick' | 'manual', saveData: Record<string, unknown>, label?: string, localId?: string): Promise<SaveStateRow> {
   const result = await db()
     .from('save_states')
     .insert({
       character_id: characterId,
       save_type: saveType,
-      save_data: saveData as unknown as Record<string, unknown>,
+      save_data: saveData,
       label: label ?? null,
+      local_id: localId ?? null,
     })
     .select()
     .single();
@@ -520,7 +540,11 @@ export async function createSave(characterId: string, saveType: 'auto' | 'quick'
 }
 
 export async function loadSave(saveId: string): Promise<SaveStateRow | null> {
-  const result = await db().from('save_states').select('*').eq('id', saveId).single();
+  // Try by UUID first, then by local_id
+  let result = await db().from('save_states').select('*').eq('id', saveId).single();
+  if (result.error && result.error.message.includes('No rows')) {
+    result = await db().from('save_states').select('*').eq('local_id', saveId).single();
+  }
   if (result.error && result.error.message.includes('No rows')) return null;
   handleError(result);
   return result.data as SaveStateRow;
@@ -548,6 +572,11 @@ export async function deleteOldAutoSaves(characterId: string, keepCount: number 
 
   const idsToDelete = allAutoSaves.data.slice(keepCount).map((r: { id: string }) => r.id);
   await db().from('save_states').delete().in('id', idsToDelete);
+}
+
+export async function deleteSave(saveId: string): Promise<void> {
+  const result = await db().from('save_states').delete().eq('id', saveId);
+  handleError(result);
 }
 
 // ============================================================
@@ -582,8 +611,15 @@ export async function getBestiaryEntry(characterId: string, creatureKey: string)
 }
 
 export async function updateBestiaryEntry(id: string, entry: Partial<BestiaryEntry>, knowledgeTier?: number): Promise<void> {
+  // Read current data, merge, then write — avoids partial overwrite of JSONB
+  // Look up existing entry by id
+  const existingResult = await db().from('bestiary').select('*').eq('id', id).single();
+  const existing = existingResult.data as BestiaryRow | null;
+  const mergedData = existing
+    ? { ...(existing.entry_data as unknown as Record<string, unknown>), ...(entry as unknown as Record<string, unknown>) }
+    : entry;
   const update: Record<string, unknown> = {
-    entry_data: entry as unknown as Record<string, unknown>,
+    entry_data: mergedData as unknown as Record<string, unknown>,
     updated_at: new Date().toISOString(),
   };
   if (knowledgeTier !== undefined) update.knowledge_tier = knowledgeTier;

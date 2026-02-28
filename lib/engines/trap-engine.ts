@@ -8,12 +8,12 @@ import type {
   Trap,
   TrapCategory,
   TrapTier,
-  TrapEffect,
   PlayerTrap,
   Lock,
 } from '@/lib/types/stealth';
 import type { Character } from '@/lib/types/character';
 import { d20, rollDamage } from '@/lib/utils/dice';
+import { getProficiencyBonus } from '@/lib/utils/calculations';
 
 // ---- Trap Detection ----
 
@@ -27,7 +27,7 @@ export function detectTrap(
 
   // Passive perception check
   const wisMod = character.abilityScores.wis.modifier;
-  const profBonus = Math.ceil(character.level / 4) + 1;
+  const profBonus = getProficiencyBonus(character.level);
   const hasPerception = character.skills.some(
     (s) => s.name.toLowerCase() === 'perception' && s.proficient
   );
@@ -52,7 +52,7 @@ export function investigateTrap(
   }
 
   const intMod = character.abilityScores.int.modifier;
-  const profBonus = Math.ceil(character.level / 4) + 1;
+  const profBonus = getProficiencyBonus(character.level);
   const hasInvestigation = character.skills.some(
     (s) => s.name.toLowerCase() === 'investigation' && s.proficient
   );
@@ -87,7 +87,7 @@ export function disarmTrap(
   }
 
   const dexMod = character.abilityScores.dex.modifier;
-  const profBonus = Math.ceil(character.level / 4) + 1;
+  const profBonus = getProficiencyBonus(character.level);
   const hasThievesTools = character.proficiencies.tools.some(
     (t) => t.toLowerCase().includes('thieves')
   );
@@ -156,7 +156,7 @@ export function placePlayerTrap(
   trap: PlayerTrap
 ): { success: boolean; narration: string } {
   const dexMod = character.abilityScores.dex.modifier;
-  const profBonus = Math.ceil(character.level / 4) + 1;
+  const profBonus = getProficiencyBonus(character.level);
   const hasKit = character.proficiencies.tools.some(
     (t) => t.toLowerCase().includes('tinker') || t.toLowerCase().includes('trap')
   );
@@ -196,7 +196,7 @@ export function pickLock(
   }
 
   const dexMod = character.abilityScores.dex.modifier;
-  const profBonus = Math.ceil(character.level / 4) + 1;
+  const profBonus = getProficiencyBonus(character.level);
   const hasThievesTools = character.proficiencies.tools.some(
     (t) => t.toLowerCase().includes('thieves')
   );

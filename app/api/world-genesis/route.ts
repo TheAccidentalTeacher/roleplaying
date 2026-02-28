@@ -24,6 +24,19 @@ interface WorldGenesisRequest {
 }
 
 /**
+ * Get the hit die size for a class.
+ */
+function getHitDie(characterClass: string): number {
+  const hitDice: Record<string, number> = {
+    barbarian: 12,
+    fighter: 10, paladin: 10, ranger: 10,
+    bard: 8, cleric: 8, druid: 8, monk: 8, rogue: 8, warlock: 8,
+    sorcerer: 6, wizard: 6,
+  };
+  return hitDice[characterClass?.toLowerCase()] ?? 8;
+}
+
+/**
  * Build a full Character object from the creation input.
  */
 function buildCharacterFromInput(input: CharacterCreationInput, worldId: string): Character {
@@ -59,7 +72,7 @@ function buildCharacterFromInput(input: CharacterCreationInput, worldId: string)
       wis: makeScore(scores.wis),
       cha: makeScore(scores.cha),
     },
-    hitPoints: { current: 10 + conMod, max: 10 + conMod, temporary: 0, hitDice: { total: 1, remaining: 1, dieType: 8 } },
+    hitPoints: { current: 10 + conMod, max: 10 + conMod, temporary: 0, hitDice: { total: 1, remaining: 1, dieType: getHitDie(input.class) } },
     armorClass: 10 + dexMod,
     initiative: dexMod,
     speed: 30,
@@ -145,19 +158,24 @@ export async function POST(request: NextRequest) {
   (async () => {
     try {
       // ═══════════════════════════════════════════════════════
-      // GENERIC STEP EXECUTOR — loops through all 14 steps
-      // Each step gets the accumulated prior results as context
+      // PARALLELIZED STEP EXECUTOR
+      // Steps 1-7 are strictly sequential (each needs all prior).
+      // After step 7 we can parallelize:
+      //   Wave A: steps 8 (settlements) + 10 (bestiary)
+      //   Wave B: steps 9 (companions) + 11 (dungeons) + 12 (economy)
+      //   Wave C: steps 13 (campaign-arc) + 14 (relationships)
+      // Saves ~40-60s by running ~4 fewer sequential Claude calls.
       // ═══════════════════════════════════════════════════════
       let accumulated: Record<string, unknown> = {};
+      let progressCounter = 0;
 
-      for (let i = 0; i < GENESIS_STEPS.length; i++) {
-        const step = GENESIS_STEPS[i];
+      /** Run a single step, returning results (does NOT merge into accumulated) */
+      const runStep = async (stepIndex: number): Promise<Record<string, unknown>> => {
+        const step = GENESIS_STEPS[stepIndex];
         console.log(`[WorldGenesis] Step ${step.id}/${TOTAL_STEPS}: ${step.name}...`);
-        await send({ status: 'generating', phase: i, step: step.id, totalSteps: TOTAL_STEPS, label: step.label });
+        await send({ status: 'generating', phase: progressCounter, step: step.id, totalSteps: TOTAL_STEPS, label: step.label });
 
-        // Build the prompt — each step extracts its own targeted context from accumulated
         const prompt = step.buildPrompt(charInput, accumulated, playerSentence);
-
         const result = await callClaudeJSON<Record<string, unknown>>(
           'world_building',
           prompt.system,
@@ -165,11 +183,32 @@ export async function POST(request: NextRequest) {
           { maxTokens: prompt.maxTokens }
         );
 
-        // Merge this step's result into accumulated context
-        accumulated = { ...accumulated, ...result };
+        progressCounter++;
         console.log(`[WorldGenesis] Step ${step.id} complete.`);
-        await send({ status: 'generating', phase: i + 1, step: step.id, done: true });
+        await send({ status: 'generating', phase: progressCounter, step: step.id, done: true });
+        return result;
+      };
+
+      // ── Sequential phase: steps 1-7 (strict dependency chain) ──
+      for (let i = 0; i < 7; i++) {
+        const result = await runStep(i);
+        accumulated = { ...accumulated, ...result };
       }
+
+      // ── Wave A: steps 8 (settlements) + 10 (bestiary) in parallel ──
+      await send({ status: 'generating', phase: progressCounter, step: 8, totalSteps: TOTAL_STEPS, label: 'Building settlements & bestiary...' });
+      const [resA1, resA2] = await Promise.all([runStep(7), runStep(9)]); // index 7 = step 8, index 9 = step 10
+      accumulated = { ...accumulated, ...resA1, ...resA2 };
+
+      // ── Wave B: steps 9 (companions) + 11 (dungeons) + 12 (economy) in parallel ──
+      await send({ status: 'generating', phase: progressCounter, step: 9, totalSteps: TOTAL_STEPS, label: 'Creating companions, dungeons & economy...' });
+      const [resB1, resB2, resB3] = await Promise.all([runStep(8), runStep(10), runStep(11)]); // indices 8,10,11 = steps 9,11,12
+      accumulated = { ...accumulated, ...resB1, ...resB2, ...resB3 };
+
+      // ── Wave C: steps 13 (campaign-arc) + 14 (relationships) in parallel ──
+      await send({ status: 'generating', phase: progressCounter, step: 13, totalSteps: TOTAL_STEPS, label: 'Mapping campaign & weaving relationships...' });
+      const [resC1, resC2] = await Promise.all([runStep(12), runStep(13)]); // indices 12,13 = steps 13,14
+      accumulated = { ...accumulated, ...resC1, ...resC2 };
 
       // ═══════════════════════════════════════════════════════
       // ASSEMBLE: Merge all steps into a complete WorldRecord

@@ -26,9 +26,9 @@ export default function HeroCard({
   const hpPct = Math.round((character.hitPoints.current / character.hitPoints.max) * 100);
 
   return (
-    <div className="bg-dark-800 border border-dark-600 rounded-lg overflow-hidden hover:border-primary-600 transition-colors group">
+    <div className="bg-slate-900 border border-slate-700 rounded-lg overflow-hidden hover:border-primary-600 transition-colors group">
       {/* Portrait area */}
-      <div className="relative h-40 bg-dark-700 overflow-hidden">
+      <div className="relative h-40 bg-slate-800 overflow-hidden">
         {portraitUrl ? (
           <img
             src={portraitUrl}
@@ -41,7 +41,7 @@ export default function HeroCard({
           </div>
         )}
         {/* Level badge */}
-        <div className="absolute top-2 right-2 bg-dark-900/80 border border-primary-600 rounded-full w-10 h-10 flex items-center justify-center">
+        <div className="absolute top-2 right-2 bg-slate-950/80 border border-primary-600 rounded-full w-10 h-10 flex items-center justify-center">
           <span className="text-primary-400 font-bold text-sm">{character.level}</span>
         </div>
       </div>
@@ -51,7 +51,7 @@ export default function HeroCard({
         <h3 className="font-cinzel text-lg text-primary-400 mb-0.5 truncate">
           {character.name}
         </h3>
-        <p className="text-xs text-dark-400 mb-2">
+        <p className="text-xs text-slate-500 mb-2">
           {character.race} {character.class} &middot; {worldName}
         </p>
 
@@ -59,11 +59,11 @@ export default function HeroCard({
         <div className="mb-3">
           <div className="flex justify-between text-xs mb-0.5">
             <span className="text-red-400">HP</span>
-            <span className="text-dark-400">
+            <span className="text-slate-500">
               {character.hitPoints.current}/{character.hitPoints.max}
             </span>
           </div>
-          <div className="h-1.5 bg-dark-600 rounded-full overflow-hidden">
+          <div className="h-1.5 bg-slate-700 rounded-full overflow-hidden">
             <div
               className={`h-full rounded-full transition-all ${
                 hpPct > 50
@@ -78,7 +78,7 @@ export default function HeroCard({
         </div>
 
         {/* Stats row */}
-        <div className="flex justify-between text-xs text-dark-400 mb-3">
+        <div className="flex justify-between text-xs text-slate-500 mb-3">
           <span>XP: {character.xp}</span>
           <span>💰 {character.gold}g</span>
           <span>📍 {character.currentLocation || 'Unknown'}</span>
@@ -94,14 +94,14 @@ export default function HeroCard({
           </button>
           <button
             onClick={onViewChronicle}
-            className="px-3 py-2 bg-dark-600 hover:bg-dark-500 rounded text-sm transition-colors"
+            className="px-3 py-2 bg-slate-700 hover:bg-slate-600 rounded text-sm transition-colors"
             title="View Chronicle"
           >
             📜
           </button>
           <button
             onClick={onRetire}
-            className="px-3 py-2 bg-dark-600 hover:bg-red-900/40 rounded text-sm transition-colors"
+            className="px-3 py-2 bg-slate-700 hover:bg-red-900/40 rounded text-sm transition-colors"
             title="Retire Character"
           >
             🏛️
