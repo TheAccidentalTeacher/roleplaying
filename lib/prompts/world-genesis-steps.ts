@@ -236,7 +236,7 @@ function worldBible(acc: Acc, opts: BibleOpts): string {
 
 export function step01_worldConcept(c: CharacterCreationInput, _acc: Acc, playerSentence?: string): StepPrompt {
   return {
-    maxTokens: 3000,
+    maxTokens: 8000,
     system: `You are a WORLD ARCHITECT. Create the high concept for an original RPG world.
 ${charContext(c, playerSentence)}
 ${JSON_RULES}
@@ -269,7 +269,7 @@ Return JSON:
 export function step02_magicSystem(c: CharacterCreationInput, acc: Acc): StepPrompt {
   const bible = worldBible(acc, { core: true });
   return {
-    maxTokens: 3000,
+    maxTokens: 8000,
     system: `You are continuing to build the RPG world "${acc.worldName || '?'}". Design its magic and power system.
 ${charContext(c)}
 ${bible}
@@ -314,7 +314,7 @@ export function step03_history(c: CharacterCreationInput, acc: Acc): StepPrompt 
   const bible = worldBible(acc, { core: true, magic: true });
   const magicName = acc.magicSystem?.name || 'the magic system';
   return {
-    maxTokens: 4000,
+    maxTokens: 8000,
     system: `Continue building "${acc.worldName || '?'}". Create its deep history.
 ${charContext(c)}
 ${bible}
@@ -368,7 +368,7 @@ export function step04_factions(c: CharacterCreationInput, acc: Acc): StepPrompt
   const eraNames = acc.majorHistoricalEras?.map((e: Acc) => `"${e.name}"`).join(', ') || 'the historical eras';
   const catList = acc.catastrophes?.join('; ') || 'the catastrophes';
   return {
-    maxTokens: 5000,
+    maxTokens: 8000,
     system: `Continue building "${acc.worldName || '?'}". Create the political landscape.
 ${charContext(c)}
 ${bible}
@@ -421,7 +421,7 @@ export function step05_villain(c: CharacterCreationInput, acc: Acc): StepPrompt 
   const factionNames = acc.factions?.map((f: Acc) => `"${f.name}"`).join(', ') || 'the factions';
   const magicName = acc.magicSystem?.name || 'the magic system';
   return {
-    maxTokens: 3500,
+    maxTokens: 8000,
     system: `Continue building "${acc.worldName || '?'}". Create the MAIN VILLAIN.
 ${charContext(c)}
 ${bible}
@@ -477,7 +477,7 @@ export function step06_threat(c: CharacterCreationInput, acc: Acc): StepPrompt {
   const villainName = acc.villainCore?.name || 'the villain';
   const magicName = acc.magicSystem?.name || 'the magic system';
   return {
-    maxTokens: 3000,
+    maxTokens: 8000,
     system: `Continue building "${acc.worldName || '?'}". Create the main threat, central artifact, and prophecy.
 ${charContext(c)}
 ${bible}
@@ -537,7 +537,7 @@ export function step07_geography(c: CharacterCreationInput, acc: Acc): StepPromp
   const catList = acc.catastrophes?.join('; ') || 'the catastrophes';
   const villainName = acc.villainCore?.name || 'the villain';
   return {
-    maxTokens: 5000,
+    maxTokens: 8000,
     system: `Continue building "${acc.worldName || '?'}". Create the geography and regions.
 ${charContext(c)}
 ${bible}
@@ -595,7 +595,7 @@ export function step08_settlements(c: CharacterCreationInput, acc: Acc): StepPro
   const conflicts = acc.currentConflicts?.join('; ') || 'the ongoing conflicts';
   const currency = acc.currencyNames ? `${acc.currencyNames.primary}/${acc.currencyNames.secondary}/${acc.currencyNames.tertiary}` : 'local currency';
   return {
-    maxTokens: 5000,
+    maxTokens: 8000,
     system: `Continue building "${acc.worldName || '?'}". Detail the major settlements.
 ${charContext(c)}
 ${bible}
@@ -656,7 +656,7 @@ export function step09_companions(c: CharacterCreationInput, acc: Acc): StepProm
   const villainName = acc.villainCore?.name || 'the villain';
   const magicName = acc.magicSystem?.name || 'the magic system';
   return {
-    maxTokens: 5000,
+    maxTokens: 8000,
     system: `Continue building "${acc.worldName || '?'}". Create recruitable companion characters.
 ${charContext(c)}
 ${bible}
@@ -729,7 +729,7 @@ export function step10_bestiary(c: CharacterCreationInput, acc: Acc): StepPrompt
   const magicName = acc.magicSystem?.name || 'the magic system';
   const villainName = acc.villainCore?.name || 'the villain';
   return {
-    maxTokens: 5000,
+    maxTokens: 8000,
     system: `Continue building "${acc.worldName || '?'}". Create the bestiary — creatures native to this world.
 ${charContext(c)}
 ${bible}
@@ -787,7 +787,7 @@ export function step11_dungeons(c: CharacterCreationInput, acc: Acc): StepPrompt
   const artifactName = acc.centralArtifact?.name || 'the artifact';
   const magicName = acc.magicSystem?.name || 'the magic system';
   return {
-    maxTokens: 5000,
+    maxTokens: 8000,
     system: `Continue building "${acc.worldName || '?'}". Design the major dungeon and adventure sites.
 ${charContext(c)}
 ${bible}
@@ -857,7 +857,7 @@ export function step12_economyAndCrafting(c: CharacterCreationInput, acc: Acc): 
   const magicName = acc.magicSystem?.name || 'the magic system';
   const conflicts = acc.currentConflicts?.join('; ') || 'the ongoing conflicts';
   return {
-    maxTokens: 5000,
+    maxTokens: 8000,
     system: `Continue building "${acc.worldName || '?'}". Create the economy, crafting, and loot systems.
 ${charContext(c)}
 ${bible}
@@ -933,7 +933,7 @@ export function step13_campaignAndEncounters(c: CharacterCreationInput, acc: Acc
   const threatName = acc.mainThreat?.name || 'the threat';
   const creatureNames = acc.bestiary?.map((cr: Acc) => `"${cr.name}"`).join(', ') || 'creatures';
   return {
-    maxTokens: 6000,
+    maxTokens: 8000,
     system: `Continue building "${acc.worldName || '?'}". Map out the full campaign arc, encounter tables, and travel network.
 ${charContext(c)}
 ${bible}
@@ -1029,7 +1029,7 @@ export function step14_relationshipsAndOrigin(c: CharacterCreationInput, acc: Ac
   const regionNames = acc.geography?.map((r: Acc) => `"${r.name}"`).join(', ') || 'regions';
   const startSettlement = acc.settlements?.[0]?.name || acc.geography?.[0]?.knownLocations?.[0]?.name || 'the starting town';
   return {
-    maxTokens: 5000,
+    maxTokens: 8000,
     system: `FINAL STEP. Complete "${acc.worldName || '?'}" with the relationship web, random events, and origin scenario.
 ${charContext(c)}
 ${bible}

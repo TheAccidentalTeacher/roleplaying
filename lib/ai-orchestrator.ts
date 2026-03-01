@@ -354,8 +354,52 @@ export async function generateImage(
 // ─── STRUCTURED JSON CALLS ────────────────────────────────────────────────────
 
 /**
+ * Attempt to repair truncated JSON by closing unclosed brackets/braces.
+ * Handles the common case where Claude runs out of tokens mid-response.
+ */
+function repairTruncatedJSON(text: string): string {
+  // Remove any trailing partial string (unmatched quote)
+  let s = text.trim()
+  
+  // If it ends with a partial string value, close it
+  const quoteCount = (s.match(/(?<!\\)"/g) || []).length
+  if (quoteCount % 2 !== 0) {
+    // Truncated inside a string — find last unescaped quote and trim there
+    const lastQuote = s.lastIndexOf('"')
+    s = s.substring(0, lastQuote + 1)
+  }
+  
+  // Remove trailing comma if any
+  s = s.replace(/,\s*$/, '')
+  
+  // Count unclosed brackets and braces
+  let braces = 0
+  let brackets = 0
+  let inString = false
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i]
+    if (ch === '"' && (i === 0 || s[i - 1] !== '\\')) {
+      inString = !inString
+      continue
+    }
+    if (inString) continue
+    if (ch === '{') braces++
+    else if (ch === '}') braces--
+    else if (ch === '[') brackets++
+    else if (ch === ']') brackets--
+  }
+  
+  // Close unclosed brackets then braces
+  for (let i = 0; i < brackets; i++) s += ']'
+  for (let i = 0; i < braces; i++) s += '}'
+  
+  return s
+}
+
+/**
  * Call an AI model and parse the response as JSON.
  * Useful for loot generation, combat resolution, etc.
+ * Includes auto-repair for truncated JSON from token limits.
  */
 export async function callClaudeJSON<T>(
   task: AITask,
@@ -375,12 +419,20 @@ IMPORTANT: Respond ONLY with valid JSON. No markdown, no explanation, no code bl
 
     // Strip any accidental markdown code fences
     const cleaned = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+    
+    // Try parsing as-is first
     try {
       return JSON.parse(cleaned) as T
     } catch (err) {
-      lastError = err instanceof Error ? err : new Error(String(err))
-      // On first failure, retry — the model sometimes produces trailing text
-      if (attempt === 0) continue
+      // Try repairing truncated JSON before giving up on this attempt
+      try {
+        const repaired = repairTruncatedJSON(cleaned)
+        console.warn(`[callClaudeJSON] Repaired truncated JSON (attempt ${attempt + 1})`)
+        return JSON.parse(repaired) as T
+      } catch {
+        lastError = err instanceof Error ? err : new Error(String(err))
+        if (attempt === 0) continue
+      }
     }
   }
 
