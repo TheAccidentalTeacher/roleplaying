@@ -16,8 +16,8 @@ import { callClaude } from '@/lib/ai-orchestrator';
 import { GENESIS_STEPS, TOTAL_STEPS } from '@/lib/prompts/world-genesis-steps';
 import type { CharacterCreationInput } from '@/lib/types/character';
 
-// Single Claude call should take 20-40s. 60s gives comfortable margin.
-export const maxDuration = 60;
+// Vercel Pro plan allows up to 300s. Single Claude call ~25-40s.
+export const maxDuration = 300;
 
 interface StepRequest {
   character: CharacterCreationInput;
