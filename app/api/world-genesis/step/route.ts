@@ -6,14 +6,16 @@
 // The client orchestrates: call step 1, get result, call step 2
 // with accumulated data, etc.
 //
-// KEY: This route makes exactly ONE Claude API call (~20-30s).
-// The CLIENT handles retries, so no server-side retry loop.
-// This keeps each function invocation well under Vercel's timeout.
+// JSON HANDLING: Uses the battle-tested `jsonrepair` library
+// instead of hand-rolled sanitizers. This handles all common
+// LLM JSON issues: unescaped chars, trailing commas, truncation,
+// missing brackets, unquoted keys, etc.
 // ============================================================
 
 import { NextRequest, NextResponse } from 'next/server';
 import { callClaude } from '@/lib/ai-orchestrator';
 import { GENESIS_STEPS, TOTAL_STEPS } from '@/lib/prompts/world-genesis-steps';
+import { jsonrepair } from 'jsonrepair';
 import type { CharacterCreationInput } from '@/lib/types/character';
 
 // Vercel Pro plan allows up to 300s. Single Claude call ~25-40s.
@@ -27,95 +29,19 @@ interface StepRequest {
 }
 
 /**
- * Sanitize Claude's raw JSON output by escaping control characters
- * (literal newlines, tabs, etc.) that appear inside JSON string values.
- * Also fixes common Claude JSON mistakes.
+ * Strip markdown fences and other non-JSON wrapper text.
  */
-function sanitizeJSON(raw: string): string {
+function stripWrapper(raw: string): string {
   let s = raw.trim();
-
-  // Strip markdown fences
-  s = s.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-
-  // Walk through character by character and escape control chars inside strings
-  let result = '';
-  let inString = false;
-  let i = 0;
-
-  while (i < s.length) {
-    const ch = s[i];
-
-    if (ch === '"' && (i === 0 || s[i - 1] !== '\\')) {
-      inString = !inString;
-      result += ch;
-      i++;
-      continue;
-    }
-
-    if (inString) {
-      // Escape literal control characters that break JSON
-      if (ch === '\n') { result += '\\n'; i++; continue; }
-      if (ch === '\r') { result += '\\r'; i++; continue; }
-      if (ch === '\t') { result += '\\t'; i++; continue; }
-      // Escape unescaped backslashes that aren't part of valid escape sequences
-      if (ch === '\\' && i + 1 < s.length) {
-        const next = s[i + 1];
-        if ('"\\\/bfnrtu'.includes(next)) {
-          // Valid escape sequence — keep as-is
-          result += ch + next;
-          i += 2;
-          continue;
-        } else {
-          // Invalid escape — double the backslash
-          result += '\\\\';
-          i++;
-          continue;
-        }
-      }
-      result += ch;
-      i++;
-    } else {
-      result += ch;
-      i++;
-    }
+  // Remove markdown code fences
+  s = s.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim();
+  // If there's text before the first { or [, strip it
+  const firstBrace = s.indexOf('{');
+  const firstBracket = s.indexOf('[');
+  const jsonStart = firstBrace === -1 ? firstBracket : firstBracket === -1 ? firstBrace : Math.min(firstBrace, firstBracket);
+  if (jsonStart > 0) {
+    s = s.substring(jsonStart);
   }
-
-  return result;
-}
-
-/**
- * Attempt to repair truncated JSON from token limit cutoff.
- */
-function repairTruncated(text: string): string {
-  let s = text;
-
-  // If odd number of unescaped quotes, close the open string
-  const quoteCount = (s.match(/(?<!\\)"/g) || []).length;
-  if (quoteCount % 2 !== 0) {
-    s += '"';
-  }
-
-  // Remove trailing partial key-value pairs
-  s = s.replace(/,\s*"[^"]*"\s*:\s*"?[^"{}[\]]*$/, '');
-  s = s.replace(/,\s*"[^"]*"\s*:\s*$/, '');
-  s = s.replace(/,\s*"[^"]*$/, '');
-  s = s.replace(/,\s*$/, '');
-
-  // Count unclosed brackets/braces
-  let braces = 0, brackets = 0, inStr = false;
-  for (let i = 0; i < s.length; i++) {
-    const ch = s[i];
-    if (ch === '"' && (i === 0 || s[i - 1] !== '\\')) { inStr = !inStr; continue; }
-    if (inStr) continue;
-    if (ch === '{') braces++;
-    else if (ch === '}') braces--;
-    else if (ch === '[') brackets++;
-    else if (ch === ']') brackets--;
-  }
-
-  for (let i = 0; i < brackets; i++) s += ']';
-  for (let i = 0; i < braces; i++) s += '}';
-
   return s;
 }
 
@@ -146,13 +72,15 @@ export async function POST(request: NextRequest) {
   const step = GENESIS_STEPS[stepIndex];
   const startTime = Date.now();
 
-  console.log(`[WorldGenesis:Step] Running step ${step.id}/${TOTAL_STEPS}: ${step.name}...`);
+  console.log(`[WorldGenesis:Step] ▶ Starting step ${step.id}/${TOTAL_STEPS}: ${step.name}`);
 
   try {
     const prompt = step.buildPrompt(charInput, accumulated ?? {}, playerSentence);
 
     // Add explicit JSON instruction to system prompt
     const system = `${prompt.system}\n\nIMPORTANT: Respond ONLY with valid JSON. No markdown, no explanation, no code blocks. Just raw JSON.`;
+
+    console.log(`[WorldGenesis:Step] Step ${step.id} prompt lengths: system=${system.length} chars, user=${prompt.user.length} chars, maxTokens=${prompt.maxTokens}`);
 
     // ONE Claude call — no internal retry. Client handles retries.
     const rawText = await callClaude(
@@ -164,28 +92,45 @@ export async function POST(request: NextRequest) {
 
     const duration = ((Date.now() - startTime) / 1000).toFixed(1);
     console.log(`[WorldGenesis:Step] Step ${step.id} raw response: ${rawText.length} chars in ${duration}s`);
+    console.log(`[WorldGenesis:Step] Step ${step.id} first 200 chars: ${rawText.substring(0, 200)}`);
+    console.log(`[WorldGenesis:Step] Step ${step.id} last 200 chars: ${rawText.substring(Math.max(0, rawText.length - 200))}`);
 
-    // Sanitize → parse → repair if needed
-    const sanitized = sanitizeJSON(rawText);
+    // Strip markdown/wrapper → jsonrepair → JSON.parse
+    const stripped = stripWrapper(rawText);
     let result: Record<string, unknown>;
 
     try {
-      result = JSON.parse(sanitized);
-    } catch (firstErr) {
-      console.warn(`[WorldGenesis:Step] Step ${step.id} JSON parse failed after sanitize, attempting truncation repair...`);
+      // First try direct parse (fastest path)
+      result = JSON.parse(stripped);
+      console.log(`[WorldGenesis:Step] Step ${step.id} ✓ direct JSON.parse succeeded`);
+    } catch (directErr) {
+      console.warn(`[WorldGenesis:Step] Step ${step.id} direct parse failed: ${directErr instanceof Error ? directErr.message : directErr}`);
+      console.warn(`[WorldGenesis:Step] Step ${step.id} running jsonrepair...`);
       try {
-        const repaired = repairTruncated(sanitized);
+        // jsonrepair handles: unescaped chars, trailing commas,
+        // missing quotes, truncated JSON, comments, etc.
+        const repaired = jsonrepair(stripped);
         result = JSON.parse(repaired);
-        console.warn(`[WorldGenesis:Step] Step ${step.id} JSON repaired successfully`);
-      } catch {
-        // Log the actual error and a snippet of the problematic JSON
-        console.error(`[WorldGenesis:Step] Step ${step.id} JSON repair also failed:`, firstErr);
-        console.error(`[WorldGenesis:Step] Raw text snippet (first 500 chars): ${rawText.substring(0, 500)}`);
-        throw firstErr;
+        console.log(`[WorldGenesis:Step] Step ${step.id} ✓ jsonrepair succeeded (repaired ${repaired.length - stripped.length} chars diff)`);
+      } catch (repairErr) {
+        // Both failed — return the raw text so we can debug from the browser
+        console.error(`[WorldGenesis:Step] Step ${step.id} ✗ jsonrepair ALSO failed:`, repairErr);
+        console.error(`[WorldGenesis:Step] Step ${step.id} FULL raw text (${rawText.length} chars):\n${rawText}`);
+        return NextResponse.json(
+          {
+            error: `Step ${step.id} (${step.name}) JSON parse failed`,
+            parseError: directErr instanceof Error ? directErr.message : String(directErr),
+            repairError: repairErr instanceof Error ? repairErr.message : String(repairErr),
+            rawLength: rawText.length,
+            rawSnippetStart: rawText.substring(0, 500),
+            rawSnippetEnd: rawText.substring(Math.max(0, rawText.length - 500)),
+          },
+          { status: 500 }
+        );
       }
     }
 
-    console.log(`[WorldGenesis:Step] Step ${step.id} (${step.name}) complete in ${duration}s`);
+    console.log(`[WorldGenesis:Step] Step ${step.id} (${step.name}) ✓ complete in ${duration}s, keys: ${Object.keys(result).join(', ')}`);
 
     return NextResponse.json({
       stepId: step.id,
@@ -196,9 +141,14 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     const duration = ((Date.now() - startTime) / 1000).toFixed(1);
-    console.error(`[WorldGenesis:Step] Step ${step.id} failed after ${duration}s:`, error);
+    console.error(`[WorldGenesis:Step] Step ${step.id} ✗ EXCEPTION after ${duration}s:`, error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Step generation failed' },
+      {
+        error: error instanceof Error ? error.message : 'Step generation failed',
+        step: step.id,
+        stepName: step.name,
+        duration: parseFloat(duration),
+      },
       { status: 500 }
     );
   }

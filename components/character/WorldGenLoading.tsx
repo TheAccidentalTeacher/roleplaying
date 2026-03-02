@@ -127,6 +127,9 @@ export default function WorldGenLoading({ character, storyHook }: WorldGenLoadin
 
       for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
         try {
+          console.log(`[WorldGen] Step ${stepIndex + 1} attempt ${attempt + 1}/${MAX_RETRIES + 1} — sending request...`);
+          const startTime = performance.now();
+
           const res = await fetch('/api/world-genesis/step', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -138,22 +141,34 @@ export default function WorldGenLoading({ character, storyHook }: WorldGenLoadin
             }),
           });
 
+          const elapsed = ((performance.now() - startTime) / 1000).toFixed(1);
+
           if (!res.ok) {
             const errText = await res.text().catch(() => '');
             let errMsg = `Step ${stepIndex + 1} failed (${res.status})`;
+            let debugInfo = '';
             try {
               const errJson = JSON.parse(errText);
               errMsg = errJson.error || errMsg;
-            } catch { /* not JSON */ }
+              // Log full server debug info to console
+              debugInfo = JSON.stringify(errJson, null, 2);
+            } catch { /* not JSON */ 
+              debugInfo = errText;
+            }
+            console.error(`[WorldGen] Step ${stepIndex + 1} HTTP ${res.status} after ${elapsed}s`);
+            console.error(`[WorldGen] Server response:`, debugInfo);
             throw new Error(errMsg);
           }
 
-          return await res.json();
+          const data = await res.json();
+          console.log(`[WorldGen] Step ${stepIndex + 1} ✓ complete in ${elapsed}s — keys: ${data.data ? Object.keys(data.data).join(', ') : 'none'}`);
+          return data;
         } catch (err) {
-          console.warn(`Step ${stepIndex + 1} attempt ${attempt + 1} failed:`, err);
+          console.warn(`[WorldGen] Step ${stepIndex + 1} attempt ${attempt + 1} failed:`, err);
           if (attempt === MAX_RETRIES) throw err;
-          // Wait before retry: 3s, then 6s
-          await new Promise((r) => setTimeout(r, (attempt + 1) * 3000));
+          const delay = (attempt + 1) * 3000;
+          console.log(`[WorldGen] Retrying step ${stepIndex + 1} in ${delay / 1000}s...`);
+          await new Promise((r) => setTimeout(r, delay));
         }
       }
 
@@ -200,6 +215,8 @@ export default function WorldGenLoading({ character, storyHook }: WorldGenLoadin
       try {
         setIsGenerating(true);
         const accumulated: Record<string, unknown> = {};
+        console.log(`[WorldGen] ━━━ Starting world generation (${TOTAL_STEPS} steps) ━━━`);
+        console.log(`[WorldGen] Character: ${character.name}, ${character.race} ${character.class}`);
 
         // Run each step sequentially — one HTTP call per step
         for (let i = 0; i < TOTAL_STEPS; i++) {
@@ -207,6 +224,9 @@ export default function WorldGenLoading({ character, storyHook }: WorldGenLoadin
 
           // Small gap between steps to prevent connection/rate issues
           if (i > 0) await new Promise((r) => setTimeout(r, 1500));
+
+          console.log(`[WorldGen] ── Step ${i + 1}/${TOTAL_STEPS} ──`);
+          console.log(`[WorldGen] Accumulated keys so far: ${Object.keys(accumulated).join(', ') || '(none)'}`);
 
           // Mark step as generating
           setSteps((prev) =>
@@ -220,6 +240,7 @@ export default function WorldGenLoading({ character, storyHook }: WorldGenLoadin
           // Merge result data into accumulated
           if (result.data) {
             Object.assign(accumulated, result.data);
+            console.log(`[WorldGen] Step ${i + 1} merged ${Object.keys(result.data).length} keys into accumulated`);
           }
 
           // Mark step as complete with data
@@ -236,9 +257,12 @@ export default function WorldGenLoading({ character, storyHook }: WorldGenLoadin
 
         // Store accumulated for later use (regeneration, assemble)
         accumulatedRef.current = accumulated;
+        console.log(`[WorldGen] ━━━ All ${TOTAL_STEPS} steps complete. Assembling world... ━━━`);
+        console.log(`[WorldGen] Final accumulated keys: ${Object.keys(accumulated).join(', ')}`);
 
         // Assemble world + save to DB
         const finalData = await assembleWorld(accumulated);
+        console.log(`[WorldGen] ✓ World assembled successfully!`);
 
         setWorldData(finalData);
         setIsGenerating(false);

@@ -330,31 +330,31 @@ CROSS-REFERENCE REQUIREMENTS:
 - The afterlife ("${acc.afterlife || '?'}") should factor into at least one legend or era
 ${JSON_RULES}
 
-Return JSON:
+Return JSON matching this EXACT structure (keep all string values to 1-2 SHORT sentences):
 {
   "majorHistoricalEras": [
     {
-      "name": "string",
-      "description": "string",
-      "duration": "string",
-      "keyEvents": ["2-4 events"],
-      "legacy": "string — how this era still affects the present"
+      "name": "string (era name)",
+      "description": "string (1 sentence summary)",
+      "duration": "string (e.g. '800 years')",
+      "keyEvents": ["event1", "event2"],
+      "legacy": "string (1 sentence)"
     }
   ],
-  "catastrophes": ["3-5 world-shaping disasters"],
+  "catastrophes": ["short phrase 1", "short phrase 2", "short phrase 3"],
   "legends": [
     {
       "title": "string",
-      "summary": "string",
+      "summary": "string (1-2 sentences max)",
       "isTrue": true,
-      "relevanceToPlayer": "string — how this matters to a ${c.race} ${c.class}"
+      "relevanceToPlayer": "string (1 sentence)"
     }
   ],
-  "secretHistory": "string — the hidden truth connecting world events (DM eyes only)"
+  "secretHistory": "string (2-3 sentences max)"
 }
 
-Generate 3-5 eras, 3-5 legends. At least one legend should be false.`,
-    user: `Write the deep history and legends of "${acc.worldName || 'the world'}". The magic system is called "${magicName}" and its source is "${acc.magicSystem?.source || '?'}". What ages has this world passed through, and what stories do people tell about them?`,
+Generate exactly 3 eras and 3 legends. At least one legend should be false. Keep ALL string values SHORT.`,
+    user: `Write the deep history and legends of "${acc.worldName || 'the world'}". The magic system is called "${magicName}" and its source is "${acc.magicSystem?.source || '?'}". What ages has this world passed through, and what stories do people tell about them? Remember: keep all text SHORT and concise.`,
   };
 }
 
