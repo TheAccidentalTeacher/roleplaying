@@ -16,10 +16,11 @@ interface StepResult {
   stepId: number;
   stepName: string;
   label: string;
-  status: 'pending' | 'generating' | 'complete';
+  status: 'pending' | 'generating' | 'complete' | 'error';
   data: Record<string, unknown> | null;
   editedData: Record<string, unknown> | null;
   isEdited: boolean;
+  duration?: number;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────
@@ -85,10 +86,9 @@ export default function WorldGenLoading({ character, storyHook }: WorldGenLoadin
 
   // Step tracking
   const [steps, setSteps] = useState<StepResult[]>(initSteps);
-  const [currentPhase, setCurrentPhase] = useState(0); // 0-based index of active step
   const [expandedStep, setExpandedStep] = useState<number | null>(null);
 
-  // World/char data
+  // World/char data (set after assemble)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [worldData, setWorldData] = useState<any>(null);
 
@@ -107,7 +107,10 @@ export default function WorldGenLoading({ character, storyHook }: WorldGenLoadin
   // Regeneration
   const [regeneratingFromStep, setRegeneratingFromStep] = useState<number | null>(null);
 
+  // Accumulated data shared across the generation loop
+  const accumulatedRef = useRef<Record<string, unknown>>({});
   const hasStarted = useRef(false);
+  const abortRef = useRef(false);
 
   // ─── Cycle flavor text ──────────────────────────────────────────────
   useEffect(() => {
@@ -117,110 +120,109 @@ export default function WorldGenLoading({ character, storyHook }: WorldGenLoadin
     return () => clearInterval(interval);
   }, []);
 
-  // ─── NDJSON stream processor ────────────────────────────────────────
-  const processStream = useCallback(
-    async (response: Response) => {
-      if (!response.body) throw new Error('No response body');
+  // ─── Run ONE step via API ───────────────────────────────────────────
+  const runSingleStep = useCallback(
+    async (stepIndex: number, accumulated: Record<string, unknown>) => {
+      const res = await fetch('/api/world-genesis/step', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          character,
+          playerSentence: storyHook || undefined,
+          stepIndex,
+          accumulated,
+        }),
+      });
 
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      let finalData: any = null;
-
-      const processLine = (line: string) => {
-        if (!line.trim()) return;
+      if (!res.ok) {
+        const errText = await res.text().catch(() => '');
+        let errMsg = `Step ${stepIndex + 1} failed (${res.status})`;
         try {
-          const msg = JSON.parse(line);
-          if (msg.error) throw new Error(msg.error);
-
-          // Step started generating
-          if (msg.status === 'generating' && msg.step !== undefined) {
-            setCurrentPhase(msg.phase ?? msg.step - 1);
-            setSteps((prev) =>
-              prev.map((s) =>
-                s.stepId === msg.step && s.status === 'pending'
-                  ? { ...s, status: 'generating' }
-                  : s
-              )
-            );
-          }
-
-          // Step completed with data
-          if (msg.status === 'step_complete' && msg.data) {
-            setSteps((prev) =>
-              prev.map((s) =>
-                s.stepId === msg.step
-                  ? { ...s, status: 'complete', data: msg.data }
-                  : s
-              )
-            );
-            setCurrentPhase(msg.phase ?? msg.step);
-          }
-
-          // Legacy: phase-only update (no data)
-          if (msg.phase !== undefined && msg.status === 'generating') {
-            setCurrentPhase(msg.phase);
-          }
-
-          // All steps done — assembled world
-          if (msg.status === 'complete' && msg.data) {
-            finalData = msg.data;
-          }
-        } catch (parseErr) {
-          if (parseErr instanceof SyntaxError) return;
-          throw parseErr;
-        }
-      };
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
-        for (const line of lines) processLine(line);
+          const errJson = JSON.parse(errText);
+          errMsg = errJson.error || errMsg;
+        } catch { /* not JSON */ }
+        throw new Error(errMsg);
       }
-      // Flush
-      buffer += decoder.decode();
-      if (buffer.trim()) processLine(buffer);
 
-      return finalData;
+      return res.json();
     },
-    []
+    [character, storyHook]
   );
 
-  // ─── World generation ───────────────────────────────────────────────
+  // ─── Assemble all steps into world + character via API ──────────────
+  const assembleWorld = useCallback(
+    async (accumulated: Record<string, unknown>) => {
+      const res = await fetch('/api/world-genesis/assemble', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          character,
+          userId: 'local-player',
+          accumulated,
+        }),
+      });
+
+      if (!res.ok) {
+        const errText = await res.text().catch(() => '');
+        let errMsg = `World assembly failed (${res.status})`;
+        try {
+          const errJson = JSON.parse(errText);
+          errMsg = errJson.error || errMsg;
+        } catch { /* not JSON */ }
+        throw new Error(errMsg);
+      }
+
+      return res.json();
+    },
+    [character]
+  );
+
+  // ─── Main generation loop: one step at a time ──────────────────────
   useEffect(() => {
     if (hasStarted.current) return;
     hasStarted.current = true;
+    abortRef.current = false;
 
     const generate = async () => {
       try {
         setIsGenerating(true);
+        const accumulated: Record<string, unknown> = {};
 
-        const response = await fetch('/api/world-genesis', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            character,
-            playerSentence: storyHook || undefined,
-            userId: 'local-player',
-          }),
-        });
+        // Run each step sequentially — one HTTP call per step
+        for (let i = 0; i < TOTAL_STEPS; i++) {
+          if (abortRef.current) return;
 
-        if (!response.ok) {
-          const errText = await response.text().catch(() => '');
-          let errMsg = `World generation failed (${response.status})`;
-          try {
-            const errJson = JSON.parse(errText);
-            errMsg = errJson.error || errMsg;
-          } catch { /* not JSON */ }
-          throw new Error(errMsg);
+          // Mark step as generating
+          setSteps((prev) =>
+            prev.map((s) =>
+              s.stepId === i + 1 ? { ...s, status: 'generating' } : s
+            )
+          );
+
+          const result = await runSingleStep(i, accumulated);
+
+          // Merge result data into accumulated
+          if (result.data) {
+            Object.assign(accumulated, result.data);
+          }
+
+          // Mark step as complete with data
+          setSteps((prev) =>
+            prev.map((s) =>
+              s.stepId === i + 1
+                ? { ...s, status: 'complete', data: result.data, duration: result.duration }
+                : s
+            )
+          );
         }
 
-        const finalData = await processStream(response);
-        if (!finalData) throw new Error('World generation completed without data');
+        if (abortRef.current) return;
+
+        // Store accumulated for later use (regeneration, assemble)
+        accumulatedRef.current = accumulated;
+
+        // Assemble world + save to DB
+        const finalData = await assembleWorld(accumulated);
 
         setWorldData(finalData);
         setIsGenerating(false);
@@ -232,6 +234,7 @@ export default function WorldGenLoading({ character, storyHook }: WorldGenLoadin
         if (finalData.worldId) localStorage.setItem('rpg-world-id', finalData.worldId);
         if (finalData.characterId) localStorage.setItem('rpg-character-id', finalData.characterId);
       } catch (err) {
+        if (abortRef.current) return;
         console.error('World generation error:', err);
         setError(err instanceof Error ? err.message : 'Unknown error occurred');
         setIsGenerating(false);
@@ -308,8 +311,10 @@ export default function WorldGenLoading({ character, storyHook }: WorldGenLoadin
   // ─── Regenerate from a specific step ────────────────────────────────
   const handleRegenerateFromStep = useCallback(
     async (fromStepId: number) => {
-      if (!worldData) return;
       setRegeneratingFromStep(fromStepId);
+      setIsComplete(false);
+      setIsGenerating(true);
+      setWorldData(null);
 
       // Reset steps from fromStepId onward
       setSteps((prev) =>
@@ -321,47 +326,59 @@ export default function WorldGenLoading({ character, storyHook }: WorldGenLoadin
       );
 
       // Build accumulated data from steps before fromStepId (use edited data if available)
-      let accumulated: Record<string, unknown> = {};
+      const accumulated: Record<string, unknown> = {};
       for (const step of steps) {
         if (step.stepId >= fromStepId) break;
         const data = step.isEdited && step.editedData ? step.editedData : step.data;
-        if (data) accumulated = { ...accumulated, ...data };
+        if (data) Object.assign(accumulated, data);
       }
 
       try {
-        const response = await fetch('/api/world-genesis/regenerate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            character,
-            playerSentence: storyHook || undefined,
-            userId: 'local-player',
-            fromStep: fromStepId,
-            priorData: accumulated,
-          }),
-        });
+        // Run steps from fromStepId onward, one at a time
+        for (let i = fromStepId - 1; i < TOTAL_STEPS; i++) {
+          // Mark step as generating
+          setSteps((prev) =>
+            prev.map((s) =>
+              s.stepId === i + 1 ? { ...s, status: 'generating' } : s
+            )
+          );
 
-        if (!response.ok) {
-          throw new Error(`Regeneration failed (${response.status})`);
+          const result = await runSingleStep(i, accumulated);
+
+          if (result.data) {
+            Object.assign(accumulated, result.data);
+          }
+
+          setSteps((prev) =>
+            prev.map((s) =>
+              s.stepId === i + 1
+                ? { ...s, status: 'complete', data: result.data, duration: result.duration }
+                : s
+            )
+          );
         }
 
-        const finalData = await processStream(response);
-        if (!finalData) throw new Error('Regeneration completed without data');
+        accumulatedRef.current = accumulated;
+
+        // Assemble world
+        const finalData = await assembleWorld(accumulated);
 
         setWorldData(finalData);
+        setIsGenerating(false);
         setIsComplete(true);
 
-        // Update localStorage
         localStorage.setItem('rpg-active-world', JSON.stringify(finalData.world));
         if (finalData.worldId) localStorage.setItem('rpg-world-id', finalData.worldId);
+        if (finalData.characterId) localStorage.setItem('rpg-character-id', finalData.characterId);
       } catch (err) {
         console.error('Regeneration error:', err);
         setError(err instanceof Error ? err.message : 'Regeneration failed');
+        setIsGenerating(false);
       } finally {
         setRegeneratingFromStep(null);
       }
     },
-    [worldData, steps, character, storyHook, processStream]
+    [steps, runSingleStep, assembleWorld]
   );
 
   // ─── Update step data from editor ───────────────────────────────────
@@ -381,14 +398,15 @@ export default function WorldGenLoading({ character, storyHook }: WorldGenLoadin
 
   // ─── Handle retry ───────────────────────────────────────────────────
   const handleRetry = () => {
+    abortRef.current = true;
     setError(null);
-    setCurrentPhase(0);
     setSteps(initSteps());
     setWorldData(null);
     setIsComplete(false);
     setIsGenerating(true);
     setStreamedText('');
     setShowingOpeningScene(false);
+    accumulatedRef.current = {};
     hasStarted.current = false;
     setRetryCount((prev) => prev + 1);
   };
@@ -494,6 +512,12 @@ export default function WorldGenLoading({ character, storyHook }: WorldGenLoadin
             {isComplete ? 'Review Your World' : 'Creating Your World'}
           </h2>
 
+          {!isComplete && isGenerating && (
+            <p className="text-slate-400 text-sm max-w-md mx-auto">
+              Step {Math.min(completedCount + 1, TOTAL_STEPS)} of {TOTAL_STEPS} — each step takes ~15-20 seconds
+            </p>
+          )}
+
           {isComplete && (
             <p className="text-slate-400 text-sm max-w-md mx-auto">
               Your world has been generated! Expand any section below to review and edit.
@@ -571,8 +595,9 @@ export default function WorldGenLoading({ character, storyHook }: WorldGenLoadin
                     {isRegenerating && step.status !== 'generating' && ' (queued)'}
                   </span>
 
-                  {/* Step number */}
+                  {/* Duration + step number */}
                   <span className="text-xs text-slate-600 flex-shrink-0">
+                    {step.duration ? `${step.duration}s · ` : ''}
                     {step.stepId}/{TOTAL_STEPS}
                   </span>
 
@@ -653,7 +678,7 @@ export default function WorldGenLoading({ character, storyHook }: WorldGenLoadin
 
         {isGenerating && (
           <p className="text-center text-slate-600 text-xs">
-            Sit back — the AI is building an entire homebrew campaign world just for you. This takes a few minutes.
+            Building your homebrew campaign world one step at a time. Each step completes independently — no timeouts!
           </p>
         )}
 
