@@ -358,20 +358,24 @@ export async function generateImage(
  * Handles the common case where Claude runs out of tokens mid-response.
  */
 function repairTruncatedJSON(text: string): string {
-  // Remove any trailing partial string (unmatched quote)
   let s = text.trim()
-  
-  // If it ends with a partial string value, close it
+
+  // If it ends with a partial string value, close the string
   const quoteCount = (s.match(/(?<!\\)"/g) || []).length
   if (quoteCount % 2 !== 0) {
-    // Truncated inside a string — find last unescaped quote and trim there
-    const lastQuote = s.lastIndexOf('"')
-    s = s.substring(0, lastQuote + 1)
+    // We're inside an unterminated string. Close it with a quote.
+    s += '"'
   }
-  
-  // Remove trailing comma if any
+
+  // Remove trailing partial key-value pairs (e.g. `"key": "val`, `"key":`)
+  // Trim back to the last complete value (ends with ", }, ], number, true/false/null)
+  s = s.replace(/,\s*"[^"]*"\s*:\s*"?[^"{}[\]]*$/, '')
+  s = s.replace(/,\s*"[^"]*"\s*:\s*$/, '')
+  s = s.replace(/,\s*"[^"]*$/, '')
+
+  // Remove trailing comma
   s = s.replace(/,\s*$/, '')
-  
+
   // Count unclosed brackets and braces
   let braces = 0
   let brackets = 0
@@ -388,11 +392,11 @@ function repairTruncatedJSON(text: string): string {
     else if (ch === '[') brackets++
     else if (ch === ']') brackets--
   }
-  
+
   // Close unclosed brackets then braces
   for (let i = 0; i < brackets; i++) s += ']'
   for (let i = 0; i < braces; i++) s += '}'
-  
+
   return s
 }
 
