@@ -1,10 +1,10 @@
 // ============================================================
-// WORLD GENESIS API ROUTE — 14-Step Homebrew Campaign Factory
-// POST /api/world-genesis
+// WORLD GENESIS REGENERATION API ROUTE
+// POST /api/world-genesis/regenerate
 //
-// 14 focused Claude Opus calls, each ~3-6K tokens, each ~10-20s:
-// Builds a full homebrew campaign world piece by piece.
-// TransformStream sends NDJSON progress between each step.
+// Re-runs world generation from a specific step forward,
+// using provided accumulated data for prior steps.
+// Returns NDJSON stream like the main world-genesis route.
 // ============================================================
 
 import { NextRequest } from 'next/server';
@@ -14,13 +14,14 @@ import { createWorld, createCharacter } from '@/lib/services/database';
 import type { WorldRecord } from '@/lib/types/world';
 import type { CharacterCreationInput, Character } from '@/lib/types/character';
 
-// 14 steps × ~15s each + DB saves ≈ 3.5-4 min. Vercel Pro allows up to 300s.
 export const maxDuration = 300;
 
-interface WorldGenesisRequest {
+interface RegenerateRequest {
   character: CharacterCreationInput;
   playerSentence?: string;
   userId: string;
+  fromStep: number; // 1-based step ID to regenerate from
+  priorData: Record<string, unknown>; // Accumulated results from steps 1..(fromStep-1)
 }
 
 /**
@@ -115,10 +116,9 @@ function buildCharacterFromInput(input: CharacterCreationInput, worldId: string)
 export async function POST(request: NextRequest) {
   const encoder = new TextEncoder();
 
-  // Parse and validate the request body BEFORE starting the stream
-  let body: WorldGenesisRequest;
+  let body: RegenerateRequest;
   try {
-    body = (await request.json()) as WorldGenesisRequest;
+    body = (await request.json()) as RegenerateRequest;
   } catch {
     return new Response(
       JSON.stringify({ error: 'Invalid request body' }),
@@ -126,7 +126,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { character: charInput, playerSentence, userId } = body;
+  const { character: charInput, playerSentence, userId, fromStep, priorData } = body;
 
   if (!charInput?.name || !charInput?.race || !charInput?.class) {
     return new Response(
@@ -135,44 +135,32 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  if (!userId) {
+  if (!fromStep || fromStep < 1 || fromStep > TOTAL_STEPS) {
     return new Response(
-      JSON.stringify({ error: 'userId is required' }),
+      JSON.stringify({ error: `fromStep must be between 1 and ${TOTAL_STEPS}` }),
       { status: 400, headers: { 'Content-Type': 'application/json' } }
     );
   }
 
-  // TransformStream: writer.write() data is IMMEDIATELY readable on the other side.
   const { readable, writable } = new TransformStream();
   const writer = writable.getWriter();
 
   const send = async (msg: Record<string, unknown>) => {
     try {
       await writer.write(encoder.encode(JSON.stringify(msg) + '\n'));
-    } catch {
-      // Writer closed
-    }
+    } catch { /* writer closed */ }
   };
 
-  // Fire-and-forget: 14 Claude calls with progress updates between each
   (async () => {
     try {
-      // ═══════════════════════════════════════════════════════
-      // PARALLELIZED STEP EXECUTOR
-      // Steps 1-7 are strictly sequential (each needs all prior).
-      // After step 7 we can parallelize:
-      //   Wave A: steps 8 (settlements) + 10 (bestiary)
-      //   Wave B: steps 9 (companions) + 11 (dungeons) + 12 (economy)
-      //   Wave C: steps 13 (campaign-arc) + 14 (relationships)
-      // Saves ~40-60s by running ~4 fewer sequential Claude calls.
-      // ═══════════════════════════════════════════════════════
-      let accumulated: Record<string, unknown> = {};
-      let progressCounter = 0;
+      // Start with the user's provided prior data (steps 1..fromStep-1)
+      let accumulated: Record<string, unknown> = { ...priorData };
+      let progressCounter = fromStep - 1; // progress starts after prior steps
 
-      /** Run a single step, returning results (does NOT merge into accumulated) */
+      /** Run a single step */
       const runStep = async (stepIndex: number): Promise<Record<string, unknown>> => {
         const step = GENESIS_STEPS[stepIndex];
-        console.log(`[WorldGenesis] Step ${step.id}/${TOTAL_STEPS}: ${step.name}...`);
+        console.log(`[WorldGenesis:Regen] Step ${step.id}/${TOTAL_STEPS}: ${step.name}...`);
         await send({ status: 'generating', phase: progressCounter, step: step.id, totalSteps: TOTAL_STEPS, label: step.label });
 
         const prompt = step.buildPrompt(charInput, accumulated, playerSentence);
@@ -184,36 +172,22 @@ export async function POST(request: NextRequest) {
         );
 
         progressCounter++;
-        console.log(`[WorldGenesis] Step ${step.id} complete.`);
+        console.log(`[WorldGenesis:Regen] Step ${step.id} complete.`);
         await send({ status: 'step_complete', phase: progressCounter, step: step.id, stepName: step.name, data: result });
         return result;
       };
 
-      // ── Sequential phase: steps 1-7 (strict dependency chain) ──
-      for (let i = 0; i < 7; i++) {
+      // Determine which steps to run (fromStep onward, 0-indexed)
+      const startIndex = fromStep - 1;
+
+      // Run remaining steps sequentially (simpler for regeneration — no parallelism needed since it's partial)
+      for (let i = startIndex; i < TOTAL_STEPS; i++) {
         const result = await runStep(i);
         accumulated = { ...accumulated, ...result };
       }
 
-      // ── Wave A: steps 8 (settlements) + 10 (bestiary) in parallel ──
-      await send({ status: 'generating', phase: progressCounter, step: 8, totalSteps: TOTAL_STEPS, label: 'Building settlements & bestiary...' });
-      const [resA1, resA2] = await Promise.all([runStep(7), runStep(9)]); // index 7 = step 8, index 9 = step 10
-      accumulated = { ...accumulated, ...resA1, ...resA2 };
-
-      // ── Wave B: steps 9 (companions) + 11 (dungeons) + 12 (economy) in parallel ──
-      await send({ status: 'generating', phase: progressCounter, step: 9, totalSteps: TOTAL_STEPS, label: 'Creating companions, dungeons & economy...' });
-      const [resB1, resB2, resB3] = await Promise.all([runStep(8), runStep(10), runStep(11)]); // indices 8,10,11 = steps 9,11,12
-      accumulated = { ...accumulated, ...resB1, ...resB2, ...resB3 };
-
-      // ── Wave C: steps 13 (campaign-arc) + 14 (relationships) in parallel ──
-      await send({ status: 'generating', phase: progressCounter, step: 13, totalSteps: TOTAL_STEPS, label: 'Mapping campaign & weaving relationships...' });
-      const [resC1, resC2] = await Promise.all([runStep(12), runStep(13)]); // indices 12,13 = steps 13,14
-      accumulated = { ...accumulated, ...resC1, ...resC2 };
-
-      // ═══════════════════════════════════════════════════════
-      // ASSEMBLE: Merge all steps into a complete WorldRecord
-      // ═══════════════════════════════════════════════════════
-      console.log('[WorldGenesis] Assembling world record...');
+      // Assemble world record
+      console.log('[WorldGenesis:Regen] Assembling world record...');
       await send({ status: 'processing', phase: TOTAL_STEPS, label: 'Assembling the world...' });
 
       const worldRecord = {
@@ -223,16 +197,15 @@ export async function POST(request: NextRequest) {
         createdAt: new Date().toISOString(),
       } as WorldRecord;
 
-      // ── Save World to Supabase ──
+      // Save to Supabase
       let worldRow;
       try {
         worldRow = await createWorld(userId, worldRecord);
       } catch (dbError) {
-        console.warn('[WorldGenesis] Supabase save failed, continuing local-only:', dbError);
+        console.warn('[WorldGenesis:Regen] Supabase save failed, continuing local-only:', dbError);
         worldRow = { id: worldRecord.id };
       }
 
-      // ── Build Character record ──
       const character = buildCharacterFromInput(charInput, worldRow.id);
       character.userId = userId;
       worldRecord.characterId = character.id;
@@ -241,13 +214,12 @@ export async function POST(request: NextRequest) {
       try {
         characterRow = await createCharacter(userId, worldRow.id, character);
       } catch (dbError) {
-        console.warn('[WorldGenesis] Character save failed, continuing local-only:', dbError);
+        console.warn('[WorldGenesis:Regen] Character save failed, continuing local-only:', dbError);
         characterRow = { id: character.id };
       }
 
-      console.log('[WorldGenesis] Complete! World:', worldRecord.worldName);
+      console.log('[WorldGenesis:Regen] Complete! World:', worldRecord.worldName);
 
-      // ── Send completed world + character data ──
       await send({
         status: 'complete',
         data: {
@@ -266,9 +238,9 @@ export async function POST(request: NextRequest) {
         },
       });
     } catch (error) {
-      console.error('[WorldGenesis] Error:', error);
+      console.error('[WorldGenesis:Regen] Error:', error);
       await send({
-        error: error instanceof Error ? error.message : 'Failed to generate world. Please try again.',
+        error: error instanceof Error ? error.message : 'Failed to regenerate. Please try again.',
       });
     }
 

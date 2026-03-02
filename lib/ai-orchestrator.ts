@@ -51,14 +51,14 @@ export const MODELS = {
 // ─── TASK ROUTING ─────────────────────────────────────────────────────────────
 
 export type AITask =
-  | 'dm_narration'        // Main story narration (Opus - best quality)
+  | 'dm_narration'        // Main story narration (Sonnet - cost-effective)
   | 'combat_narration'    // Combat descriptions (Sonnet - fast + good)
   | 'combat_resolution'   // Dice math, hit/miss calc (o4-mini - fast reasoning)
   | 'loot_generation'     // Generate loot tables, item properties (Sonnet)
   | 'item_description'    // Flavor text for items (Haiku - cheap + fast)
   | 'npc_dialogue'        // NPC conversations (Sonnet - great at character)
-  | 'quest_generation'    // Generate quest content (Opus - complex)
-  | 'world_building'      // Generate location descriptions (Opus)
+  | 'quest_generation'    // Generate quest content (Sonnet - cost-effective)
+  | 'world_building'      // Generate location descriptions (Sonnet)
   | 'crafting_result'     // Calculate crafting outcomes (o4-mini)
   | 'bestiary_entry'      // Generate creature stats/lore (Sonnet)
   | 'image_scene'         // Key scene images (gpt-image-1 - highest quality)
@@ -69,10 +69,10 @@ export type AITask =
 
 export function getModelForTask(task: AITask): string {
   const routing: Record<AITask, string> = {
-    // Claude Opus: richest narration, complex world logic
-    dm_narration:       MODELS.CLAUDE_OPUS,
-    quest_generation:   MODELS.CLAUDE_OPUS,
-    world_building:     MODELS.CLAUDE_OPUS,
+    // Claude Sonnet: rich narration + complex world logic (cost-effective)
+    dm_narration:       MODELS.CLAUDE_SONNET,
+    quest_generation:   MODELS.CLAUDE_SONNET,
+    world_building:     MODELS.CLAUDE_SONNET,
 
     // Claude Sonnet: fast + smart, great for interactive moments
     combat_narration:   MODELS.CLAUDE_SONNET,
@@ -120,7 +120,7 @@ export function createClaudeStream(
   }
 ) {
   const model = options?.model ?? getModelForTask(task)
-  const maxTokens = options?.maxTokens ?? 1024
+  const maxTokens = options?.maxTokens ?? 4096
   const temperature = options?.temperature ?? 0.8
 
   return anthropic.messages.stream({
@@ -146,7 +146,7 @@ export async function streamClaude(
   }
 ): Promise<ReadableStream<Uint8Array>> {
   const model = options?.model ?? getModelForTask(task)
-  const maxTokens = options?.maxTokens ?? 1024
+  const maxTokens = options?.maxTokens ?? 4096
   const temperature = options?.temperature ?? 0.8
 
   const stream = anthropic.messages.stream({
@@ -194,7 +194,7 @@ export async function callClaude(
   }
 ): Promise<string> {
   const model = options?.model ?? getModelForTask(task)
-  const maxTokens = options?.maxTokens ?? 1024
+  const maxTokens = options?.maxTokens ?? 4096
   const temperature = options?.temperature ?? 0.7
 
   const response = await anthropic.messages.create({
@@ -230,7 +230,7 @@ export async function streamGPT(
   }
 ): Promise<ReadableStream<Uint8Array>> {
   const model = options?.model ?? getModelForTask(task)
-  const maxTokens = options?.maxTokens ?? 1024
+  const maxTokens = options?.maxTokens ?? 4096
   const temperature = options?.temperature ?? 0.8
 
   const response = await openai.chat.completions.create({
@@ -273,7 +273,7 @@ export async function callGPT(
   }
 ): Promise<string> {
   const model = options?.model ?? getModelForTask(task)
-  const maxTokens = options?.maxTokens ?? 1024
+  const maxTokens = options?.maxTokens ?? 4096
   const temperature = options?.temperature ?? 0.7
 
   const response = await openai.chat.completions.create({

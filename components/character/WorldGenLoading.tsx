@@ -1,13 +1,28 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import GenericJsonEditor from './GenericJsonEditor';
 import type { CharacterCreationInput } from '@/lib/types/character';
+
+// ─── Types ────────────────────────────────────────────────────────────
 
 interface WorldGenLoadingProps {
   character: CharacterCreationInput;
   storyHook: string;
 }
+
+interface StepResult {
+  stepId: number;
+  stepName: string;
+  label: string;
+  status: 'pending' | 'generating' | 'complete';
+  data: Record<string, unknown> | null;
+  editedData: Record<string, unknown> | null;
+  isEdited: boolean;
+}
+
+// ─── Constants ────────────────────────────────────────────────────────
 
 const FLAVOR_TEXTS = [
   'The cosmos trembles as a new world takes shape...',
@@ -30,36 +45,71 @@ const FLAVOR_TEXTS = [
   'Your adventure is almost ready...',
 ];
 
-// Matches GENESIS_STEPS order + assembling + opening scene = 16 labels
-const PHASE_LABELS = [
-  'Forging the world concept...',         // 0  — step 1
-  'Designing magic & power systems...',   // 1  — step 2
-  'Writing deep history & legends...',    // 2  — step 3
-  'Building factions & politics...',      // 3  — step 4
-  'Crafting the villain...',              // 4  — step 5
-  'Shaping the main threat & prophecy...', // 5  — step 6
-  'Mapping the world geography...',       // 6  — step 7
-  'Detailing cities & settlements...',    // 7  — step 8
-  'Creating companion characters...',     // 8  — step 9
-  'Populating the bestiary...',           // 9  — step 10
-  'Designing dungeons & adventure sites...', // 10 — step 11
-  'Building economy & crafting...',       // 11 — step 12
-  'Mapping the campaign arc...',          // 12 — step 13
-  'Weaving relationships & origin...',    // 13 — step 14
-  'Assembling the world...',              // 14 — post-steps
-  'Writing the opening scene...',         // 15 — opening scene
+const STEP_DEFS = [
+  { id: 1,  name: 'world-concept',    label: 'Forging the world concept' },
+  { id: 2,  name: 'magic-system',     label: 'Designing magic & power systems' },
+  { id: 3,  name: 'history',          label: 'Writing deep history & legends' },
+  { id: 4,  name: 'factions',         label: 'Building factions & politics' },
+  { id: 5,  name: 'villain',          label: 'Crafting the villain' },
+  { id: 6,  name: 'threat',           label: 'Shaping the main threat & prophecy' },
+  { id: 7,  name: 'geography',        label: 'Mapping the world geography' },
+  { id: 8,  name: 'settlements',      label: 'Detailing cities & settlements' },
+  { id: 9,  name: 'companions',       label: 'Creating companion characters' },
+  { id: 10, name: 'bestiary',         label: 'Populating the bestiary' },
+  { id: 11, name: 'dungeons',         label: 'Designing dungeons & adventure sites' },
+  { id: 12, name: 'economy-crafting', label: 'Building economy & crafting' },
+  { id: 13, name: 'campaign-arc',     label: 'Mapping the campaign arc' },
+  { id: 14, name: 'relationships',    label: 'Weaving relationships & origin' },
 ];
+
+const TOTAL_STEPS = STEP_DEFS.length;
+
+// ─── Helpers ──────────────────────────────────────────────────────────
+
+function initSteps(): StepResult[] {
+  return STEP_DEFS.map((s) => ({
+    stepId: s.id,
+    stepName: s.name,
+    label: s.label,
+    status: 'pending' as const,
+    data: null,
+    editedData: null,
+    isEdited: false,
+  }));
+}
+
+// ─── Component ────────────────────────────────────────────────────────
 
 export default function WorldGenLoading({ character, storyHook }: WorldGenLoadingProps) {
   const router = useRouter();
-  const [phase, setPhase] = useState(0);
-  const [flavorIndex, setFlavorIndex] = useState(0);
+
+  // Step tracking
+  const [steps, setSteps] = useState<StepResult[]>(initSteps);
+  const [currentPhase, setCurrentPhase] = useState(0); // 0-based index of active step
+  const [expandedStep, setExpandedStep] = useState<number | null>(null);
+
+  // World/char data
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [worldData, setWorldData] = useState<any>(null);
+
+  // Opening scene
+  const [showingOpeningScene, setShowingOpeningScene] = useState(false);
+  const [streamedText, setStreamedText] = useState('');
+
+  // Generation state
+  const [isGenerating, setIsGenerating] = useState(true);
+  const [isComplete, setIsComplete] = useState(false);
+  const [isFinalizing, setIsFinalizing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
-  const [streamedText, setStreamedText] = useState('');
+  const [flavorIndex, setFlavorIndex] = useState(0);
+
+  // Regeneration
+  const [regeneratingFromStep, setRegeneratingFromStep] = useState<number | null>(null);
+
   const hasStarted = useRef(false);
 
-  // Cycle flavor text
+  // ─── Cycle flavor text ──────────────────────────────────────────────
   useEffect(() => {
     const interval = setInterval(() => {
       setFlavorIndex((prev) => (prev + 1) % FLAVOR_TEXTS.length);
@@ -67,15 +117,89 @@ export default function WorldGenLoading({ character, storyHook }: WorldGenLoadin
     return () => clearInterval(interval);
   }, []);
 
-  // World generation (phases driven by server progress, not timers)
+  // ─── NDJSON stream processor ────────────────────────────────────────
+  const processStream = useCallback(
+    async (response: Response) => {
+      if (!response.body) throw new Error('No response body');
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let finalData: any = null;
+
+      const processLine = (line: string) => {
+        if (!line.trim()) return;
+        try {
+          const msg = JSON.parse(line);
+          if (msg.error) throw new Error(msg.error);
+
+          // Step started generating
+          if (msg.status === 'generating' && msg.step !== undefined) {
+            setCurrentPhase(msg.phase ?? msg.step - 1);
+            setSteps((prev) =>
+              prev.map((s) =>
+                s.stepId === msg.step && s.status === 'pending'
+                  ? { ...s, status: 'generating' }
+                  : s
+              )
+            );
+          }
+
+          // Step completed with data
+          if (msg.status === 'step_complete' && msg.data) {
+            setSteps((prev) =>
+              prev.map((s) =>
+                s.stepId === msg.step
+                  ? { ...s, status: 'complete', data: msg.data }
+                  : s
+              )
+            );
+            setCurrentPhase(msg.phase ?? msg.step);
+          }
+
+          // Legacy: phase-only update (no data)
+          if (msg.phase !== undefined && msg.status === 'generating') {
+            setCurrentPhase(msg.phase);
+          }
+
+          // All steps done — assembled world
+          if (msg.status === 'complete' && msg.data) {
+            finalData = msg.data;
+          }
+        } catch (parseErr) {
+          if (parseErr instanceof SyntaxError) return;
+          throw parseErr;
+        }
+      };
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+        for (const line of lines) processLine(line);
+      }
+      // Flush
+      buffer += decoder.decode();
+      if (buffer.trim()) processLine(buffer);
+
+      return finalData;
+    },
+    []
+  );
+
+  // ─── World generation ───────────────────────────────────────────────
   useEffect(() => {
     if (hasStarted.current) return;
     hasStarted.current = true;
 
-    const generateWorld = async () => {
+    const generate = async () => {
       try {
-        // ═══ PHASE 1: Generate World + Character (Opus, streaming NDJSON) ═══
-        const worldResponse = await fetch('/api/world-genesis', {
+        setIsGenerating(true);
+
+        const response = await fetch('/api/world-genesis', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -85,125 +209,202 @@ export default function WorldGenLoading({ character, storyHook }: WorldGenLoadin
           }),
         });
 
-        if (!worldResponse.ok || !worldResponse.body) {
-          const errText = await worldResponse.text().catch(() => '');
-          let errMsg = `World generation failed (${worldResponse.status})`;
-          try { const errJson = JSON.parse(errText); errMsg = errJson.error || errMsg; } catch {}
+        if (!response.ok) {
+          const errText = await response.text().catch(() => '');
+          let errMsg = `World generation failed (${response.status})`;
+          try {
+            const errJson = JSON.parse(errText);
+            errMsg = errJson.error || errMsg;
+          } catch { /* not JSON */ }
           throw new Error(errMsg);
         }
 
-        // Read NDJSON stream — Claude tokens keep connection alive,
-        // server sends progress updates every 3s + final complete message
-        const worldReader = worldResponse.body.getReader();
-        const worldDecoder = new TextDecoder();
-        let ndjsonBuffer = '';
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        let worldData: any = null;
+        const finalData = await processStream(response);
+        if (!finalData) throw new Error('World generation completed without data');
 
-        const processLine = (line: string) => {
-          if (!line.trim()) return;
-          try {
-            const msg = JSON.parse(line);
-            if (msg.error) throw new Error(msg.error);
-            if (msg.phase !== undefined) setPhase(msg.phase);
-            if (msg.status === 'complete' && msg.data) {
-              worldData = msg.data;
-            }
-          } catch (parseErr) {
-            if (parseErr instanceof SyntaxError) return;
-            throw parseErr;
-          }
-        };
+        setWorldData(finalData);
+        setIsGenerating(false);
+        setIsComplete(true);
 
-        while (true) {
-          const { done, value } = await worldReader.read();
-          if (done) break;
-
-          ndjsonBuffer += worldDecoder.decode(value, { stream: true });
-          const lines = ndjsonBuffer.split('\n');
-          ndjsonBuffer = lines.pop() || '';
-
-          for (const line of lines) {
-            processLine(line);
-          }
-        }
-
-        // Flush remaining buffer
-        ndjsonBuffer += worldDecoder.decode();
-        if (ndjsonBuffer.trim()) {
-          processLine(ndjsonBuffer);
-        }
-
-        if (!worldData) throw new Error('World generation completed without data');
-
-        // Store world and character data
-        localStorage.setItem('rpg-active-world', JSON.stringify(worldData.world));
-        localStorage.setItem('rpg-active-character', JSON.stringify(worldData.character));
-        if (worldData.worldId) localStorage.setItem('rpg-world-id', worldData.worldId);
-        if (worldData.characterId) localStorage.setItem('rpg-character-id', worldData.characterId);
-
-        const data = worldData;
-
-        // ═══ PHASE 2: Stream Opening Scene (Opus) ═══
-        setPhase(15); // "Writing the opening scene..."
-
-        const sceneResponse = await fetch('/api/world-genesis/opening-scene', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            world: data.world,
-            character: data.character,
-            worldId: data.worldId,
-            characterId: data.characterId,
-          }),
-        });
-
-        if (!sceneResponse.ok) {
-          throw new Error(`Opening scene generation failed (${sceneResponse.status})`);
-        }
-
-        // Stream the opening scene text
-        const reader = sceneResponse.body?.getReader();
-        const decoder = new TextDecoder();
-        let fullScene = '';
-
-        if (reader) {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            const chunk = decoder.decode(value, { stream: true });
-            fullScene += chunk;
-            setStreamedText(fullScene);
-          }
-        } else {
-          // Fallback: non-streaming
-          fullScene = await sceneResponse.text();
-          setStreamedText(fullScene);
-        }
-
-        localStorage.setItem('rpg-opening-scene', fullScene);
-
-        // Brief delay to let the user read the streamed preview
-        await new Promise((r) => setTimeout(r, 2000));
-
-        router.push('/game');
+        // Store as draft (server already saved to DB)
+        localStorage.setItem('rpg-active-world', JSON.stringify(finalData.world));
+        localStorage.setItem('rpg-active-character', JSON.stringify(finalData.character));
+        if (finalData.worldId) localStorage.setItem('rpg-world-id', finalData.worldId);
+        if (finalData.characterId) localStorage.setItem('rpg-character-id', finalData.characterId);
       } catch (err) {
         console.error('World generation error:', err);
         setError(err instanceof Error ? err.message : 'Unknown error occurred');
+        setIsGenerating(false);
       }
     };
 
-    generateWorld();
+    generate();
   }, [retryCount]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ─── Finalize & begin adventure ─────────────────────────────────────
+  const handleFinalize = useCallback(async () => {
+    if (!worldData) return;
+    setIsFinalizing(true);
+
+    try {
+      // Merge any edits into the world record
+      let mergedWorld = { ...worldData.world };
+      for (const step of steps) {
+        if (step.isEdited && step.editedData) {
+          mergedWorld = { ...mergedWorld, ...step.editedData };
+        }
+      }
+
+      // Save merged world to localStorage
+      localStorage.setItem('rpg-active-world', JSON.stringify(mergedWorld));
+
+      // ─── Stream opening scene ───────────────────────────────────
+      setShowingOpeningScene(true);
+
+      const sceneResponse = await fetch('/api/world-genesis/opening-scene', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          world: mergedWorld,
+          character: worldData.character,
+          worldId: worldData.worldId,
+          characterId: worldData.characterId,
+        }),
+      });
+
+      if (!sceneResponse.ok) {
+        throw new Error(`Opening scene generation failed (${sceneResponse.status})`);
+      }
+
+      const reader = sceneResponse.body?.getReader();
+      const decoder = new TextDecoder();
+      let fullScene = '';
+
+      if (reader) {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          const chunk = decoder.decode(value, { stream: true });
+          fullScene += chunk;
+          setStreamedText(fullScene);
+        }
+      } else {
+        fullScene = await sceneResponse.text();
+        setStreamedText(fullScene);
+      }
+
+      localStorage.setItem('rpg-opening-scene', fullScene);
+
+      await new Promise((r) => setTimeout(r, 2000));
+      router.push('/game');
+    } catch (err) {
+      console.error('Finalize error:', err);
+      setError(err instanceof Error ? err.message : 'Failed to start adventure');
+      setIsFinalizing(false);
+      setShowingOpeningScene(false);
+    }
+  }, [worldData, steps, router]);
+
+  // ─── Regenerate from a specific step ────────────────────────────────
+  const handleRegenerateFromStep = useCallback(
+    async (fromStepId: number) => {
+      if (!worldData) return;
+      setRegeneratingFromStep(fromStepId);
+
+      // Reset steps from fromStepId onward
+      setSteps((prev) =>
+        prev.map((s) =>
+          s.stepId >= fromStepId
+            ? { ...s, status: 'pending', data: null, editedData: null, isEdited: false }
+            : s
+        )
+      );
+
+      // Build accumulated data from steps before fromStepId (use edited data if available)
+      let accumulated: Record<string, unknown> = {};
+      for (const step of steps) {
+        if (step.stepId >= fromStepId) break;
+        const data = step.isEdited && step.editedData ? step.editedData : step.data;
+        if (data) accumulated = { ...accumulated, ...data };
+      }
+
+      try {
+        const response = await fetch('/api/world-genesis/regenerate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            character,
+            playerSentence: storyHook || undefined,
+            userId: 'local-player',
+            fromStep: fromStepId,
+            priorData: accumulated,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error(`Regeneration failed (${response.status})`);
+        }
+
+        const finalData = await processStream(response);
+        if (!finalData) throw new Error('Regeneration completed without data');
+
+        setWorldData(finalData);
+        setIsComplete(true);
+
+        // Update localStorage
+        localStorage.setItem('rpg-active-world', JSON.stringify(finalData.world));
+        if (finalData.worldId) localStorage.setItem('rpg-world-id', finalData.worldId);
+      } catch (err) {
+        console.error('Regeneration error:', err);
+        setError(err instanceof Error ? err.message : 'Regeneration failed');
+      } finally {
+        setRegeneratingFromStep(null);
+      }
+    },
+    [worldData, steps, character, storyHook, processStream]
+  );
+
+  // ─── Update step data from editor ───────────────────────────────────
+  const handleStepEdit = useCallback((stepId: number, newData: unknown) => {
+    setSteps((prev) =>
+      prev.map((s) =>
+        s.stepId === stepId
+          ? {
+              ...s,
+              editedData: newData as Record<string, unknown>,
+              isEdited: true,
+            }
+          : s
+      )
+    );
+  }, []);
+
+  // ─── Handle retry ───────────────────────────────────────────────────
   const handleRetry = () => {
     setError(null);
-    setPhase(0);
+    setCurrentPhase(0);
+    setSteps(initSteps());
+    setWorldData(null);
+    setIsComplete(false);
+    setIsGenerating(true);
     setStreamedText('');
-    hasStarted.current = false; // Allow the effect to re-run
-    setRetryCount((prev) => prev + 1); // Triggers the useEffect via dependency
+    setShowingOpeningScene(false);
+    hasStarted.current = false;
+    setRetryCount((prev) => prev + 1);
   };
 
+  // ─── Toggle accordion ──────────────────────────────────────────────
+  const toggleStep = (stepId: number) => {
+    setExpandedStep((prev) => (prev === stepId ? null : stepId));
+  };
+
+  // ─── Count completed steps ─────────────────────────────────────────
+  const completedCount = steps.filter((s) => s.status === 'complete').length;
+  const hasEdits = steps.some((s) => s.isEdited);
+
+  // ═══════════════════════════════════════════════════════════════════
+  // RENDER: Error State
+  // ═══════════════════════════════════════════════════════════════════
   if (error) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-950 px-4">
@@ -221,7 +422,7 @@ export default function WorldGenLoading({ character, storyHook }: WorldGenLoadin
           )}
           {retryCount >= 3 && (
             <p className="text-red-400 text-xs">
-              Multiple failures. Check your API keys in the .env file and ensure the server is running.
+              Multiple failures. Check your API keys and ensure the server is running.
             </p>
           )}
           <button
@@ -235,85 +436,251 @@ export default function WorldGenLoading({ character, storyHook }: WorldGenLoadin
     );
   }
 
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-950 px-4">
-      <div className="max-w-lg w-full text-center space-y-8">
-        {/* Animated glyph */}
-        <div className="relative mx-auto w-32 h-32">
-          <div className="absolute inset-0 rounded-full border-4 border-sky-500/20 animate-ping" />
-          <div className="absolute inset-2 rounded-full border-2 border-amber-500/30 animate-spin" style={{ animationDuration: '8s' }} />
-          <div className="absolute inset-4 rounded-full border border-sky-400/40 animate-spin" style={{ animationDuration: '12s', animationDirection: 'reverse' }} />
-          <div className="absolute inset-0 flex items-center justify-center text-5xl animate-pulse">
-            {phase >= 15 ? '✨' : '🌍'}
+  // ═══════════════════════════════════════════════════════════════════
+  // RENDER: Opening Scene (post-finalize)
+  // ═══════════════════════════════════════════════════════════════════
+  if (showingOpeningScene) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-950 px-4">
+        <div className="max-w-lg w-full text-center space-y-8">
+          {/* Animation */}
+          <div className="relative mx-auto w-32 h-32">
+            <div className="absolute inset-0 rounded-full border-4 border-amber-500/20 animate-ping" />
+            <div className="absolute inset-2 rounded-full border-2 border-amber-500/30 animate-spin" style={{ animationDuration: '8s' }} />
+            <div className="absolute inset-0 flex items-center justify-center text-5xl animate-pulse">✨</div>
           </div>
-        </div>
 
-        {/* Title */}
-        <h2 className="text-2xl font-cinzel text-amber-400">
-          {phase >= 15 ? 'Your World Awaits' : 'Creating Your World'}
-        </h2>
+          <h2 className="text-2xl font-cinzel text-amber-400">Your World Awaits</h2>
 
-        {/* Phase indicator */}
-        <div className="space-y-3">
-          {PHASE_LABELS.map((label, i) => (
-            <div key={i} className="flex items-center gap-3 justify-center">
-              <div
-                className={`w-3 h-3 rounded-full transition-all duration-500 ${
-                  i < phase
-                    ? 'bg-green-500'
-                    : i === phase
-                    ? 'bg-sky-400 animate-pulse'
-                    : 'bg-slate-700'
-                }`}
-              />
-              <span
-                className={`text-sm transition-colors ${
-                  i < phase
-                    ? 'text-slate-500 line-through'
-                    : i === phase
-                    ? 'text-sky-400'
-                    : 'text-slate-600'
-                }`}
-              >
-                {label}
-              </span>
+          {streamedText && (
+            <div className="text-left bg-slate-900/60 border border-slate-700/50 rounded-xl p-4 max-h-64 overflow-y-auto">
+              <p className="text-xs text-amber-500/60 font-cinzel mb-2">Opening Scene</p>
+              <p className="text-slate-300 text-sm leading-relaxed whitespace-pre-wrap">
+                {streamedText.slice(0, 600)}
+                {streamedText.length > 600 && (
+                  <span className="text-slate-500">... (continues in game)</span>
+                )}
+              </p>
             </div>
-          ))}
+          )}
+
+          <p className="text-slate-600 text-xs">
+            Writing your unique opening scene with full creative depth...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  // RENDER: Main — Progress + Accordion
+  // ═══════════════════════════════════════════════════════════════════
+  return (
+    <div className="min-h-screen bg-slate-950 px-4 py-8">
+      <div className="max-w-3xl mx-auto space-y-6">
+        {/* ── Header ─────────────────────────────────── */}
+        <div className="text-center space-y-4">
+          {/* Animated globe */}
+          <div className="relative mx-auto w-24 h-24">
+            <div className="absolute inset-0 rounded-full border-4 border-sky-500/20 animate-ping" />
+            <div className="absolute inset-2 rounded-full border-2 border-amber-500/30 animate-spin" style={{ animationDuration: '8s' }} />
+            <div className="absolute inset-4 rounded-full border border-sky-400/40 animate-spin" style={{ animationDuration: '12s', animationDirection: 'reverse' }} />
+            <div className="absolute inset-0 flex items-center justify-center text-4xl animate-pulse">
+              {isComplete ? '✨' : '🌍'}
+            </div>
+          </div>
+
+          <h2 className="text-2xl font-cinzel text-amber-400">
+            {isComplete ? 'Review Your World' : 'Creating Your World'}
+          </h2>
+
+          {isComplete && (
+            <p className="text-slate-400 text-sm max-w-md mx-auto">
+              Your world has been generated! Expand any section below to review and edit.
+              {hasEdits && <span className="text-amber-400"> You have unsaved edits.</span>}
+            </p>
+          )}
         </div>
 
-        {/* Progress bar */}
+        {/* ── Progress bar ──────────────────────────── */}
         <div className="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
           <div
             className="h-full bg-gradient-to-r from-sky-500 to-amber-500 rounded-full transition-all duration-1000 ease-out"
-            style={{ width: `${((phase + 1) / PHASE_LABELS.length) * 100}%` }}
+            style={{ width: `${(completedCount / TOTAL_STEPS) * 100}%` }}
           />
         </div>
 
-        {/* Streamed opening scene preview (phase 4+) */}
-        {phase >= 15 && streamedText && (
-          <div className="text-left bg-slate-900/60 border border-slate-700/50 rounded-xl p-4 max-h-48 overflow-y-auto">
-            <p className="text-xs text-amber-500/60 font-cinzel mb-2">Opening Scene Preview</p>
-            <p className="text-slate-300 text-sm leading-relaxed whitespace-pre-wrap">
-              {streamedText.slice(0, 400)}
-              {streamedText.length > 400 && (
-                <span className="text-slate-500">... (continues in game)</span>
-              )}
-            </p>
-          </div>
-        )}
+        {/* ── Step Accordion ────────────────────────── */}
+        <div className="space-y-2">
+          {steps.map((step) => {
+            const isExpanded = expandedStep === step.stepId;
+            const canExpand = step.status === 'complete';
+            const isRegenerating = regeneratingFromStep !== null && step.stepId >= regeneratingFromStep;
+            const displayData = step.isEdited && step.editedData ? step.editedData : step.data;
 
-        {/* Rotating flavor text (only show when not streaming) */}
-        {phase < 15 && (
-          <p className="text-slate-500 italic text-sm h-6 transition-opacity duration-500">
+            return (
+              <div
+                key={step.stepId}
+                className={`rounded-lg border transition-all duration-300 ${
+                  isExpanded
+                    ? 'border-sky-500/40 bg-slate-900/80'
+                    : step.status === 'complete'
+                    ? 'border-slate-700/50 bg-slate-900/40 hover:border-slate-600'
+                    : 'border-slate-800/50 bg-slate-900/20'
+                }`}
+              >
+                {/* Step Header */}
+                <button
+                  onClick={() => canExpand && toggleStep(step.stepId)}
+                  disabled={!canExpand}
+                  className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors ${
+                    canExpand ? 'cursor-pointer' : 'cursor-default'
+                  }`}
+                >
+                  {/* Status icon */}
+                  <div className="flex-shrink-0">
+                    {step.status === 'complete' ? (
+                      <div className="w-5 h-5 rounded-full bg-green-500/20 border border-green-500 flex items-center justify-center">
+                        {step.isEdited ? (
+                          <span className="text-amber-400 text-xs">✎</span>
+                        ) : (
+                          <span className="text-green-400 text-xs">✓</span>
+                        )}
+                      </div>
+                    ) : step.status === 'generating' || isRegenerating ? (
+                      <div className="w-5 h-5 rounded-full bg-sky-400/20 border border-sky-400 animate-pulse" />
+                    ) : (
+                      <div className="w-5 h-5 rounded-full bg-slate-700/50 border border-slate-700" />
+                    )}
+                  </div>
+
+                  {/* Label */}
+                  <span
+                    className={`flex-1 text-sm font-medium ${
+                      step.status === 'complete'
+                        ? step.isEdited
+                          ? 'text-amber-300'
+                          : 'text-slate-300'
+                        : step.status === 'generating' || isRegenerating
+                        ? 'text-sky-400'
+                        : 'text-slate-600'
+                    }`}
+                  >
+                    {step.label}
+                    {step.status === 'generating' && '...'}
+                    {isRegenerating && step.status !== 'generating' && ' (queued)'}
+                  </span>
+
+                  {/* Step number */}
+                  <span className="text-xs text-slate-600 flex-shrink-0">
+                    {step.stepId}/{TOTAL_STEPS}
+                  </span>
+
+                  {/* Expand indicator */}
+                  {canExpand && (
+                    <span
+                      className={`text-xs text-slate-500 transition-transform flex-shrink-0 ${
+                        isExpanded ? 'rotate-90' : ''
+                      }`}
+                    >
+                      ▶
+                    </span>
+                  )}
+                </button>
+
+                {/* Expanded Content */}
+                {isExpanded && displayData && (
+                  <div className="px-4 pb-4 border-t border-slate-700/30">
+                    {/* Quick summary bar */}
+                    <div className="flex items-center justify-between py-2 mb-2">
+                      <span className="text-xs text-slate-500">
+                        {Object.keys(displayData).length} fields
+                        {step.isEdited && (
+                          <span className="text-amber-400 ml-2">• edited</span>
+                        )}
+                      </span>
+                      <div className="flex gap-2">
+                        {step.isEdited && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSteps((prev) =>
+                                prev.map((s) =>
+                                  s.stepId === step.stepId
+                                    ? { ...s, editedData: null, isEdited: false }
+                                    : s
+                                )
+                              );
+                            }}
+                            className="text-xs text-slate-400 hover:text-slate-200 transition-colors"
+                          >
+                            Reset edits
+                          </button>
+                        )}
+                        {isComplete && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleRegenerateFromStep(step.stepId);
+                            }}
+                            disabled={regeneratingFromStep !== null}
+                            className="text-xs text-sky-400 hover:text-sky-300 disabled:text-slate-600 transition-colors flex items-center gap-1"
+                          >
+                            🔄 Regenerate from here
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* JSON Editor */}
+                    <GenericJsonEditor
+                      data={displayData}
+                      onChange={(updated) => handleStepEdit(step.stepId, updated)}
+                    />
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* ── Flavor text (while generating) ────────── */}
+        {isGenerating && (
+          <p className="text-center text-slate-500 italic text-sm h-6 transition-opacity duration-500">
             {FLAVOR_TEXTS[flavorIndex]}
           </p>
         )}
 
-        <p className="text-slate-600 text-xs">
-          {phase >= 15
-            ? 'The AI is writing your unique opening scene with full creative depth...'
-            : 'Sit back — the AI is building an entire homebrew campaign world just for you. This takes a few minutes.'}
-        </p>
+        {isGenerating && (
+          <p className="text-center text-slate-600 text-xs">
+            Sit back — the AI is building an entire homebrew campaign world just for you. This takes a few minutes.
+          </p>
+        )}
+
+        {/* ── Finalize Button (after completion) ────── */}
+        {isComplete && !isFinalizing && (
+          <div className="text-center space-y-3 pt-4">
+            <button
+              onClick={handleFinalize}
+              disabled={regeneratingFromStep !== null}
+              className="px-8 py-4 bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 disabled:from-slate-600 disabled:to-slate-600 text-white rounded-xl font-cinzel font-bold text-lg shadow-lg shadow-amber-500/20 hover:shadow-amber-500/40 transition-all transform hover:scale-105 disabled:hover:scale-100"
+            >
+              ✨ Accept & Begin Adventure
+            </button>
+            <p className="text-slate-500 text-xs">
+              {hasEdits
+                ? 'Your edits will be applied before the adventure begins.'
+                : 'Click to generate your opening scene and enter the world.'}
+            </p>
+          </div>
+        )}
+
+        {isFinalizing && !showingOpeningScene && (
+          <div className="text-center py-4">
+            <div className="inline-block animate-spin text-amber-400 text-2xl mb-2">⚡</div>
+            <p className="text-slate-400 text-sm">Preparing your adventure...</p>
+          </div>
+        )}
       </div>
     </div>
   );
