@@ -12,8 +12,8 @@ import { callClaudeJSON } from '@/lib/ai-orchestrator';
 import { GENESIS_STEPS, TOTAL_STEPS } from '@/lib/prompts/world-genesis-steps';
 import type { CharacterCreationInput } from '@/lib/types/character';
 
-// A single step should never take more than 60s
-export const maxDuration = 60;
+// Later steps (factions, bestiary, etc.) can take 60-90s with large context
+export const maxDuration = 120;
 
 interface StepRequest {
   character: CharacterCreationInput;

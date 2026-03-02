@@ -120,31 +120,44 @@ export default function WorldGenLoading({ character, storyHook }: WorldGenLoadin
     return () => clearInterval(interval);
   }, []);
 
-  // ─── Run ONE step via API ───────────────────────────────────────────
+  // ─── Run ONE step via API (with retry) ──────────────────────────────
   const runSingleStep = useCallback(
     async (stepIndex: number, accumulated: Record<string, unknown>) => {
-      const res = await fetch('/api/world-genesis/step', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          character,
-          playerSentence: storyHook || undefined,
-          stepIndex,
-          accumulated,
-        }),
-      });
+      const MAX_RETRIES = 2;
 
-      if (!res.ok) {
-        const errText = await res.text().catch(() => '');
-        let errMsg = `Step ${stepIndex + 1} failed (${res.status})`;
+      for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
         try {
-          const errJson = JSON.parse(errText);
-          errMsg = errJson.error || errMsg;
-        } catch { /* not JSON */ }
-        throw new Error(errMsg);
+          const res = await fetch('/api/world-genesis/step', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              character,
+              playerSentence: storyHook || undefined,
+              stepIndex,
+              accumulated,
+            }),
+          });
+
+          if (!res.ok) {
+            const errText = await res.text().catch(() => '');
+            let errMsg = `Step ${stepIndex + 1} failed (${res.status})`;
+            try {
+              const errJson = JSON.parse(errText);
+              errMsg = errJson.error || errMsg;
+            } catch { /* not JSON */ }
+            throw new Error(errMsg);
+          }
+
+          return await res.json();
+        } catch (err) {
+          console.warn(`Step ${stepIndex + 1} attempt ${attempt + 1} failed:`, err);
+          if (attempt === MAX_RETRIES) throw err;
+          // Wait before retry: 3s, then 6s
+          await new Promise((r) => setTimeout(r, (attempt + 1) * 3000));
+        }
       }
 
-      return res.json();
+      throw new Error(`Step ${stepIndex + 1} failed after ${MAX_RETRIES + 1} attempts`);
     },
     [character, storyHook]
   );
@@ -191,6 +204,9 @@ export default function WorldGenLoading({ character, storyHook }: WorldGenLoadin
         // Run each step sequentially — one HTTP call per step
         for (let i = 0; i < TOTAL_STEPS; i++) {
           if (abortRef.current) return;
+
+          // Small gap between steps to prevent connection/rate issues
+          if (i > 0) await new Promise((r) => setTimeout(r, 1500));
 
           // Mark step as generating
           setSteps((prev) =>
@@ -336,6 +352,9 @@ export default function WorldGenLoading({ character, storyHook }: WorldGenLoadin
       try {
         // Run steps from fromStepId onward, one at a time
         for (let i = fromStepId - 1; i < TOTAL_STEPS; i++) {
+          // Small gap between steps
+          if (i > fromStepId - 1) await new Promise((r) => setTimeout(r, 1500));
+
           // Mark step as generating
           setSteps((prev) =>
             prev.map((s) =>
