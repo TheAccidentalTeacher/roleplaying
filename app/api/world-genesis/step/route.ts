@@ -27,13 +27,67 @@ interface StepRequest {
 }
 
 /**
- * Attempt to repair truncated JSON from token limit cutoff.
+ * Sanitize Claude's raw JSON output by escaping control characters
+ * (literal newlines, tabs, etc.) that appear inside JSON string values.
+ * Also fixes common Claude JSON mistakes.
  */
-function repairJSON(text: string): string {
-  let s = text.trim();
+function sanitizeJSON(raw: string): string {
+  let s = raw.trim();
 
   // Strip markdown fences
   s = s.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+
+  // Walk through character by character and escape control chars inside strings
+  let result = '';
+  let inString = false;
+  let i = 0;
+
+  while (i < s.length) {
+    const ch = s[i];
+
+    if (ch === '"' && (i === 0 || s[i - 1] !== '\\')) {
+      inString = !inString;
+      result += ch;
+      i++;
+      continue;
+    }
+
+    if (inString) {
+      // Escape literal control characters that break JSON
+      if (ch === '\n') { result += '\\n'; i++; continue; }
+      if (ch === '\r') { result += '\\r'; i++; continue; }
+      if (ch === '\t') { result += '\\t'; i++; continue; }
+      // Escape unescaped backslashes that aren't part of valid escape sequences
+      if (ch === '\\' && i + 1 < s.length) {
+        const next = s[i + 1];
+        if ('"\\\/bfnrtu'.includes(next)) {
+          // Valid escape sequence — keep as-is
+          result += ch + next;
+          i += 2;
+          continue;
+        } else {
+          // Invalid escape — double the backslash
+          result += '\\\\';
+          i++;
+          continue;
+        }
+      }
+      result += ch;
+      i++;
+    } else {
+      result += ch;
+      i++;
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Attempt to repair truncated JSON from token limit cutoff.
+ */
+function repairTruncated(text: string): string {
+  let s = text;
 
   // If odd number of unescaped quotes, close the open string
   const quoteCount = (s.match(/(?<!\\)"/g) || []).length;
@@ -111,17 +165,24 @@ export async function POST(request: NextRequest) {
     const duration = ((Date.now() - startTime) / 1000).toFixed(1);
     console.log(`[WorldGenesis:Step] Step ${step.id} raw response: ${rawText.length} chars in ${duration}s`);
 
-    // Parse JSON — try as-is first, then repair
-    const cleaned = rawText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    // Sanitize → parse → repair if needed
+    const sanitized = sanitizeJSON(rawText);
     let result: Record<string, unknown>;
 
     try {
-      result = JSON.parse(cleaned);
-    } catch {
-      console.warn(`[WorldGenesis:Step] Step ${step.id} JSON parse failed, attempting repair...`);
-      const repaired = repairJSON(cleaned);
-      result = JSON.parse(repaired); // If this throws, the catch below returns 500
-      console.warn(`[WorldGenesis:Step] Step ${step.id} JSON repaired successfully`);
+      result = JSON.parse(sanitized);
+    } catch (firstErr) {
+      console.warn(`[WorldGenesis:Step] Step ${step.id} JSON parse failed after sanitize, attempting truncation repair...`);
+      try {
+        const repaired = repairTruncated(sanitized);
+        result = JSON.parse(repaired);
+        console.warn(`[WorldGenesis:Step] Step ${step.id} JSON repaired successfully`);
+      } catch {
+        // Log the actual error and a snippet of the problematic JSON
+        console.error(`[WorldGenesis:Step] Step ${step.id} JSON repair also failed:`, firstErr);
+        console.error(`[WorldGenesis:Step] Raw text snippet (first 500 chars): ${rawText.substring(0, 500)}`);
+        throw firstErr;
+      }
     }
 
     console.log(`[WorldGenesis:Step] Step ${step.id} (${step.name}) complete in ${duration}s`);

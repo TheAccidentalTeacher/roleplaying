@@ -39,6 +39,8 @@ function charContext(c: CharacterCreationInput, playerSentence?: string): string
 const JSON_RULES = `
 OUTPUT RULES:
 - Respond ONLY with valid JSON. No markdown fences, no explanation, no commentary.
+- All string values must be valid JSON strings. Escape quotes with \\", use \\n for newlines. Never put literal newlines inside string values.
+- Keep string values CONCISE — max 2-3 sentences per field. No long paragraphs.
 - Every name, faction, and concept must be wholly ORIGINAL. NEVER imitate Tolkien, Forgotten Realms, Star Wars, Elder Scrolls, or any existing IP.
 - Surprise even veteran RPG players with unexpected concepts.
 - You MUST reference the established world facts below by their EXACT names. Do NOT invent alternative names for things that already exist.`;
