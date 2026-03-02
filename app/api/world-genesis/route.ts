@@ -169,10 +169,14 @@ export async function POST(request: NextRequest) {
       let accumulated: Record<string, unknown> = {};
       let progressCounter = 0;
 
+      const startTime = Date.now();
+
       /** Run a single step, returning results (does NOT merge into accumulated) */
       const runStep = async (stepIndex: number): Promise<Record<string, unknown>> => {
         const step = GENESIS_STEPS[stepIndex];
-        console.log(`[WorldGenesis] Step ${step.id}/${TOTAL_STEPS}: ${step.name}...`);
+        const stepStart = Date.now();
+        const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+        console.log(`[WorldGenesis] Step ${step.id}/${TOTAL_STEPS}: ${step.name}... (${elapsed}s total)`);
         await send({ status: 'generating', phase: progressCounter, step: step.id, totalSteps: TOTAL_STEPS, label: step.label });
 
         const prompt = step.buildPrompt(charInput, accumulated, playerSentence);
@@ -184,7 +188,9 @@ export async function POST(request: NextRequest) {
         );
 
         progressCounter++;
-        console.log(`[WorldGenesis] Step ${step.id} complete.`);
+        const stepDuration = ((Date.now() - stepStart) / 1000).toFixed(1);
+        const totalElapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+        console.log(`[WorldGenesis] Step ${step.id} complete in ${stepDuration}s (${totalElapsed}s total)`);
         await send({ status: 'step_complete', phase: progressCounter, step: step.id, stepName: step.name, data: result });
         return result;
       };
