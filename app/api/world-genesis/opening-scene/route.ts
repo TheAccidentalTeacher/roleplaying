@@ -27,14 +27,27 @@ export async function POST(request: NextRequest) {
     const { world, character, worldId, characterId } =
       (await request.json()) as OpeningSceneRequest;
 
+    console.log('[OpeningScene] ▶ Request received');
+    console.log('[OpeningScene] World:', world?.worldName ?? 'MISSING');
+    console.log('[OpeningScene] Character:', character?.name ?? 'MISSING');
+    console.log('[OpeningScene] WorldId:', worldId ?? 'MISSING');
+    console.log('[OpeningScene] CharacterId:', characterId ?? 'MISSING');
+
     if (!world || !character) {
+      console.error('[OpeningScene] ✗ Missing world or character in request body');
       return new Response(
         JSON.stringify({ error: 'world and character are required' }),
         { status: 400, headers: { 'Content-Type': 'application/json' } }
       );
     }
 
+    // Log world data completeness
+    const worldKeys = Object.keys(world);
+    console.log(`[OpeningScene] World has ${worldKeys.length} keys: ${worldKeys.join(', ')}`);
+    console.log(`[OpeningScene] Has magicSystem: ${!!world.magicSystem}, mainThreat: ${!!world.mainThreat}, villainCore: ${!!world.villainCore}, originScenario: ${!!world.originScenario}`);
+
     const openingScenePrompt = buildOpeningScenePrompt(world, character);
+    console.log(`[OpeningScene] Prompt built: ${openingScenePrompt.length} chars`);
 
     // Stream the opening scene from Opus — text arrives chunk by chunk
     const aiStream = await streamClaude(
@@ -86,9 +99,11 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('[OpeningScene] Error:', error);
+    console.error('[OpeningScene] ✗ Error:', error);
+    const errMsg = error instanceof Error ? error.message : 'Failed to generate opening scene';
+    const errStack = error instanceof Error ? error.stack : undefined;
     return new Response(
-      JSON.stringify({ error: 'Failed to generate opening scene' }),
+      JSON.stringify({ error: errMsg, stack: errStack }),
       { status: 500, headers: { 'Content-Type': 'application/json' } }
     );
   }

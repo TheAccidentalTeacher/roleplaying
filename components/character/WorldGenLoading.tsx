@@ -316,7 +316,15 @@ export default function WorldGenLoading({ character, storyHook }: WorldGenLoadin
       });
 
       if (!sceneResponse.ok) {
-        throw new Error(`Opening scene generation failed (${sceneResponse.status})`);
+        const errText = await sceneResponse.text().catch(() => '');
+        console.error(`[WorldGen] Opening scene failed (${sceneResponse.status}):`, errText);
+        let errMsg = `Opening scene generation failed (${sceneResponse.status})`;
+        try {
+          const errJson = JSON.parse(errText);
+          errMsg = errJson.error || errMsg;
+          if (errJson.stack) console.error('[WorldGen] Server stack:', errJson.stack);
+        } catch { /* not JSON */ }
+        throw new Error(errMsg);
       }
 
       const reader = sceneResponse.body?.getReader();

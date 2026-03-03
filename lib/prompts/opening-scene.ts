@@ -11,42 +11,60 @@ import type { Character } from '@/lib/types/character';
  * Receives the generated world + character and writes the first scene.
  */
 export function buildOpeningScenePrompt(world: WorldRecord, character: Character): string {
-  return `You are the DUNGEON MASTER for a single-player RPG set in the world of ${world.worldName}. 
+  // Defensive helpers — if world data is incomplete, use fallbacks
+  const safe = (val: unknown, fallback = 'unknown') => (val ? String(val) : fallback);
+  const safeJoin = (arr: unknown, fallback = 'unknown') =>
+    Array.isArray(arr) ? arr.join(', ') : fallback;
+  const magicName = world.magicSystem?.name ?? 'the magic system';
+  const magicDesc = world.magicSystem?.description ?? 'a mysterious force';
+  const threatName = world.mainThreat?.name ?? 'an unnamed threat';
+  const threatNature = world.mainThreat?.nature ?? 'unknown';
+  const threatPhase = world.mainThreat?.currentPhase ?? 'emerging';
+  const villainName = world.villainCore?.name ?? 'the antagonist';
+  const villainTitle = world.villainCore?.title ?? '';
+  const villainDesc = world.villainCore?.description ?? 'a dangerous adversary';
+  const originSetting = world.originScenario?.setting ?? 'a humble beginning';
+  const originSituation = world.originScenario?.situation ?? 'something stirs';
+  const originHook = world.originScenario?.hook ?? 'adventure calls';
+  const originNPC = world.originScenario?.firstNPCIntro ?? 'a stranger approaches';
+  const numChoices = world.originScenario?.initialChoices?.length ?? 4;
+
+  return `You are the DUNGEON MASTER for a single-player RPG set in the world of ${safe(world.worldName)}. 
 You are about to write the OPENING SCENE — the first thing the player reads. This must be extraordinary.
 
 ## YOUR VOICE
 You are a master storyteller whose voice adapts to the genre:
-${getVoiceGuidance(world.primaryGenre, world.narrativeTone)}
+${getVoiceGuidance(world.primaryGenre ?? 'epic-fantasy', Array.isArray(world.narrativeTone) ? world.narrativeTone : [])}
 
 ## THE WORLD
-- World Name: ${world.worldName}
-- Type: ${world.worldType}
-- Primary Genre: ${world.primaryGenre}
-- Tone: ${world.narrativeTone.join(', ')}
-- Thematic Core: ${world.thematicCore}
-- Magic System: ${world.magicSystem.name} — ${world.magicSystem.description}
-- Technology Level: ${world.technologyLevel}
+- World Name: ${safe(world.worldName)}
+- Type: ${safe(world.worldType)}
+- Primary Genre: ${safe(world.primaryGenre)}
+- Tone: ${safeJoin(world.narrativeTone)}
+- Thematic Core: ${safe(world.thematicCore)}
+- Magic System: ${magicName} — ${magicDesc}
+- Technology Level: ${safe(world.technologyLevel)}
 
 ## THE MAIN THREAT
-${world.mainThreat.name}: ${world.mainThreat.nature}
-Current phase: ${world.mainThreat.currentPhase}
+${threatName}: ${threatNature}
+Current phase: ${threatPhase}
 
 ## THE VILLAIN
-${world.villainCore.name} (${world.villainCore.title}): ${world.villainCore.description}
+${villainName}${villainTitle ? ` (${villainTitle})` : ''}: ${villainDesc}
 
 ## THE CHARACTER
-- Name: ${character.name}
-- Race: ${character.race}
-- Class: ${character.class}
-- Level: ${character.level}
+- Name: ${safe(character.name)}
+- Race: ${safe(character.race)}
+- Class: ${safe(character.class)}
+- Level: ${character.level ?? 1}
 ${character.personality ? `- Personality: ${character.personality.traits?.join(', ') ?? ''}` : ''}
 ${character.appearance ? `- Appearance: ${character.appearance}` : ''}
 
 ## ORIGIN SCENARIO
-- Setting: ${world.originScenario.setting}
-- Situation: ${world.originScenario.situation}
-- Hook: ${world.originScenario.hook}
-- First NPC: ${world.originScenario.firstNPCIntro}
+- Setting: ${originSetting}
+- Situation: ${originSituation}
+- Hook: ${originHook}
+- First NPC: ${originNPC}
 
 ## WRITING INSTRUCTIONS
 
@@ -66,11 +84,11 @@ Write 3-5 paragraphs of immersive narrative prose that:
 - Hint at the larger threat without explaining it
 
 ### Action Choices
-- Present exactly ${world.originScenario.initialChoices.length || 4} choices at the end
 - Each choice should lead to a genuinely different path
 - Choices should reflect different play styles (cautious, bold, charismatic, investigative)
 - Format: numbered list, each 1-2 sentences describing the action and its obvious risk/reward
 - At least one choice should be unexpected or creative
+- Present exactly ${numChoices} choices
 
 ### What NOT to Do
 - Don't dump lore or exposition
