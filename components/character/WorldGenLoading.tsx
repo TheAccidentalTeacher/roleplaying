@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import GenericJsonEditor from './GenericJsonEditor';
 import type { CharacterCreationInput } from '@/lib/types/character';
+import { useGameStore } from '@/lib/store';
 
 // ─── Types ────────────────────────────────────────────────────────────
 
@@ -345,6 +346,9 @@ export default function WorldGenLoading({ character, storyHook }: WorldGenLoadin
       }
 
       localStorage.setItem('rpg-opening-scene', fullScene);
+
+      // Clear old game state so previous world's chat doesn't persist
+      useGameStore.getState().resetGame();
 
       await new Promise((r) => setTimeout(r, 2000));
       router.push('/game');
