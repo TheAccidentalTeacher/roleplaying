@@ -3,10 +3,13 @@
 import { useEffect, useState } from 'react';
 import type { Character } from '@/lib/types/character';
 import PrintableSheet from '@/components/character/PrintableSheet';
+import PortraitGallery from '@/components/character/PortraitGallery';
 
 export default function CharacterSheetPage() {
   const [character, setCharacter] = useState<Character | null>(null);
+  const [characterId, setCharacterId] = useState<string>('');
   const [worldName, setWorldName] = useState<string>('');
+  const [worldGenre, setWorldGenre] = useState<string>('');
   const [error, setError] = useState<string>('');
 
   useEffect(() => {
@@ -19,15 +22,20 @@ export default function CharacterSheetPage() {
       const parsed = JSON.parse(raw) as Character;
       setCharacter(parsed);
 
-      // Try to get world name
+      // Get character ID
+      const cid = localStorage.getItem('rpg-character-id') || parsed.id || `local-${Date.now()}`;
+      setCharacterId(cid);
+
+      // Try to get world name and genre
       try {
         const worldRaw = localStorage.getItem('rpg-active-world');
         if (worldRaw) {
           const world = JSON.parse(worldRaw);
           setWorldName(world?.name ?? world?.worldName ?? '');
+          setWorldGenre(world?.genre ?? world?.questGenre ?? world?.worldType ?? '');
         }
       } catch {
-        // World name is optional
+        // World data is optional
       }
     } catch (e) {
       setError('Failed to load character data.');
@@ -94,6 +102,15 @@ export default function CharacterSheetPage() {
   return (
     <div style={{ background: '#fdf6e3', minHeight: '100vh' }}>
       <PrintableSheet character={character} worldName={worldName} />
+
+      {/* Portrait Gallery — hidden when printing */}
+      <div className="sheet-no-print">
+        <PortraitGallery
+          character={character}
+          characterId={characterId}
+          worldGenre={worldGenre || undefined}
+        />
+      </div>
     </div>
   );
 }

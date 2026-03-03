@@ -28,6 +28,9 @@
     },
     "app/api/image/route.ts": {
       "maxDuration": 60
+    },
+    "app/api/character-portrait/route.ts": {
+      "maxDuration": 120
     }
   }
 }
