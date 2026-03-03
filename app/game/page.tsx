@@ -1390,6 +1390,18 @@ export default function GamePage() {
             />
           )}
 
+          {/* Full Character Sheet Button */}
+          {fullCharacter && (
+            <div className="px-3 py-2 border-t border-slate-700/30">
+              <button
+                onClick={() => window.open('/game/sheet', '_blank')}
+                className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-amber-900/30 hover:bg-amber-800/40 border border-amber-700/40 rounded-lg text-sm text-amber-300 transition-colors"
+              >
+                📜 Full Character Sheet
+              </button>
+            </div>
+          )}
+
           {/* Rest Button */}
           {fullCharacter && !inCombat && (
             <div className="px-3 py-2 border-t border-slate-700/30">
@@ -1503,6 +1515,18 @@ export default function GamePage() {
                 hp={displayHP}
                 character={fullCharacter}
               />
+            )}
+
+            {/* Full Character Sheet Button — Mobile */}
+            {fullCharacter && (
+              <div className="px-3 py-2 border-t border-slate-700/30">
+                <button
+                  onClick={() => window.open('/game/sheet', '_blank')}
+                  className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-amber-900/30 hover:bg-amber-800/40 border border-amber-700/40 rounded-lg text-sm text-amber-300 transition-colors"
+                >
+                  📜 Full Character Sheet
+                </button>
+              </div>
             )}
 
             {/* Rest Button — Mobile */}
