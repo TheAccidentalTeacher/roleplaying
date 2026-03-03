@@ -15,6 +15,7 @@ export const maxDuration = 60;
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
+    console.log('[DM] Request received. Body keys:', Object.keys(body));
     const {
       messages = [],       // Latest messages from client
       characterId,         // Supabase character ID (if available)
@@ -41,20 +42,34 @@ export async function POST(req: NextRequest) {
     };
 
     // Build the full DM context
-    const dmContext = await buildContextFromDB({
-      worldId: worldId || 'local',
-      characterId: characterId || 'local',
-      fallbackWorld: fallbackWorld ?? undefined,
-      fallbackCharacter: fallbackCharacter ?? undefined,
-      activeQuests,
-      knownNPCs,
-      combatState,
-      gameClock,
-      weather,
-    });
+    let dmContext;
+    try {
+      dmContext = await buildContextFromDB({
+        worldId: worldId || 'local',
+        characterId: characterId || 'local',
+        fallbackWorld: fallbackWorld ?? undefined,
+        fallbackCharacter: fallbackCharacter ?? undefined,
+        activeQuests,
+        knownNPCs,
+        combatState,
+        gameClock,
+        weather,
+      });
+    } catch (ctxError) {
+      console.error('[DM] Context build failed:', ctxError);
+      console.error('[DM] fallbackWorld exists:', !!fallbackWorld, 'fallbackCharacter exists:', !!fallbackCharacter);
+      return NextResponse.json({ error: 'Failed to build DM context: ' + (ctxError instanceof Error ? ctxError.message : 'Unknown') }, { status: 500 });
+    }
 
     // Build the massive system prompt
-    const systemPrompt = buildDMSystemPrompt(dmContext);
+    let systemPrompt: string;
+    try {
+      systemPrompt = buildDMSystemPrompt(dmContext);
+      console.log('[DM] System prompt built. Length:', systemPrompt.length);
+    } catch (promptError) {
+      console.error('[DM] System prompt build crashed:', promptError);
+      return NextResponse.json({ error: 'Failed to build DM prompt: ' + (promptError instanceof Error ? promptError.message : 'Unknown') }, { status: 500 });
+    }
 
     // Get message history from Supabase (or use client-provided messages)
     let messageHistory = messages;
@@ -136,8 +151,10 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (error: unknown) {
-    console.error('DM API Error:', error);
+    console.error('[DM] API Error:', error);
     const message = error instanceof Error ? error.message : 'An error occurred';
+    const stack = error instanceof Error ? error.stack?.split('\n').slice(0, 3).join('\n') : '';
+    console.error('[DM] Stack:', stack);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

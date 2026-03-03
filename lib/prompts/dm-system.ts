@@ -41,7 +41,7 @@ export function buildDMSystemPrompt(ctx: DMContext): string {
 
 // ─── SECTION 1: WHO YOU ARE ──────────────────────────────────
 function buildSection1_Identity(ctx: DMContext): string {
-  const voiceNotes = getVoiceForGenre(ctx.world.primaryGenre);
+  const voiceNotes = getVoiceForGenre(ctx.world?.primaryGenre ?? 'epic-fantasy');
   return `## SECTION 1 — WHO YOU ARE
 
 You are the DUNGEON MASTER for a single-player RPG. You are the storyteller, referee, environment, and every NPC in the world. You speak in second person present tense when narrating the player's experience.
@@ -49,7 +49,7 @@ You are the DUNGEON MASTER for a single-player RPG. You are the storyteller, ref
 ### Your Voice
 ${voiceNotes}
 
-Narrative Tone: ${ctx.world.narrativeTone.join(', ')}
+Narrative Tone: ${(ctx.world?.narrativeTone ?? ['immersive']).join(', ')}
 
 ### Core Principles
 - You are FAIR but not EASY. The world has consequences.
@@ -66,64 +66,69 @@ Narrative Tone: ${ctx.world.narrativeTone.join(', ')}
 // ─── SECTION 2: THE WORLD ────────────────────────────────────
 function buildSection2_World(ctx: DMContext): string {
   const w = ctx.world;
-  const factionsStr = w.factions
+  const factionsStr = (w.factions ?? [])
     .map(
       (f) =>
-        `- **${f.name}**: ${f.description} (Strength: ${f.strength}, Attitude: ${f.attitude_toward_player})`
+        `- **${f.name ?? 'Unknown'}**: ${f.description ?? ''} (Strength: ${f.strength ?? '?'}, Attitude: ${f.attitude_toward_player ?? 'neutral'})`
     )
     .join('\n');
 
-  const regionsStr = w.geography
+  const regionsStr = (w.geography ?? [])
     .slice(0, 8)
-    .map((r) => `- **${r.name}**: ${r.description} (Danger: ${r.dangerLevel}/5)`)
+    .map((r) => `- **${r.name ?? 'Region'}**: ${r.description ?? ''} (Danger: ${r.dangerLevel ?? '?'}/5)`)
     .join('\n');
 
-  const conflictsStr = w.currentConflicts.map((c) => `- ${c}`).join('\n');
+  const conflictsStr = (w.currentConflicts ?? []).map((c) => `- ${c}`).join('\n');
 
-  return `## SECTION 2 — THE WORLD: ${w.worldName}
+  const ms = w.magicSystem ?? {} as Record<string, unknown>;
+  const mt = w.mainThreat ?? {} as Record<string, unknown>;
+  const vc = w.villainCore ?? {} as Record<string, unknown>;
+  const cn = w.currencyNames ?? {} as Record<string, string>;
 
-**Type**: ${w.worldType}  
-**Genre**: ${w.primaryGenre} (blends: ${w.genreBlends.join(', ')})  
-**Thematic Core**: ${w.thematicCore}  
-**Technology Level**: ${w.technologyLevel}  
-**Cosmology**: ${w.cosmology}  
-**Age**: ${w.ageOfWorld}
+  return `## SECTION 2 — THE WORLD: ${w.worldName ?? 'Unknown World'}
 
-### Magic System: ${w.magicSystem.name}
-${w.magicSystem.description}
-- **Source**: ${w.magicSystem.source}
-- **Cost**: ${w.magicSystem.cost}
-- **Limitations**: ${w.magicSystem.limitations.join('; ')}
-- **Social Attitude**: ${w.magicSystem.socialAttitude}
+**Type**: ${w.worldType ?? 'Fantasy'}  
+**Genre**: ${w.primaryGenre ?? 'epic-fantasy'} (blends: ${(w.genreBlends ?? []).join(', ') || 'none'})  
+**Thematic Core**: ${w.thematicCore ?? 'Adventure'}  
+**Technology Level**: ${w.technologyLevel ?? 'Medieval'}  
+**Cosmology**: ${w.cosmology ?? 'Unknown'}  
+**Age**: ${w.ageOfWorld ?? 'Unknown'}
+
+### Magic System: ${ms.name ?? 'Magic'}
+${ms.description ?? 'A mysterious force pervades the world.'}
+- **Source**: ${ms.source ?? 'Unknown'}
+- **Cost**: ${ms.cost ?? 'Varies'}
+- **Limitations**: ${(ms.limitations as string[] ?? []).join('; ') || 'None specified'}
+- **Social Attitude**: ${ms.socialAttitude ?? 'Mixed'}
 
 ### Factions
-${factionsStr}
+${factionsStr || 'No known factions yet.'}
 
 ### Geography
-${regionsStr}
+${regionsStr || 'Geography not yet explored.'}
 
 ### Current Conflicts
-${conflictsStr}
+${conflictsStr || 'An uneasy peace, for now.'}
 
 ### The Main Threat
-**${w.mainThreat.name}**: ${w.mainThreat.nature}
-- **Motivation**: ${w.mainThreat.motivation}
-- **Current Phase**: ${w.mainThreat.currentPhase}
-- **Escalation Path**: ${w.mainThreat.escalation.join(' → ')}
+**${mt.name ?? 'Unknown Threat'}**: ${mt.nature ?? 'A growing darkness'}
+- **Motivation**: ${mt.motivation ?? 'Unknown'}
+- **Current Phase**: ${mt.currentPhase ?? 'Hidden'}
+- **Escalation Path**: ${(mt.escalation as string[] ?? []).join(' → ') || 'Unknown'}
 
-### The Villain: ${w.villainCore.name}
-${w.villainCore.title} — ${w.villainCore.description}
-- **Motivation**: ${w.villainCore.motivation}
-- **What they love**: ${w.villainCore.somethingTheyLove}
-- **Their genuine argument**: ${w.villainCore.genuineArgument}
-- **Current plan**: ${w.villainCore.currentPlan}
-- **Weaknesses**: ${w.villainCore.weaknesses.join(', ')}
+### The Villain: ${vc.name ?? 'Unknown'}
+${vc.title ?? ''} — ${vc.description ?? 'A shadowy figure with unknown aims.'}
+- **Motivation**: ${vc.motivation ?? 'Unknown'}
+- **What they love**: ${vc.somethingTheyLove ?? 'Unknown'}
+- **Their genuine argument**: ${vc.genuineArgument ?? 'Unknown'}
+- **Current plan**: ${vc.currentPlan ?? 'Unknown'}
+- **Weaknesses**: ${(vc.weaknesses as string[] ?? []).join(', ') || 'Unknown'}
 
 ### Currency
-Primary: ${w.currencyNames.primary}${w.currencyNames.secondary ? `, Secondary: ${w.currencyNames.secondary}` : ''}${w.currencyNames.tertiary ? `, Tertiary: ${w.currencyNames.tertiary}` : ''}
+Primary: ${cn.primary ?? 'Gold'}${cn.secondary ? `, Secondary: ${cn.secondary}` : ''}${cn.tertiary ? `, Tertiary: ${cn.tertiary}` : ''}
 
 ### Secret History
-${w.secretHistory}
+${w.secretHistory ?? 'The world holds secrets yet to be uncovered.'}
 (YOU know this. The player does NOT. Reveal only through discovery.)${buildDeepWorldContext(w)}`;
 }
 
@@ -235,35 +240,39 @@ function buildDeepWorldContext(w: WorldRecord): string {
 // ─── SECTION 3: THE CHARACTER ────────────────────────────────
 function buildSection3_Character(ctx: DMContext): string {
   const c = ctx.character;
-  const hp = c.hitPoints;
-  const scores = c.abilityScores;
+  const hp = c.hitPoints ?? { current: 10, max: 10, temporary: 0 };
+  const scores = c.abilityScores ?? { str: { score: 10, modifier: 0 }, dex: { score: 10, modifier: 0 }, con: { score: 10, modifier: 0 }, int: { score: 10, modifier: 0 }, wis: { score: 10, modifier: 0 }, cha: { score: 10, modifier: 0 } };
   const getMod = (score: number) => {
-    const mod = Math.floor((score - 10) / 2);
+    const mod = Math.floor(((score ?? 10) - 10) / 2);
     return mod >= 0 ? `+${mod}` : `${mod}`;
   };
 
-  const inventoryStr = c.inventory
+  const inventoryStr = (c.inventory ?? [])
     .slice(0, 20)
     .map((itemId) => `- ${itemId}`)
     .join('\n');
 
   const spellsStr = c.spellcasting
-    ? c.spellcasting.knownSpells
+    ? (c.spellcasting.knownSpells ?? [])
         .slice(0, 15)
         .map((s) => `- ${s.name} (Level ${s.level})`)
         .join('\n')
     : '';
 
-  const conditionsStr = c.conditions.length > 0
+  const conditionsStr = (c.conditions ?? []).length > 0
     ? c.conditions.join(', ')
     : 'None';
 
-  return `## SECTION 3 — THE CHARACTER: ${c.name}
+  const personality = c.personality ?? { traits: [], ideal: '', bond: '', flaw: '' };
+  const proficiencies = c.proficiencies ?? { armor: [], weapons: [], tools: [], languages: [] };
+  const cn = ctx.world?.currencyNames ?? {} as Record<string, string>;
 
-**Race**: ${c.race} | **Class**: ${c.class} | **Level**: ${c.level}  
-**Background**: ${c.background}  
-**Alignment**: ${c.alignment}  
-**XP**: ${c.xp} / ${c.xpToNextLevel}  
+  return `## SECTION 3 — THE CHARACTER: ${c.name ?? 'Adventurer'}
+
+**Race**: ${c.race ?? 'Human'} | **Class**: ${c.class ?? 'Fighter'} | **Level**: ${c.level ?? 1}  
+**Background**: ${c.background ?? 'Adventurer'}  
+**Alignment**: ${c.alignment ?? 'Neutral'}  
+**XP**: ${c.xp ?? 0} / ${c.xpToNextLevel ?? 300}  
 
 ### Hit Points
 Current: ${hp.current} / ${hp.max}${hp.temporary ? ` (+${hp.temporary} temp)` : ''}  
@@ -271,96 +280,96 @@ Current: ${hp.current} / ${hp.max}${hp.temporary ? ` (+${hp.temporary} temp)` : 
 ### Ability Scores
 | STR | DEX | CON | INT | WIS | CHA |
 |-----|-----|-----|-----|-----|-----|
-| ${scores.str.score} (${getMod(scores.str.score)}) | ${scores.dex.score} (${getMod(scores.dex.score)}) | ${scores.con.score} (${getMod(scores.con.score)}) | ${scores.int.score} (${getMod(scores.int.score)}) | ${scores.wis.score} (${getMod(scores.wis.score)}) | ${scores.cha.score} (${getMod(scores.cha.score)}) |
+| ${scores.str?.score ?? 10} (${getMod(scores.str?.score)}) | ${scores.dex?.score ?? 10} (${getMod(scores.dex?.score)}) | ${scores.con?.score ?? 10} (${getMod(scores.con?.score)}) | ${scores.int?.score ?? 10} (${getMod(scores.int?.score)}) | ${scores.wis?.score ?? 10} (${getMod(scores.wis?.score)}) | ${scores.cha?.score ?? 10} (${getMod(scores.cha?.score)}) |
 
-**AC**: ${c.armorClass} | **Initiative**: ${getMod(scores.dex.score)} | **Speed**: ${c.speed}ft  
-**Passive Perception**: ${c.passivePerception}
+**AC**: ${c.armorClass ?? 10} | **Initiative**: ${getMod(scores.dex?.score)} | **Speed**: ${c.speed ?? 30}ft  
+**Passive Perception**: ${c.passivePerception ?? 10}
 
 ### Active Conditions
 ${conditionsStr}
 
 ### Personality
-${c.personality.traits.map((t) => `- ${t}`).join('\n')}
-- **Ideal**: ${c.personality.ideal}
-- **Bond**: ${c.personality.bond}
-- **Flaw**: ${c.personality.flaw}
+${(personality.traits ?? []).map((t) => `- ${t}`).join('\n') || '- No traits defined'}
+- **Ideal**: ${personality.ideal || 'None'}
+- **Bond**: ${personality.bond || 'None'}
+- **Flaw**: ${personality.flaw || 'None'}
 
-### Inventory (${c.gold} ${ctx.world.currencyNames.primary})
+### Inventory (${c.gold ?? 0} ${cn.primary ?? 'Gold'})
 ${inventoryStr || 'Empty'}
 
 ### Known Spells
 ${spellsStr || 'None'}
 
 ### Proficiencies
-- **Skills**: ${c.skills.filter((s) => s.proficient).map((s) => s.name).join(', ') || 'None'}
-- **Weapons**: ${c.proficiencies.weapons.join(', ') || 'None'}
-- **Armor**: ${c.proficiencies.armor.join(', ') || 'None'}`;
+- **Skills**: ${(c.skills ?? []).filter((s) => s.proficient).map((s) => s.name).join(', ') || 'None'}
+- **Weapons**: ${(proficiencies.weapons ?? []).join(', ') || 'None'}
+- **Armor**: ${(proficiencies.armor ?? []).join(', ') || 'None'}`;
 }
 
 // ─── SECTION 4: CURRENT STATE ────────────────────────────────
 function buildSection4_CurrentState(ctx: DMContext): string {
-  const clock = ctx.gameClock;
-  const weather = ctx.weather;
+  const clock = ctx.gameClock ?? { daysSinceStart: 1, timeOfDay: 'morning', currentSeason: 'spring' };
+  const weather = ctx.weather ?? { current: 'clear', temperature: 'mild', wind: 'calm', narrativeDescription: 'A calm day.' };
 
   let combatSection = '';
   if (ctx.combatState) {
     const cs = ctx.combatState;
     combatSection = `
 ### COMBAT IS ACTIVE
-**Mode**: ${cs.mode}  
-**Phase**: ${cs.phase}  
-**Round**: ${cs.roundNumber}  
-**Terrain**: ${cs.terrainEffects.join(', ') || 'Normal'}  
-**Lighting**: ${cs.lightingCondition}
-**Enemies**: ${cs.enemies.map((e) => `${e.name} (HP: ${e.hp.current}/${e.hp.max})`).join(', ')}`;
+**Mode**: ${cs.mode ?? 'tactical'}  
+**Phase**: ${cs.phase ?? 'player-turn'}  
+**Round**: ${cs.roundNumber ?? 1}  
+**Terrain**: ${(cs.terrainEffects ?? []).join(', ') || 'Normal'}  
+**Lighting**: ${cs.lightingCondition ?? 'normal'}
+**Enemies**: ${(cs.enemies ?? []).map((e) => `${e.name} (HP: ${e.hp?.current ?? '?'}/${e.hp?.max ?? '?'})`).join(', ')}`;
   }
 
   return `## SECTION 4 — CURRENT STATE
 
-**Location**: ${ctx.currentLocation}  
-**Time**: Day ${clock.daysSinceStart}, ${clock.timeOfDay} (${clock.currentSeason})  
-**Weather**: ${weather.current} — ${weather.temperature}, Wind: ${weather.wind}  
-${weather.narrativeDescription}
+**Location**: ${ctx.currentLocation ?? 'Unknown'}  
+**Time**: Day ${clock.daysSinceStart ?? 1}, ${clock.timeOfDay ?? 'morning'} (${clock.currentSeason ?? 'spring'})  
+**Weather**: ${weather.current ?? 'clear'} — ${weather.temperature ?? 'mild'}, Wind: ${weather.wind ?? 'calm'}  
+${weather.narrativeDescription ?? 'The day is unremarkable.'}
 ${combatSection}`;
 }
 
 // ─── SECTION 5: STORY STATE ─────────────────────────────────
 function buildSection5_StoryState(ctx: DMContext): string {
-  const questsStr = ctx.activeQuests
+  const questsStr = (ctx.activeQuests ?? [])
     .map(
       (q) =>
-        `- **${q.title}** (${q.type}, ${q.status}): ${q.logline}${
-          q.acts[q.currentAct] ? ` — Current Act: ${q.acts[q.currentAct].title}` : ''
+        `- **${q.title ?? 'Quest'}** (${q.type ?? 'main'}, ${q.status ?? 'active'}): ${q.logline ?? ''}${
+          q.acts?.[q.currentAct]?.title ? ` — Current Act: ${q.acts[q.currentAct].title}` : ''
         }`
     )
     .join('\n');
 
-  const npcsStr = ctx.knownNPCs
+  const npcsStr = (ctx.knownNPCs ?? [])
     .slice(0, 10)
     .map(
       (n) =>
-        `- **${n.name}** (${n.race} ${n.role}): Attitude=${n.attitudeTier}, Relationship=${n.relationshipType}. ${n.physicalDescription}`
+        `- **${n.name ?? 'NPC'}** (${n.race ?? ''} ${n.role ?? ''}): Attitude=${n.attitudeTier ?? 'neutral'}, Relationship=${n.relationshipType ?? 'stranger'}. ${n.physicalDescription ?? ''}`
     )
     .join('\n');
 
-  const chronicleStr = ctx.recentChronicle
+  const chronicleStr = (ctx.recentChronicle ?? [])
     .map((entry) => `- ${entry}`)
     .join('\n');
 
   // Campaign arc context
   let campaignStr = '';
-  if (ctx.world.storyArc) {
+  if (ctx.world?.storyArc) {
     const arc = ctx.world.storyArc;
-    const actsStr = arc.acts.map(a =>
-      `- **Act ${a.actNumber}: ${a.title}** (Levels ${a.levelRange.min}-${a.levelRange.max}): ${a.summary.slice(0, 120)}. Villain phase: ${a.villainPhase}`
+    const actsStr = (arc.acts ?? []).map(a =>
+      `- **Act ${a.actNumber ?? '?'}: ${a.title ?? 'Act'}** (Levels ${a.levelRange?.min ?? '?'}-${a.levelRange?.max ?? '?'}): ${(a.summary ?? '').slice(0, 120)}. Villain phase: ${a.villainPhase ?? '?'}`
     ).join('\n');
     campaignStr = `
 
-### Campaign Arc: ${arc.title}
-${arc.logline}
+### Campaign Arc: ${arc.title ?? 'The Main Campaign'}
+${arc.logline ?? ''}
 ${actsStr}
-**Key Twists** (reveal at the right moment): ${arc.keyTwists.join('; ')}
-**Player Agency Points**: ${arc.playerAgencyPoints.join('; ')}`;
+**Key Twists** (reveal at the right moment): ${(arc.keyTwists ?? []).join('; ') || 'None specified'}
+**Player Agency Points**: ${(arc.playerAgencyPoints ?? []).join('; ') || 'None specified'}`;
   }
 
   return `## SECTION 5 — STORY STATE

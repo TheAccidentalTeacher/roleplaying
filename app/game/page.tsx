@@ -757,7 +757,11 @@ export default function GamePage() {
           }),
         });
 
-        if (!response.ok) throw new Error('Failed to get DM response');
+        if (!response.ok) {
+          const errorBody = await response.text();
+          console.error('[Game] DM API error:', response.status, errorBody);
+          throw new Error(`DM returned ${response.status}: ${errorBody.slice(0, 200)}`);
+        }
 
         const reader = response.body?.getReader();
         const decoder = new TextDecoder();
