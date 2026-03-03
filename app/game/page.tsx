@@ -138,6 +138,9 @@ export default function GamePage() {
   const sessionSummaryRef = useRef<string | undefined>(undefined);
   const { toasts, addToast, removeToast } = useToast();
 
+  // Track whether this is a brand-new game (set by WorldGenLoading)
+  const isNewGameRef = useRef(false);
+
   // Load data from localStorage (set by WorldGenLoading) on mount
   useEffect(() => {
     try {
@@ -147,6 +150,13 @@ export default function GamePage() {
       const storedOpeningScene = localStorage.getItem('rpg-opening-scene');
       const storedWorldId = localStorage.getItem('rpg-world-id');
       const storedCharId = localStorage.getItem('rpg-character-id');
+      const isNewGame = localStorage.getItem('rpg-new-game') === 'true';
+
+      if (isNewGame) {
+        isNewGameRef.current = true;
+        // Consume the flag immediately
+        try { localStorage.removeItem('rpg-new-game'); } catch { /* ok */ }
+      }
 
       let loadedWorld: WorldRecord | null = null;
       let loadedChar: FullCharacter | null = null;
@@ -174,24 +184,28 @@ export default function GamePage() {
         } catch { /* ignore */ }
       }
 
-      // If we have a fresh opening scene, clear old messages and start fresh
-      if (storedOpeningScene) {
-        // Clear any old messages from a previous world
-        if (messages.length > 0) {
-          setMessages([]);
+      // —— New game: clear EVERYTHING and start with the opening scene ——
+      if (storedOpeningScene || isNewGame) {
+        // Always nuke old messages, unconditionally
+        setMessages([]);
+
+        if (storedOpeningScene) {
+          const openingMsg: ChatMsg = {
+            id: 'opening-scene',
+            role: 'assistant',
+            content: storedOpeningScene,
+            timestamp: Date.now(),
+          };
+          setChatMessages([openingMsg]);
+          addMessage({
+            role: 'assistant',
+            content: storedOpeningScene,
+            timestamp: Date.now(),
+          });
+        } else {
+          setChatMessages([]);
         }
-        const openingMsg: ChatMsg = {
-          id: 'opening-scene',
-          role: 'assistant',
-          content: storedOpeningScene,
-          timestamp: Date.now(),
-        };
-        setChatMessages([openingMsg]);
-        addMessage({
-          role: 'assistant',
-          content: storedOpeningScene,
-          timestamp: Date.now(),
-        });
+
         // Update location from world if available
         if (loadedWorld?.geography?.[0]?.name) {
           updateLocation(loadedWorld.geography[0].name);
@@ -199,7 +213,7 @@ export default function GamePage() {
         // Clear one-time localStorage
         try { localStorage.removeItem('rpg-opening-scene'); } catch { /* quota */ }
       } else if (messages.length > 0) {
-        // Restore from persisted messages
+        // Restore from persisted messages (resuming an existing game)
         setChatMessages(
           messages.map((m, i) => ({
             id: `msg-${i}`,
@@ -223,6 +237,30 @@ export default function GamePage() {
       setInitialized(true);
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Post-rehydration guard: if Zustand persist rehydrates old messages
+  // AFTER we already cleared them for a new game, nuke them again.
+  useEffect(() => {
+    if (!initialized) return;
+    if (isNewGameRef.current && messages.length > 1) {
+      // Rehydration brought back stale messages from a previous world.
+      // The only message that should exist is the opening scene (length <= 1).
+      console.warn('[game] Post-rehydration cleanup: clearing stale messages from previous world');
+      const openingScene = chatMessages.find((m) => m.id === 'opening-scene');
+      if (openingScene) {
+        setMessages([{ role: 'assistant', content: openingScene.content, timestamp: openingScene.timestamp ?? Date.now() }]);
+      } else {
+        setMessages([]);
+      }
+      // Disable this guard after the first cleanup so normal gameplay can accumulate messages
+      isNewGameRef.current = false;
+      return;
+    }
+    // After the first real user/assistant exchange, disable the new-game guard
+    if (isNewGameRef.current && messages.length > 1) {
+      isNewGameRef.current = false;
+    }
+  }, [messages.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Sync legacy messages → chatMessages when messages array grows
   useEffect(() => {

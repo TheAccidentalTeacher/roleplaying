@@ -347,8 +347,16 @@ export default function WorldGenLoading({ character, storyHook }: WorldGenLoadin
 
       localStorage.setItem('rpg-opening-scene', fullScene);
 
-      // Clear old game state so previous world's chat doesn't persist
+      // ── Nuclear cleanup: prevent old game state from surviving ──
+      // 1. Remove Zustand's persisted storage key entirely.
+      //    This prevents async rehydration on /game from bringing back
+      //    old messages/quests/combat after navigation.
+      try { localStorage.removeItem('ai-rpg-storage'); } catch { /* ok */ }
+      // 2. Reset the in-memory Zustand store
       useGameStore.getState().resetGame();
+      // 3. Set a flag so the game page knows this is a brand-new game
+      //    even if rehydration somehow restores stale data
+      localStorage.setItem('rpg-new-game', 'true');
 
       await new Promise((r) => setTimeout(r, 2000));
       router.push('/game');
