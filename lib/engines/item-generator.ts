@@ -7,6 +7,7 @@
 import type { Item, ItemRarity, LootDrop, Material } from '@/lib/types/items';
 import type { Genre } from '@/lib/types/world';
 import { d4, d6, d8, d10 } from '@/lib/utils/dice';
+import { getGenreCommonItems, resolveGenreFamily, type GenreFamily } from '@/lib/data/genre-equipment';
 
 // ---- Rarity weights by encounter difficulty ----
 
@@ -112,6 +113,7 @@ Return ONLY valid JSON matching this structure (no markdown, no explanation):
 }
 
 // ---- Create a placeholder item (non-AI, for junk/common) ----
+// Default fantasy items kept as fallback; use getGenreCommonItems() for genre-aware items
 
 const JUNK_ITEMS = [
   'Rusty Nail', 'Broken Tooth', 'Moth-eaten Cloth', 'Cracked Vial',
@@ -134,25 +136,37 @@ const COMMON_CONSUMABLES = [
   'Antidote', 'Lantern Oil', 'Waterskin', 'Chalk', 'Flint & Steel',
 ];
 
-export function generateSimpleItem(rarity: ItemRarity): Item {
+/**
+ * Generate a simple non-AI item. Optionally genre-aware.
+ * @param rarity - Item rarity
+ * @param genreFamily - If provided, uses genre-appropriate item names
+ */
+export function generateSimpleItem(rarity: ItemRarity, genreFamily?: GenreFamily): Item {
   const id = `item-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const baseValue = generateBaseValue(rarity);
 
+  // Use genre-specific items if a genre family is provided
+  const genreItems = genreFamily ? getGenreCommonItems(genreFamily) : null;
+  const junkItems = genreItems?.junk ?? JUNK_ITEMS;
+  const weapons = genreItems?.weapons ?? COMMON_WEAPONS;
+  const armor = genreItems?.armor ?? COMMON_ARMOR;
+  const consumables = genreItems?.consumables ?? COMMON_CONSUMABLES;
+
   if (rarity === 'junk') {
-    const name = JUNK_ITEMS[Math.floor(Math.random() * JUNK_ITEMS.length)];
+    const name = junkItems[Math.floor(Math.random() * junkItems.length)];
     return createItem(id, name, 'material', rarity, name, baseValue, false, 1);
   }
 
   // For common items, randomly pick weapon/armor/consumable
   const category = d6();
   if (category <= 2) {
-    const name = COMMON_WEAPONS[Math.floor(Math.random() * COMMON_WEAPONS.length)];
+    const name = weapons[Math.floor(Math.random() * weapons.length)];
     return createItem(id, name, 'weapon', rarity, `A standard ${name.toLowerCase()}.`, baseValue, true, d8());
   } else if (category <= 4) {
-    const name = COMMON_ARMOR[Math.floor(Math.random() * COMMON_ARMOR.length)];
+    const name = armor[Math.floor(Math.random() * armor.length)];
     return createItem(id, name, 'armor', rarity, `A common ${name.toLowerCase()}.`, baseValue, true, d10());
   } else {
-    const name = COMMON_CONSUMABLES[Math.floor(Math.random() * COMMON_CONSUMABLES.length)];
+    const name = consumables[Math.floor(Math.random() * consumables.length)];
     return createItem(id, name, 'consumable', rarity, `A useful ${name.toLowerCase()}.`, baseValue, false, 0.5);
   }
 }
@@ -202,8 +216,9 @@ export function generateLootDrop(params: {
   enemyCount: number;
   characterLevel: number;
   genre?: Genre;
+  genreFamily?: GenreFamily;
 }): LootDrop {
-  const { difficulty, enemyCount, characterLevel } = params;
+  const { difficulty, enemyCount, characterLevel, genreFamily } = params;
 
   // Gold
   const gold = generateGold(difficulty) * Math.max(1, Math.ceil(enemyCount / 2));
@@ -219,10 +234,10 @@ export function generateLootDrop(params: {
     const rarity = pickRarity(difficulty);
     // For junk/common, generate locally; for rare+, would use AI (caller handles)
     if (rarity === 'junk' || rarity === 'common') {
-      items.push(generateSimpleItem(rarity));
+      items.push(generateSimpleItem(rarity, genreFamily));
     } else {
       // Generate a placeholder with appropriate rarity that AI should enhance
-      const item = generateSimpleItem(rarity);
+      const item = generateSimpleItem(rarity, genreFamily);
       item.description = `[AI Enhancement Needed] ${rarity} item for level ${characterLevel}`;
       items.push(item);
     }

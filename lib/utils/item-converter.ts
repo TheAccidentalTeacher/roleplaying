@@ -18,45 +18,55 @@ const RARITY_PATTERNS: [RegExp, ItemRarity][] = [
 ];
 
 // ---- Type inference from name keywords ----
+// Covers standard fantasy + post-apocalypse, cyberpunk, sci-fi, western, pirate, japanese, and other genre items
 const TYPE_PATTERNS: [RegExp, ItemType][] = [
-  [/\b(sword|axe|mace|hammer|dagger|bow|crossbow|staff|spear|flail|halberd|rapier|scimitar|warhammer|glaive|pike|javelin|club|whip|trident|maul|lance|blade)\b/i, 'weapon'],
-  [/\b(armor|mail|plate|breastplate|chainmail|leather armor|hide|brigandine|cuirass|gambeson)\b/i, 'armor'],
-  [/\b(shield|buckler|pavise)\b/i, 'shield'],
-  [/\b(potion|elixir|vial|draught|tonic|salve|balm)\b/i, 'potion'],
-  [/\b(scroll|tome|grimoire|spellbook|manuscript|parchment)\b/i, 'scroll'],
-  [/\b(ration|food|bread|meat|cheese|apple|fruit|berry|herb|mushroom|fish|ale|wine|mead)\b/i, 'food'],
-  [/\b(arrow|bolt|bullet|ammunition|quiver|sling stone)\b/i, 'ammunition'],
-  [/\b(ring|amulet|necklace|circlet|crown|cloak|robe|boots|gloves|gauntlet|belt|bracelet|gem|jewel|pendant|earring|brooch)\b/i, 'magic'],
-  [/\b(key|lockpick|skeleton key)\b/i, 'key'],
-  [/\b(gold|coin|treasure|jewels|gems|ruby|emerald|sapphire|diamond|pearl|ivory)\b/i, 'treasure'],
-  [/\b(thieves|tools|rope|torch|lantern|compass|map|toolkit|kit)\b/i, 'tool'],
-  [/\b(bandage|antidote|remedy|medicine)\b/i, 'consumable'],
+  // Weapons — melee
+  [/\b(sword|axe|mace|hammer|dagger|bow|crossbow|staff|spear|flail|halberd|rapier|scimitar|warhammer|glaive|pike|javelin|club|whip|trident|maul|lance|blade|machete|hatchet|sledgehammer|bludgeon|saber|sabre|cutlass|katana|wakizashi|tanto|naginata|kunai|kopis|falcata|bowie|cleaver|kukri|scythe|nunchaku|tonfa|rebar|pipe sword|vibroblade|monomolecular|monoblade|phase blade|plasma saber|energy lance|neural whip|baton|war pick|war fan|tessen|bo staff|belaying pin|marlinspike|tomahawk|bayonet)\b/i, 'weapon'],
+  // Weapons — ranged / firearms
+  [/\b(rifle|pistol|revolver|musket|flintlock|carbine|shotgun|blaster|rail gun|rail pistol|laser rifle|plasma pistol|repeater|sling|handgun|submachine|longarm|hand cannon|derringer|scattergun|holdout)\b/i, 'weapon'],
+  // Armor — all genres
+  [/\b(armor|mail|plate|breastplate|chainmail|leather armor|hide|brigandine|cuirass|gambeson|vest|duster|jacket|coat|do-maru|kimono|haori|exosuit|flak jacket|riot gear|tactical armor|ballistic|carbon[- ]weave|composite plate|body armor|kevlar|studded leather|jerkin|hauberk|lamellar|scale mail)\b/i, 'armor'],
+  // Shields / barriers
+  [/\b(shield|buckler|pavise|barrier|tessen|war fan|aspis|parma|aegis|deflector|hardlight)\b/i, 'shield'],
+  [/\b(potion|elixir|vial|draught|tonic|salve|balm|stim|stimpack|injector|med[- ]?spray|nano[- ]?gel)\b/i, 'potion'],
+  [/\b(scroll|tome|grimoire|spellbook|manuscript|parchment|data[- ]?pad|data[- ]?slate|holo[- ]?manual)\b/i, 'scroll'],
+  [/\b(ration|food|bread|meat|cheese|apple|fruit|berry|herb|mushroom|fish|ale|wine|mead|protein|nutrient|energy bar|field ration|hardtack|jerky|canned|instant meal|rice ball|onigiri|sake|whiskey|rum|grog)\b/i, 'food'],
+  [/\b(arrow|bolt|bullet|ammunition|quiver|sling stone|cartridge|slug|cell|charge pack|energy cell|power cell|shot|round|pellet|clip|magazine)\b/i, 'ammunition'],
+  [/\b(ring|amulet|necklace|circlet|crown|cloak|robe|boots|gloves|gauntlet|belt|bracelet|gem|jewel|pendant|earring|brooch|talisman|totem|charm|omamori|fetish|phylactery|neural implant|cyberdeck)\b/i, 'magic'],
+  [/\b(key|lockpick|skeleton key|keycard|access card|passkey)\b/i, 'key'],
+  [/\b(gold|coin|treasure|jewels|gems|ruby|emerald|sapphire|diamond|pearl|ivory|credits|scrip|doubloon|pieces of eight|bounty note)\b/i, 'treasure'],
+  [/\b(thieves|tools|rope|torch|lantern|compass|map|toolkit|kit|wrench|pry bar|multitool|hacking tool|flashlight|flare|grapple|binoculars|spyglass|sextant|lasso|lariat)\b/i, 'tool'],
+  [/\b(bandage|antidote|remedy|medicine|medkit|first aid|painkillers|antibiotics|rad[- ]?away|purification|disinfectant)\b/i, 'consumable'],
 ];
 
 // ---- Damage strings by weapon type ----
+// Covers fantasy + genre-specific weapons (same mechanical balance)
 const WEAPON_DAMAGE: Record<string, string> = {
-  dagger: '1d4',
-  club: '1d4',
-  javelin: '1d6',
-  mace: '1d6',
-  scimitar: '1d6',
-  rapier: '1d8',
-  sword: '1d8',
-  bow: '1d8',
-  crossbow: '1d10',
-  halberd: '1d10',
-  pike: '1d10',
-  glaive: '1d10',
-  lance: '1d12',
-  axe: '1d8',
-  hammer: '1d8',
-  warhammer: '1d10',
-  maul: '2d6',
-  staff: '1d6',
-  flail: '1d8',
-  spear: '1d6',
-  trident: '1d6',
-  whip: '1d4',
+  // Standard fantasy
+  dagger: '1d4', club: '1d4', javelin: '1d6', mace: '1d6',
+  scimitar: '1d6', rapier: '1d8', sword: '1d8', bow: '1d8',
+  crossbow: '1d10', halberd: '1d10', pike: '1d10', glaive: '1d10',
+  lance: '1d12', axe: '1d8', hammer: '1d8', warhammer: '1d10',
+  maul: '2d6', staff: '1d6', flail: '1d8', spear: '1d6',
+  trident: '1d6', whip: '1d4',
+  // Post-apocalypse / contemporary
+  machete: '1d6', hatchet: '1d6', sledgehammer: '2d6', bludgeon: '1d6',
+  baton: '1d4', cleaver: '1d6', 'box cutter': '1d4',
+  // Firearms / ranged
+  rifle: '1d10', pistol: '1d8', revolver: '1d8', shotgun: '2d6',
+  musket: '1d12', flintlock: '1d8', carbine: '1d10', blaster: '1d8',
+  derringer: '1d4', repeater: '1d10',
+  // Cyberpunk / sci-fi
+  vibroblade: '1d8', monoblade: '1d8', 'plasma saber': '1d10',
+  'phase blade': '1d8', 'rail pistol': '1d10', 'laser rifle': '1d10',
+  'neural whip': '1d4', 'energy lance': '1d10',
+  // Japanese
+  katana: '1d8', wakizashi: '1d6', naginata: '1d10', tanto: '1d4',
+  kunai: '1d4', 'bo staff': '1d6', nunchaku: '1d6', tonfa: '1d4',
+  // Pirate / western / mythological
+  cutlass: '1d8', saber: '1d8', 'bowie knife': '1d4',
+  kopis: '1d6', falcata: '1d6', scythe: '1d10',
+  tomahawk: '1d6', kukri: '1d4', belaying: '1d4',
 };
 
 function inferRarity(name: string): ItemRarity {

@@ -11,6 +11,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createWorld, createCharacter } from '@/lib/services/database';
 import type { WorldRecord } from '@/lib/types/world';
 import type { CharacterCreationInput, Character, Skill, SavingThrow, ClassFeature, AbilityName, SkillName, Spellcasting, Spell } from '@/lib/types/character';
+import { resolveGenreFamily, translateEquipmentList, type GenreFamily } from '@/lib/data/genre-equipment';
 
 export const maxDuration = 30;
 
@@ -288,7 +289,7 @@ const RACE_DATA: Record<string, { abilityBonuses: Partial<Record<AbilityName, nu
   tiefling:   { abilityBonuses: { int: 1, cha: 2 }, speed: 30, languages: ['Common', 'Infernal'], traits: [{ name: 'Darkvision', description: 'See in dim light within 60 feet as bright light.' }, { name: 'Hellish Resistance', description: 'You have resistance to fire damage.' }, { name: 'Infernal Legacy', description: 'You know the Thaumaturgy cantrip. At 3rd level, cast Hellish Rebuke once per long rest.' }] },
 };
 
-function buildCharacterFromInput(input: CharacterCreationInput, worldId: string): Character {
+function buildCharacterFromInput(input: CharacterCreationInput, worldId: string, genreFamily: GenreFamily = 'medieval-fantasy'): Character {
   const classKey = input.class?.toLowerCase() ?? 'fighter';
   const raceKey = input.race?.toLowerCase() ?? 'human';
   const classData = CLASS_DATA[classKey] ?? CLASS_DATA.fighter;
@@ -495,7 +496,7 @@ function buildCharacterFromInput(input: CharacterCreationInput, worldId: string)
       languages,
     },
     equipment: {},
-    inventory: classData.startingEquipment,
+    inventory: translateEquipmentList(classData.startingEquipment, genreFamily),
     gold: classData.startingGold,
     carryWeight: 0,
     carryCapacity: abilityScores.str.score * 15,
@@ -563,8 +564,10 @@ export async function POST(request: NextRequest) {
       worldRow = { id: worldRecord.id };
     }
 
-    // Build Character record
-    const character = buildCharacterFromInput(charInput, worldRow.id);
+    // Build Character record — translate equipment to match the world's genre
+    const genreFamily = resolveGenreFamily(worldRecord.worldType, worldRecord.primaryGenre);
+    console.log(`[WorldGenesis:Assemble] Genre family resolved: ${genreFamily} (worldType: ${worldRecord.worldType}, genre: ${worldRecord.primaryGenre})`);
+    const character = buildCharacterFromInput(charInput, worldRow.id, genreFamily);
     character.userId = userId;
     worldRecord.characterId = character.id;
 
