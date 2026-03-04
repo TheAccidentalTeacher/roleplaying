@@ -289,7 +289,7 @@ export async function callGPT(
 // ─── IMAGE GENERATION ─────────────────────────────────────────────────────────
 
 export type ImageSize = '1024x1024' | '1792x1024' | '1024x1792'
-export type ImageQuality = 'standard' | 'hd'
+export type ImageQuality = 'standard' | 'hd' | 'low' | 'medium' | 'high' | 'auto'
 
 export interface GeneratedImage {
   url: string
@@ -313,16 +313,19 @@ export async function generateImage(
 ): Promise<GeneratedImage> {
   const model = getModelForTask(task)
   const size = options?.size ?? '1024x1024'
-  const quality = options?.quality ?? 'hd'
+  const quality = options?.quality ?? 'high'
 
   // gpt-image-1 uses a slightly different API surface
   if (model === MODELS.GPT_IMAGE_1) {
+    // gpt-image-1 accepts: 'low', 'medium', 'high', 'auto'
+    // Map legacy DALL-E values if passed
+    const gptQuality = quality === 'hd' ? 'high' : quality === 'standard' ? 'medium' : quality;
     const response = await openai.images.generate({
       model: MODELS.GPT_IMAGE_1,
       prompt,
       n: 1,
       size,
-      quality,
+      quality: gptQuality as 'low' | 'medium' | 'high' | 'auto',
     })
     const url = response.data?.[0]?.url;
     if (!url) throw new Error('Image generation returned no URL (gpt-image-1)');
@@ -334,12 +337,14 @@ export async function generateImage(
   }
 
   // DALL-E 3
+  // dall-e-3 accepts: 'standard', 'hd'
+  const dalleQuality = quality === 'high' ? 'hd' : quality === 'medium' || quality === 'low' ? 'standard' : quality === 'auto' ? 'hd' : quality;
   const response = await openai.images.generate({
     model: MODELS.DALLE_3,
     prompt,
     n: 1,
     size,
-    quality,
+    quality: dalleQuality as 'standard' | 'hd',
     style: options?.style ?? 'vivid',
   })
   const url = response.data?.[0]?.url;
