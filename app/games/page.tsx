@@ -26,7 +26,6 @@ import {
   hasActiveGame,
   getActiveGamePreview,
   renameSave,
-  getSaveStorageInfo,
   type SavedGamePreview,
 } from '@/lib/services/saved-games'
 import { useGameStore } from '@/lib/store'
@@ -90,17 +89,22 @@ export default function GamesPage() {
 
   const [saves, setSaves] = useState<SavedGamePreview[]>([])
   const [activePreview, setActivePreview] = useState<SavedGamePreview | null>(null)
-  const [storageInfo, setStorageInfo] = useState({ totalSaves: 0, estimatedKB: 0 })
+  const [loading, setLoading] = useState(true)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
   const [editingName, setEditingName] = useState<string | null>(null)
   const [editNameValue, setEditNameValue] = useState('')
   const [notification, setNotification] = useState<string | null>(null)
   const [mounted, setMounted] = useState(false)
 
-  const refresh = useCallback(() => {
-    setSaves(listSavedGames())
-    setActivePreview(getActiveGamePreview())
-    setStorageInfo(getSaveStorageInfo())
+  const refresh = useCallback(async () => {
+    setLoading(true)
+    try {
+      const list = await listSavedGames()
+      setSaves(list)
+      setActivePreview(getActiveGamePreview())
+    } finally {
+      setLoading(false)
+    }
   }, [])
 
   useEffect(() => {
@@ -115,27 +119,27 @@ export default function GamesPage() {
 
   // ---- Actions ----
 
-  const handleSaveCurrent = () => {
+  const handleSaveCurrent = async () => {
     try {
-      saveCurrentGame()
+      await saveCurrentGame()
       showNotification('Game saved successfully!')
-      refresh()
+      await refresh()
     } catch (err) {
       showNotification(`Save failed: ${(err as Error).message}`)
     }
   }
 
-  const handleLoad = (saveId: string) => {
+  const handleLoad = async (saveId: string) => {
     try {
       // If there's an active game, auto-save it first
       if (hasActiveGame()) {
         try {
-          saveCurrentGame()
+          await saveCurrentGame()
         } catch {
           // Ignore save errors on auto-save — might be at max saves
         }
       }
-      loadGame(saveId)
+      await loadGame(saveId)
       // Force a page reload to rehydrate the Zustand store from localStorage
       window.location.href = '/game'
     } catch (err) {
@@ -143,31 +147,31 @@ export default function GamesPage() {
     }
   }
 
-  const handleDelete = (saveId: string) => {
+  const handleDelete = async (saveId: string) => {
     if (deleteConfirm !== saveId) {
       setDeleteConfirm(saveId)
       return
     }
-    deleteGame(saveId)
+    await deleteGame(saveId)
     setDeleteConfirm(null)
     showNotification('Save deleted.')
-    refresh()
+    await refresh()
   }
 
-  const handleRename = (saveId: string) => {
+  const handleRename = async (saveId: string) => {
     if (editNameValue.trim()) {
-      renameSave(saveId, editNameValue.trim())
+      await renameSave(saveId, editNameValue.trim())
       setEditingName(null)
       setEditNameValue('')
-      refresh()
+      await refresh()
     }
   }
 
-  const handleNewAdventure = () => {
+  const handleNewAdventure = async () => {
     // Auto-save current game if exists
     if (hasActiveGame()) {
       try {
-        saveCurrentGame()
+        await saveCurrentGame()
         showNotification('Current game auto-saved!')
       } catch {
         // Continue anyway
@@ -208,13 +212,13 @@ export default function GamesPage() {
           </div>
         </div>
 
-        {/* ── Storage Info ── */}
+        {/* ── Save Count ── */}
         <div className="flex items-center gap-3 text-xs text-slate-500 mb-6 px-1">
           <HardDrive className="w-3.5 h-3.5" />
-          <span>{storageInfo.totalSaves} saved game{storageInfo.totalSaves !== 1 ? 's' : ''}</span>
+          <span>{saves.length} saved game{saves.length !== 1 ? 's' : ''}</span>
           <span>·</span>
-          <span>{storageInfo.estimatedKB > 1024 ? `${(storageInfo.estimatedKB / 1024).toFixed(1)} MB` : `${storageInfo.estimatedKB} KB`} used</span>
-          <span className="ml-auto">{20 - storageInfo.totalSaves} slot{20 - storageInfo.totalSaves !== 1 ? 's' : ''} remaining</span>
+          <span>Cloud synced</span>
+          <span className="ml-auto">{20 - saves.length} slot{20 - saves.length !== 1 ? 's' : ''} remaining</span>
         </div>
 
         {/* ── Active Game ── */}
@@ -424,7 +428,7 @@ export default function GamesPage() {
 
         {/* ── Footer ── */}
         <div className="mt-12 text-center text-xs text-slate-700">
-          <p>Games are saved locally in your browser. Clearing browser data will delete all saves.</p>
+          <p>Games are saved to the cloud. You can access your saves from any device.</p>
         </div>
 
       </div>

@@ -94,11 +94,11 @@ export default function NewCharacter() {
     if (step > 0) setStep(step - 1);
   };
 
-  const handleBeginAdventure = () => {
+  const handleBeginAdventure = async () => {
     if (!isStepValid(5)) return;
     // Auto-archive current game before starting a new one
     try {
-      const archivedId = archiveAndStartFresh();
+      const archivedId = await archiveAndStartFresh();
       if (archivedId) console.log('[NewCharacter] Auto-archived current game as', archivedId);
     } catch (err) {
       console.warn('[NewCharacter] Could not auto-archive:', err);

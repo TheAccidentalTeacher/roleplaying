@@ -187,11 +187,11 @@ export default function TopBar() {
             </button>
             <div className="border-t border-slate-700" />
             <button
-              onClick={() => {
+              onClick={async () => {
                 setMenuOpen(false);
                 // Auto-save to adventure slot before exiting
                 if (hasActiveGame()) {
-                  try { saveCurrentGame(); } catch { /* ignore max-saves errors */ }
+                  try { await saveCurrentGame(); } catch { /* ignore max-saves errors */ }
                 }
                 router.push('/');
               }}

@@ -636,3 +636,128 @@ export async function getBestiary(characterId: string): Promise<BestiaryRow[]> {
   handleError(result);
   return (result.data as BestiaryRow[]) ?? [];
 }
+
+// ============================================================
+// ADVENTURES — Full game state snapshots for cross-device save/load
+// ============================================================
+
+export interface AdventureRow {
+  id: string;
+  user_id: string;
+  save_name: string;
+  world_name: string;
+  world_type: string;
+  primary_genre: string;
+  character_name: string;
+  character_class: string;
+  character_race: string;
+  character_level: number;
+  current_location: string;
+  message_count: number;
+  quest_count: number;
+  game_state: Record<string, unknown>;
+  created_at: string;
+  last_played_at: string;
+}
+
+/** Preview type (no game_state blob) for listing */
+export type AdventurePreview = Omit<AdventureRow, 'game_state'>;
+
+export async function createAdventure(data: {
+  userId?: string;
+  saveName: string;
+  worldName: string;
+  worldType: string;
+  primaryGenre: string;
+  characterName: string;
+  characterClass: string;
+  characterRace: string;
+  characterLevel: number;
+  currentLocation: string;
+  messageCount: number;
+  questCount: number;
+  gameState: Record<string, unknown>;
+}): Promise<AdventureRow> {
+  const result = await db()
+    .from('adventures')
+    .insert({
+      user_id: data.userId ?? 'default',
+      save_name: data.saveName,
+      world_name: data.worldName,
+      world_type: data.worldType,
+      primary_genre: data.primaryGenre,
+      character_name: data.characterName,
+      character_class: data.characterClass,
+      character_race: data.characterRace,
+      character_level: data.characterLevel,
+      current_location: data.currentLocation,
+      message_count: data.messageCount,
+      quest_count: data.questCount,
+      game_state: data.gameState,
+    })
+    .select()
+    .single();
+  handleError(result);
+  return result.data as AdventureRow;
+}
+
+export async function listAdventures(userId: string = 'default'): Promise<AdventurePreview[]> {
+  const result = await db()
+    .from('adventures')
+    .select('id, user_id, save_name, world_name, world_type, primary_genre, character_name, character_class, character_race, character_level, current_location, message_count, quest_count, created_at, last_played_at')
+    .eq('user_id', userId)
+    .order('last_played_at', { ascending: false });
+  handleError(result);
+  return (result.data as AdventurePreview[]) ?? [];
+}
+
+export async function loadAdventure(adventureId: string): Promise<AdventureRow | null> {
+  const result = await db()
+    .from('adventures')
+    .select('*')
+    .eq('id', adventureId)
+    .single();
+  if (result.error && result.error.message.includes('No rows')) return null;
+  handleError(result);
+  return result.data as AdventureRow;
+}
+
+export async function updateAdventure(adventureId: string, updates: {
+  saveName?: string;
+  worldName?: string;
+  characterLevel?: number;
+  currentLocation?: string;
+  messageCount?: number;
+  questCount?: number;
+  gameState?: Record<string, unknown>;
+  lastPlayedAt?: string;
+}): Promise<void> {
+  const updateData: Record<string, unknown> = {};
+  if (updates.saveName !== undefined) updateData.save_name = updates.saveName;
+  if (updates.worldName !== undefined) updateData.world_name = updates.worldName;
+  if (updates.characterLevel !== undefined) updateData.character_level = updates.characterLevel;
+  if (updates.currentLocation !== undefined) updateData.current_location = updates.currentLocation;
+  if (updates.messageCount !== undefined) updateData.message_count = updates.messageCount;
+  if (updates.questCount !== undefined) updateData.quest_count = updates.questCount;
+  if (updates.gameState !== undefined) updateData.game_state = updates.gameState;
+  if (updates.lastPlayedAt !== undefined) updateData.last_played_at = updates.lastPlayedAt;
+  else updateData.last_played_at = new Date().toISOString();
+
+  const result = await db().from('adventures').update(updateData).eq('id', adventureId);
+  handleError(result);
+}
+
+export async function deleteAdventure(adventureId: string): Promise<void> {
+  const result = await db().from('adventures').delete().eq('id', adventureId);
+  handleError(result);
+}
+
+export async function countAdventures(userId: string = 'default'): Promise<number> {
+  const result = await db()
+    .from('adventures')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', userId);
+  handleError(result);
+  return result.count ?? 0;
+}
+
