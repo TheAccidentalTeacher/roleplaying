@@ -292,19 +292,38 @@ export default function PrintableSheet({ character: c, worldName }: PrintableShe
 
         /* ── PRINT STYLES ── */
         @media print {
-          body { margin: 0; padding: 0; background: white; }
+          @page {
+            size: auto;
+            margin: 0.5in;
+          }
+          html, body {
+            margin: 0;
+            padding: 0;
+            background: white;
+            height: auto !important;
+            overflow: visible !important;
+          }
           .sheet-page {
             max-width: 100%;
-            padding: 12px 20px;
+            padding: 0;
             background: white;
             font-size: 10px;
+            height: auto !important;
+            overflow: visible !important;
+            break-inside: auto;
           }
           .sheet-no-print { display: none !important; }
           .cs-charname { font-size: 22px; }
           .cs-combat-stat-value { font-size: 22px; }
           .cs-hp-value { font-size: 18px; }
           .cs-ability-mod { font-size: 20px; }
-          .cs-box { page-break-inside: avoid; }
+          .cs-box { break-inside: avoid; }
+          .cs-feature { break-inside: avoid; }
+          .cs-equip-item { break-inside: avoid; }
+          .cs-spell { break-inside: avoid; }
+          .cs-bottom-grid { break-inside: avoid; }
+          .cs-combat-row { break-inside: avoid; }
+          .cs-hp-box { break-inside: avoid; }
         }
       `}</style>
 
@@ -327,7 +346,13 @@ export default function PrintableSheet({ character: c, worldName }: PrintableShe
           🖨️ Print Character Sheet
         </button>
         <button
-          onClick={() => window.history.back()}
+          onClick={() => {
+            if (window.history.length > 1) {
+              window.history.back();
+            } else {
+              window.location.href = '/game';
+            }
+          }}
           style={{
             padding: '8px 20px',
             background: '#5a3a28',

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import type { Character } from '@/lib/types/character';
 import PrintableSheet from '@/components/character/PrintableSheet';
 import PortraitGallery from '@/components/character/PortraitGallery';
@@ -100,17 +100,40 @@ export default function CharacterSheetPage() {
   }
 
   return (
-    <div style={{ background: '#fdf6e3', minHeight: '100vh' }}>
+    <div style={{ background: '#fdf6e3', minHeight: '100vh', overflowY: 'auto' }}>
       <PrintableSheet character={character} worldName={worldName} />
 
       {/* Portrait Gallery — hidden when printing */}
-      <div className="sheet-no-print">
+      <div id="gallery" className="sheet-no-print" style={{ scrollMarginTop: '20px' }}>
         <PortraitGallery
           character={character}
           characterId={characterId}
           worldGenre={worldGenre || undefined}
         />
       </div>
+
+      {/* Auto-scroll to #gallery if hash present */}
+      <AutoScrollToHash />
     </div>
   );
+}
+
+/** Scrolls to the element matching the URL hash after the page has rendered */
+function AutoScrollToHash() {
+  const scrolled = useRef(false);
+  useEffect(() => {
+    if (scrolled.current) return;
+    const hash = window.location.hash;
+    if (hash) {
+      scrolled.current = true;
+      // Small delay to ensure the DOM is fully rendered
+      requestAnimationFrame(() => {
+        const el = document.querySelector(hash);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      });
+    }
+  }, []);
+  return null;
 }

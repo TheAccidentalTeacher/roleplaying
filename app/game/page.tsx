@@ -1502,13 +1502,13 @@ export default function GamePage() {
             <div className="flex-shrink-0 border-t border-slate-700/50 bg-slate-900/80 backdrop-blur-sm">
               <div className="px-3 py-2 space-y-2">
                 <button
-                  onClick={() => window.open('/game/sheet', '_blank')}
+                  onClick={() => router.push('/game/sheet')}
                   className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-amber-900/30 hover:bg-amber-800/40 border border-amber-700/40 rounded-lg text-sm text-amber-300 transition-colors"
                 >
                   📜 Full Character Sheet
                 </button>
                 <button
-                  onClick={() => window.open('/game/sheet#gallery', '_blank')}
+                  onClick={() => router.push('/game/sheet#gallery')}
                   className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-indigo-900/30 hover:bg-indigo-800/40 border border-indigo-700/40 rounded-lg text-sm text-indigo-300 transition-colors"
                 >
                   🎨 Portrait Gallery
@@ -1571,7 +1571,7 @@ export default function GamePage() {
             {fullCharacter && (
               <div className="px-3 py-2 border-t border-slate-700/30">
                 <button
-                  onClick={() => window.open('/game/sheet', '_blank')}
+                  onClick={() => { setShowSidebar(false); router.push('/game/sheet'); }}
                   className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-amber-900/30 hover:bg-amber-800/40 border border-amber-700/40 rounded-lg text-sm text-amber-300 transition-colors"
                 >
                   📜 Full Character Sheet
@@ -1583,7 +1583,7 @@ export default function GamePage() {
             {fullCharacter && (
               <div className="px-3 py-2 border-t border-slate-700/30">
                 <button
-                  onClick={() => window.open('/game/sheet#gallery', '_blank')}
+                  onClick={() => { setShowSidebar(false); router.push('/game/sheet#gallery'); }}
                   className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-indigo-900/30 hover:bg-indigo-800/40 border border-indigo-700/40 rounded-lg text-sm text-indigo-300 transition-colors"
                 >
                   🎨 Portrait Gallery
