@@ -99,32 +99,37 @@ export async function savePortraitRecord(
  * Load all portrait records for a character.
  */
 export async function loadGallery(characterId: string): Promise<PortraitRecord[]> {
-  const supabase = getSupabaseAdmin();
+  try {
+    const supabase = getSupabaseAdmin();
 
-  const { data, error } = await supabase
-    .from('images')
-    .select('*')
-    .eq('character_id', characterId)
-    .eq('image_type', 'character')
-    .order('created_at', { ascending: true });
+    const { data, error } = await supabase
+      .from('images')
+      .select('*')
+      .eq('character_id', characterId)
+      .eq('image_type', 'character')
+      .order('created_at', { ascending: true });
 
-  if (error) {
-    console.error('[Gallery] Failed to load gallery:', error.message);
+    if (error) {
+      console.error('[Gallery] Failed to load gallery:', error.message);
+      return [];
+    }
+
+    return (data || []).map((row: Record<string, unknown>) => ({
+      id: row.id as string,
+      characterId: row.character_id as string,
+      imageUrl: (row.metadata as Record<string, unknown>)?.imageUrl as string || '',
+      storagePath: row.storage_path as string,
+      prompt: row.prompt as string,
+      model: (row.metadata as Record<string, unknown>)?.model as string || 'unknown',
+      label: (row.metadata as Record<string, unknown>)?.label as string || 'Portrait',
+      milestone: ((row.metadata as Record<string, unknown>)?.milestone as PortraitMilestone) || 'custom',
+      characterLevel: (row.metadata as Record<string, unknown>)?.characterLevel as number || 1,
+      createdAt: row.created_at as string,
+    }));
+  } catch (e) {
+    console.warn('[Gallery] loadGallery crashed:', e instanceof Error ? e.message : e);
     return [];
   }
-
-  return (data || []).map((row: Record<string, unknown>) => ({
-    id: row.id as string,
-    characterId: row.character_id as string,
-    imageUrl: (row.metadata as Record<string, unknown>)?.imageUrl as string || '',
-    storagePath: row.storage_path as string,
-    prompt: row.prompt as string,
-    model: (row.metadata as Record<string, unknown>)?.model as string || 'unknown',
-    label: (row.metadata as Record<string, unknown>)?.label as string || 'Portrait',
-    milestone: ((row.metadata as Record<string, unknown>)?.milestone as PortraitMilestone) || 'custom',
-    characterLevel: (row.metadata as Record<string, unknown>)?.characterLevel as number || 1,
-    createdAt: row.created_at as string,
-  }));
 }
 
 /**
@@ -187,34 +192,48 @@ export async function saveVisualIdentity(
 export async function loadVisualIdentity(
   characterId: string,
 ): Promise<VisualIdentity | null> {
-  const supabase = getSupabaseAdmin();
+  try {
+    const supabase = getSupabaseAdmin();
 
-  const { data, error } = await supabase
-    .from('images')
-    .select('metadata')
-    .eq('character_id', characterId)
-    .eq('prompt', '__visual_identity__')
-    .single();
+    const { data, error } = await supabase
+      .from('images')
+      .select('metadata')
+      .eq('character_id', characterId)
+      .eq('prompt', '__visual_identity__')
+      .single();
 
-  if (error || !data) return null;
+    if (error || !data) return null;
 
-  const meta = data.metadata as Record<string, unknown>;
-  const vi = meta?.visualIdentity as VisualIdentity | undefined;
-  return vi || null;
+    const meta = data.metadata as Record<string, unknown>;
+    const vi = meta?.visualIdentity as VisualIdentity | undefined;
+    return vi || null;
+  } catch (e) {
+    console.warn('[Gallery] loadVisualIdentity failed:', e instanceof Error ? e.message : e);
+    return null;
+  }
 }
 
 /**
  * Get the full gallery (identity + portraits) for a character.
  */
 export async function getFullGallery(characterId: string): Promise<CharacterGallery> {
-  const [visualIdentity, portraits] = await Promise.all([
-    loadVisualIdentity(characterId),
-    loadGallery(characterId),
-  ]);
+  try {
+    const [visualIdentity, portraits] = await Promise.all([
+      loadVisualIdentity(characterId),
+      loadGallery(characterId),
+    ]);
 
-  return {
-    characterId,
-    visualIdentity,
-    portraits,
-  };
+    return {
+      characterId,
+      visualIdentity,
+      portraits,
+    };
+  } catch (e) {
+    console.warn('[Gallery] getFullGallery failed:', e instanceof Error ? e.message : e);
+    return {
+      characterId,
+      visualIdentity: null,
+      portraits: [],
+    };
+  }
 }

@@ -320,6 +320,7 @@ export async function generateImage(
     // gpt-image-1 accepts: 'low', 'medium', 'high', 'auto'
     // Map legacy DALL-E values if passed
     const gptQuality = quality === 'hd' ? 'high' : quality === 'standard' ? 'medium' : quality;
+    console.log(`[ImageGen] Calling gpt-image-1: size=${size}, quality=${gptQuality}, prompt=${prompt.substring(0, 100)}...`);
     const response = await openai.images.generate({
       model: MODELS.GPT_IMAGE_1,
       prompt,
@@ -327,13 +328,22 @@ export async function generateImage(
       size,
       quality: gptQuality as 'low' | 'medium' | 'high' | 'auto',
     })
+    console.log(`[ImageGen] gpt-image-1 response keys:`, JSON.stringify(Object.keys(response || {})));
+    console.log(`[ImageGen] response.data length:`, response.data?.length);
     const imageData = response.data?.[0];
+    if (imageData) {
+      console.log(`[ImageGen] imageData keys:`, JSON.stringify(Object.keys(imageData)));
+      console.log(`[ImageGen] has url:`, !!imageData.url, ', has b64_json:', !!imageData.b64_json);
+    } else {
+      console.error(`[ImageGen] No data returned. Full response:`, JSON.stringify(response).substring(0, 500));
+    }
     // gpt-image-1 may return b64_json instead of url
     let imageUrl = imageData?.url;
     if (!imageUrl && imageData?.b64_json) {
       imageUrl = `data:image/png;base64,${imageData.b64_json}`;
+      console.log(`[ImageGen] Using b64_json data URI (length: ${imageUrl.length})`);
     }
-    if (!imageUrl) throw new Error('Image generation returned no data (gpt-image-1)');
+    if (!imageUrl) throw new Error('Image generation returned no data (gpt-image-1). Response: ' + JSON.stringify(response).substring(0, 300));
     return {
       url: imageUrl,
       revisedPrompt: imageData?.revised_prompt,
