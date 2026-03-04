@@ -25,13 +25,21 @@ export async function persistImage(
   const supabase = getSupabaseAdmin();
   const storagePath = `portraits/${characterId}/${filename}`;
 
-  // Download the image from OpenAI (URL expires in ~1hr)
-  const response = await fetch(imageUrl);
-  if (!response.ok) {
-    throw new Error(`Failed to download image: ${response.status} ${response.statusText}`);
+  let buffer: Buffer;
+
+  if (imageUrl.startsWith('data:')) {
+    // Handle base64 data URI (gpt-image-1 returns b64_json)
+    const base64Data = imageUrl.replace(/^data:image\/\w+;base64,/, '');
+    buffer = Buffer.from(base64Data, 'base64');
+  } else {
+    // Download the image from OpenAI (URL expires in ~1hr)
+    const response = await fetch(imageUrl);
+    if (!response.ok) {
+      throw new Error(`Failed to download image: ${response.status} ${response.statusText}`);
+    }
+    const blob = await response.blob();
+    buffer = Buffer.from(await blob.arrayBuffer());
   }
-  const blob = await response.blob();
-  const buffer = Buffer.from(await blob.arrayBuffer());
 
   // Upload to Supabase Storage
   const { error: uploadError } = await supabase.storage

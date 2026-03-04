@@ -327,11 +327,16 @@ export async function generateImage(
       size,
       quality: gptQuality as 'low' | 'medium' | 'high' | 'auto',
     })
-    const url = response.data?.[0]?.url;
-    if (!url) throw new Error('Image generation returned no URL (gpt-image-1)');
+    const imageData = response.data?.[0];
+    // gpt-image-1 may return b64_json instead of url
+    let imageUrl = imageData?.url;
+    if (!imageUrl && imageData?.b64_json) {
+      imageUrl = `data:image/png;base64,${imageData.b64_json}`;
+    }
+    if (!imageUrl) throw new Error('Image generation returned no data (gpt-image-1)');
     return {
-      url,
-      revisedPrompt: response.data?.[0]?.revised_prompt,
+      url: imageUrl,
+      revisedPrompt: imageData?.revised_prompt,
       model,
     }
   }
