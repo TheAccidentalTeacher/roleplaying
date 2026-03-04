@@ -50,6 +50,7 @@ export default function NewCharacter() {
     flaw: '',
   });
   const [name, setName] = useState('');
+  const [gender, setGender] = useState<string>('unspecified');
   const [description, setDescription] = useState('');
   const [storyHook, setStoryHook] = useState('');
   const [backstory, setBackstory] = useState('');
@@ -118,6 +119,7 @@ export default function NewCharacter() {
       ? personality
       : undefined,
     appearance: description || undefined,
+    gender: gender !== 'unspecified' ? gender : undefined,
     playerSentence: storyHook || undefined,
     backstory: backstory || undefined,
     motivation: motivation || undefined,
@@ -233,6 +235,35 @@ export default function NewCharacter() {
             />
           )}
           {step === 5 && (
+            <>
+              {/* Gender picker — sits above the rest of the Finalize form */}
+              <div className="max-w-2xl mx-auto mb-6 p-4 bg-slate-900 rounded-xl border border-slate-700">
+                <p className="text-xs text-slate-500 uppercase tracking-widest mb-3">Character Gender</p>
+                <p className="text-slate-400 text-sm mb-4">
+                  This tells the DM which pronouns to use for your character in narration and dialogue.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    { value: 'male',        label: '♂ Male',        pronoun: 'he/him' },
+                    { value: 'female',      label: '♀ Female',      pronoun: 'she/her' },
+                    { value: 'nonbinary',   label: '⚧ Non-binary',  pronoun: 'they/them' },
+                    { value: 'unspecified', label: '◌ Not specified', pronoun: 'they/them' },
+                  ].map(opt => (
+                    <button
+                      key={opt.value}
+                      onClick={() => setGender(opt.value)}
+                      className={`px-4 py-2 rounded-lg border text-sm transition-all ${
+                        gender === opt.value
+                          ? 'bg-sky-500/20 border-sky-500/60 text-sky-300'
+                          : 'bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-500 hover:text-slate-200'
+                      }`}
+                    >
+                      <span className="font-medium">{opt.label}</span>
+                      <span className="ml-1.5 text-xs opacity-60">{opt.pronoun}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
             <CharacterPreview
               name={name}
               onNameChange={setName}
@@ -262,6 +293,7 @@ export default function NewCharacter() {
               classLabel={classLabel}
               classRole={selectedWorld?.classes?.find((c) => c.id === characterClass)?.role}
             />
+            </>
           )}
         </div>
 

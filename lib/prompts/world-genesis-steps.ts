@@ -29,11 +29,20 @@ export interface StepDefinition {
 
 // ── Shared helpers ───────────────────────────────────────────────────
 
+function genderPronouns(g?: string): string {
+  if (!g || g === 'unspecified') return 'they/them (gender unspecified — use neutral pronouns)';
+  if (g === 'male') return 'he/him';
+  if (g === 'female') return 'she/her';
+  if (g === 'nonbinary') return 'they/them';
+  return g; // custom string
+}
+
 function charContext(c: CharacterCreationInput, playerSentence?: string): string {
   const seed = playerSentence
     ? `\nCreative seed from the player: "${playerSentence}" — use as inspiration but go FAR beyond it.`
     : '';
-  return `PLAYER CHARACTER: ${c.name}, ${c.race} ${c.class}, background: ${c.background ?? 'Adventurer'}${seed}`;
+  const pronounLine = `\nPronouns: ${genderPronouns(c.gender)} — use these pronouns consistently when referring to ${c.name}.`;
+  return `PLAYER CHARACTER: ${c.name}, ${c.race} ${c.class}, background: ${c.background ?? 'Adventurer'}${pronounLine}${seed}`;
 }
 
 const JSON_RULES = `

@@ -215,6 +215,7 @@ export interface Character {
   alignment: Alignment;
   personality: PersonalityTraits;
   appearance: string;
+  gender?: string;     // 'male' | 'female' | 'nonbinary' | 'unspecified' or custom
   backstory?: string;
   creationMode: CreationMode;
 
@@ -283,6 +284,7 @@ export interface CharacterCreationInput {
   };
   personality?: PersonalityTraits;
   appearance?: string;
+  gender?: string;       // 'male' | 'female' | 'nonbinary' | 'unspecified'
   playerSentence?: string; // The "one sentence" optional story hook
   backstory?: string;
   motivation?: string;

@@ -272,6 +272,7 @@ function buildSection3_Character(ctx: DMContext): string {
 **Race**: ${c.race ?? 'Human'} | **Class**: ${c.class ?? 'Fighter'} | **Level**: ${c.level ?? 1}  
 **Background**: ${c.background ?? 'Adventurer'}  
 **Alignment**: ${c.alignment ?? 'Neutral'}  
+**Pronouns**: ${c.gender === 'male' ? 'he/him' : c.gender === 'female' ? 'she/her' : c.gender === 'nonbinary' ? 'they/them' : 'they/them (unspecified)'} — ALWAYS use these pronouns when referring to ${c.name ?? 'the character'} in narration and NPC dialogue.  
 **XP**: ${c.xp ?? 0} / ${c.xpToNextLevel ?? 300}  
 
 ### Hit Points

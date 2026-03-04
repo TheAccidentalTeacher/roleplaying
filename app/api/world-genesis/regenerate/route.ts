@@ -103,6 +103,7 @@ function buildCharacterFromInput(input: CharacterCreationInput, worldId: string)
     background: input.background ?? 'adventurer',
     alignment: 'true-neutral',
     appearance: input.appearance ?? '',
+    gender: input.gender,
     creationMode: input.creationMode ?? 'questionnaire',
     companionIds: [],
     currentLocation: 'Unknown',
