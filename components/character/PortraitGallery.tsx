@@ -61,22 +61,32 @@ export default function PortraitGallery({ character, characterId, worldGenre }: 
 
   // ── Generate portrait ──
   const handleGenerate = async () => {
+    console.log('[Gallery] handleGenerate CLICKED', { characterId, milestoneChoice, generating });
+    if (generating) {
+      console.log('[Gallery] Already generating, skipping');
+      return;
+    }
     try {
       setGenerating(true);
       setError('');
 
+      const payload = {
+        character,
+        characterId,
+        milestone: milestoneChoice,
+        storyContext: storyContext || undefined,
+        label: customLabel || undefined,
+        worldGenre,
+      };
+      console.log('[Gallery] Sending portrait request...', { milestone: milestoneChoice, characterId });
+
       const res = await fetch('/api/character-portrait', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          character,
-          characterId,
-          milestone: milestoneChoice,
-          storyContext: storyContext || undefined,
-          label: customLabel || undefined,
-          worldGenre,
-        }),
+        body: JSON.stringify(payload),
       });
+
+      console.log('[Gallery] Response status:', res.status);
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: 'Unknown error' }));
@@ -84,6 +94,7 @@ export default function PortraitGallery({ character, characterId, worldGenre }: 
       }
 
       const data = await res.json();
+      console.log('[Gallery] Portrait generated successfully', { hasPortrait: !!data.portrait, hasVI: !!data.visualIdentity });
 
       // Add to local gallery state
       setGallery(prev => prev ? {
@@ -96,7 +107,9 @@ export default function PortraitGallery({ character, characterId, worldGenre }: 
       setCustomLabel('');
       setStoryContext('');
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : String(e));
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error('[Gallery] Generate error:', msg);
+      setError(msg);
     } finally {
       setGenerating(false);
     }
@@ -199,7 +212,10 @@ export default function PortraitGallery({ character, characterId, worldGenre }: 
       {/* ── Generate button / form ── */}
       {!showGenForm ? (
         <button
-          onClick={() => setShowGenForm(true)}
+          onClick={() => {
+            console.log('[Gallery] Opening generate form');
+            setShowGenForm(true);
+          }}
           className="gallery-gen-btn"
           disabled={generating}
         >
@@ -264,7 +280,10 @@ export default function PortraitGallery({ character, characterId, worldGenre }: 
 
           <div className="gallery-gen-actions">
             <button
-              onClick={handleGenerate}
+              onClick={(e) => {
+                console.log('[Gallery] Submit button clicked', e.type);
+                handleGenerate();
+              }}
               disabled={generating}
               className="gallery-gen-submit"
             >
