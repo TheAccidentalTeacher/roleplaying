@@ -270,6 +270,37 @@ export default function GamesPage() {
                   >
                     <Save className="w-4 h-4" /> Save
                   </button>
+                  {deleteConfirm === '__active__' ? (
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => {
+                          resetGame()
+                          setDeleteConfirm(null)
+                          setActivePreview(null)
+                          showNotification('Active game discarded.')
+                        }}
+                        className="flex items-center gap-1 px-3 py-2 rounded-lg bg-red-600/20 border border-red-500/50
+                                   text-red-400 hover:bg-red-600/30 transition-all text-xs font-medium"
+                      >
+                        <AlertTriangle className="w-3.5 h-3.5" /> Confirm
+                      </button>
+                      <button
+                        onClick={() => setDeleteConfirm(null)}
+                        className="px-2 py-2 rounded-lg bg-slate-800/60 border border-slate-700/50
+                                   text-slate-400 hover:text-white transition-all text-xs"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setDeleteConfirm('__active__')}
+                      className="flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-800/40 border border-slate-700/50
+                                 text-slate-500 hover:text-red-400 hover:border-red-700/50 hover:bg-red-900/20 transition-all text-sm"
+                    >
+                      <Trash2 className="w-4 h-4" /> Discard
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
