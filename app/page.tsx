@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { Sword, BookOpen, Stars, Sparkles } from 'lucide-react'
+import { Sword, BookOpen, Stars, Sparkles, Save } from 'lucide-react'
 
 const AMBIENT_PARTICLES = Array.from({ length: 12 }, (_, i) => ({
   id: i,
@@ -87,7 +87,7 @@ export default function Home() {
         </div>
 
         {/* ── Menu Cards ── */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-5 w-full max-w-3xl">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5 w-full max-w-3xl">
 
           {/* New Adventure */}
           <Link
@@ -151,6 +151,38 @@ export default function Home() {
             <div className="border-t border-slate-800/80 px-7 py-2.5 text-center">
               <span className="text-xs text-amber-400/60 group-hover:text-amber-400 font-cinzel tracking-wider transition-colors">
                 RESUME →
+              </span>
+            </div>
+          </Link>
+
+          {/* Saved Games */}
+          <Link
+            href="/games"
+            className="group relative rounded-2xl border border-slate-700/60 bg-slate-900/70 backdrop-blur-sm
+                       hover:border-emerald-500/60 hover:-translate-y-2 hover:shadow-2xl hover:shadow-emerald-900/20
+                       transition-all duration-300 overflow-hidden cursor-pointer"
+          >
+            <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-emerald-400 to-transparent
+                            opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+
+            <div className="flex flex-col items-center gap-4 p-7">
+              <div className="w-16 h-16 rounded-xl bg-emerald-900/30 border border-emerald-800/40
+                              group-hover:border-emerald-600/50 group-hover:bg-emerald-900/50
+                              flex items-center justify-center transition-all duration-300
+                              group-hover:shadow-lg group-hover:shadow-emerald-900/30">
+                <Save className="w-8 h-8 text-emerald-400 group-hover:text-emerald-300 transition-colors" />
+              </div>
+              <div className="text-center">
+                <h2 className="text-xl font-cinzel font-bold text-white mb-1.5">Saved Games</h2>
+                <p className="text-sm text-slate-500 group-hover:text-slate-400 transition-colors leading-snug">
+                  Manage, load, or archive your past adventures
+                </p>
+              </div>
+            </div>
+
+            <div className="border-t border-slate-800/80 px-7 py-2.5 text-center">
+              <span className="text-xs text-emerald-400/60 group-hover:text-emerald-400 font-cinzel tracking-wider transition-colors">
+                MANAGE →
               </span>
             </div>
           </Link>

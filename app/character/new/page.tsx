@@ -10,6 +10,7 @@ import type {
   CharacterCreationInput,
 } from '@/lib/types/character';
 import type { WorldDefinition } from '@/lib/data/world-types';
+import { archiveAndStartFresh } from '@/lib/services/saved-games';
 
 import WorldSelector from '@/components/character/WorldSelector';
 import RaceSelector from '@/components/character/RaceSelector';
@@ -95,6 +96,13 @@ export default function NewCharacter() {
 
   const handleBeginAdventure = () => {
     if (!isStepValid(5)) return;
+    // Auto-archive current game before starting a new one
+    try {
+      const archivedId = archiveAndStartFresh();
+      if (archivedId) console.log('[NewCharacter] Auto-archived current game as', archivedId);
+    } catch (err) {
+      console.warn('[NewCharacter] Could not auto-archive:', err);
+    }
     setGenerating(true);
   };
 

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useGameStore } from '@/lib/store';
 import SaveMenu from '@/components/game/SaveMenu';
 import SettingsModal from '@/components/game/SettingsModal';
+import { saveCurrentGame, hasActiveGame } from '@/lib/services/saved-games';
 import type { SavePayload } from '@/lib/services/save-service';
 import type { Character } from '@/lib/types/character';
 
@@ -178,12 +179,25 @@ export default function TopBar() {
             >
               ⚙️ Settings
             </button>
+            <button
+              onClick={() => { setMenuOpen(false); router.push('/games'); }}
+              className="w-full text-left px-4 py-2.5 text-sm text-slate-300 hover:bg-slate-700 flex items-center gap-2"
+            >
+              📚 Manage Adventures
+            </button>
             <div className="border-t border-slate-700" />
             <button
-              onClick={() => { setMenuOpen(false); router.push('/'); }}
+              onClick={() => {
+                setMenuOpen(false);
+                // Auto-save to adventure slot before exiting
+                if (hasActiveGame()) {
+                  try { saveCurrentGame(); } catch { /* ignore max-saves errors */ }
+                }
+                router.push('/');
+              }}
               className="w-full text-left px-4 py-2.5 text-sm text-red-400 hover:bg-slate-700 flex items-center gap-2"
             >
-              🚪 Exit to Menu
+              🚪 Save &amp; Exit
             </button>
           </div>
         </>
