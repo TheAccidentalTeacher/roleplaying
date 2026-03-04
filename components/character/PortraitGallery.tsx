@@ -9,9 +9,10 @@ interface PortraitGalleryProps {
   character: Character;
   characterId: string;
   worldGenre?: string;
+  worldData?: Record<string, unknown>;
 }
 
-export default function PortraitGallery({ character, characterId, worldGenre }: PortraitGalleryProps) {
+export default function PortraitGallery({ character, characterId, worldGenre, worldData }: PortraitGalleryProps) {
   const [gallery, setGallery] = useState<CharacterGallery | null>(null);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
@@ -77,6 +78,7 @@ export default function PortraitGallery({ character, characterId, worldGenre }: 
         storyContext: storyContext || undefined,
         label: customLabel || undefined,
         worldGenre,
+        worldData,
       };
       console.log('[Gallery] Sending portrait request...', { milestone: milestoneChoice, characterId });
 
@@ -317,6 +319,49 @@ export default function PortraitGallery({ character, characterId, worldGenre }: 
             <p className="gallery-vi-date">
               Created: {new Date(gallery.visualIdentity.createdAt).toLocaleDateString()}
             </p>
+            <button
+              onClick={async () => {
+                if (!confirm('This will regenerate your visual identity using improved genre-aware prompts. Your existing portraits will be kept, but new portraits will use the updated style. Continue?')) return;
+                try {
+                  setGenerating(true);
+                  setError('');
+                  console.log('[Gallery] Regenerating visual identity...');
+                  const res = await fetch('/api/character-portrait', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      character,
+                      characterId,
+                      milestone: milestoneChoice,
+                      worldGenre,
+                      worldData,
+                      forceNewIdentity: true,
+                    }),
+                  });
+                  if (!res.ok) {
+                    const err = await res.json().catch(() => ({ error: 'Unknown error' }));
+                    throw new Error(err.error || `Failed: ${res.status}`);
+                  }
+                  const data = await res.json();
+                  setGallery(prev => prev ? {
+                    ...prev,
+                    visualIdentity: data.visualIdentity || prev.visualIdentity,
+                    portraits: [...prev.portraits, data.portrait],
+                  } : prev);
+                  console.log('[Gallery] Visual identity regenerated');
+                } catch (e: unknown) {
+                  const msg = e instanceof Error ? e.message : String(e);
+                  console.error('[Gallery] Regenerate VI error:', msg);
+                  setError(msg);
+                } finally {
+                  setGenerating(false);
+                }
+              }}
+              disabled={generating}
+              className="gallery-vi-regen"
+            >
+              🔄 Regenerate Visual Identity
+            </button>
           </div>
         </details>
       )}
@@ -555,6 +600,20 @@ const galleryStyles = `
   .gallery-vi-content p { margin: 6px 0; }
   .gallery-vi-prompt { font-style: italic; line-height: 1.5; background: #fefcf5; padding: 8px; border-radius: 4px; }
   .gallery-vi-date { font-size: 10px; color: #8b6914; }
+  .gallery-vi-regen {
+    margin-top: 10px;
+    padding: 6px 14px;
+    background: transparent;
+    color: #8b4513;
+    border: 1.5px solid #c4a882;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .gallery-vi-regen:hover { background: #fefcf5; }
+  .gallery-vi-regen:disabled { opacity: 0.5; cursor: not-allowed; }
 
   /* ── Print: hide interactive elements ── */
   @media print {

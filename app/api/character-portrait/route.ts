@@ -47,6 +47,8 @@ export async function POST(req: NextRequest) {
       storyContext,
       label,
       worldGenre,
+      worldData,
+      forceNewIdentity,
     } = body as {
       character: Character;
       characterId: string;
@@ -54,6 +56,8 @@ export async function POST(req: NextRequest) {
       storyContext?: string;
       label?: string;
       worldGenre?: string;
+      worldData?: Record<string, unknown>;
+      forceNewIdentity?: boolean;
     };
 
     if (!character || !characterId) {
@@ -74,9 +78,9 @@ export async function POST(req: NextRequest) {
       console.warn('[Portrait] Could not load visual identity from Supabase:', e);
     }
 
-    if (!visualIdentity) {
-      console.log('[Portrait] No visual identity found, generating one...');
-      visualIdentity = await generateVisualIdentity(character, worldGenre);
+    if (!visualIdentity || forceNewIdentity) {
+      console.log('[Portrait] No visual identity found (or forced regen), generating one...');
+      visualIdentity = await generateVisualIdentity(character, worldGenre, worldData);
       console.log('[Portrait] Visual identity created:', visualIdentity.artStyle);
 
       try {
@@ -90,8 +94,9 @@ export async function POST(req: NextRequest) {
     const prompt = buildPortraitPrompt(
       visualIdentity,
       milestone,
-      character.level,
+      character,
       storyContext,
+      worldData,
     );
     console.log('[Portrait] Prompt built, length:', prompt.length);
 

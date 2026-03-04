@@ -10,6 +10,7 @@ export default function CharacterSheetPage() {
   const [characterId, setCharacterId] = useState<string>('');
   const [worldName, setWorldName] = useState<string>('');
   const [worldGenre, setWorldGenre] = useState<string>('');
+  const [worldData, setWorldData] = useState<Record<string, unknown> | null>(null);
   const [error, setError] = useState<string>('');
 
   useEffect(() => {
@@ -33,6 +34,7 @@ export default function CharacterSheetPage() {
           const world = JSON.parse(worldRaw);
           setWorldName(world?.name ?? world?.worldName ?? '');
           setWorldGenre(world?.genre ?? world?.questGenre ?? world?.worldType ?? '');
+          setWorldData(world);
         }
       } catch {
         // World data is optional
@@ -109,6 +111,7 @@ export default function CharacterSheetPage() {
           character={character}
           characterId={characterId}
           worldGenre={worldGenre || undefined}
+          worldData={worldData || undefined}
         />
       </div>
 
