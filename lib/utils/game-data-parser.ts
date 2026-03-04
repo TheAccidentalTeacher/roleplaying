@@ -75,6 +75,19 @@ export interface GameDataUpdate {
     allowed_skills?: string[]; // e.g. ["athletics", "acrobatics", "stealth", "persuasion"]
     stakes?: string;           // narrative consequences
   };
+  // Companion recruitment — a world companion agrees to join the party
+  companion_join?: {
+    companion_id: string;      // matches world.companions[].id
+    name: string;
+    race: string;
+    class: string;
+    level: number;
+    role: string;              // "tank", "healer", "dps-melee", etc.
+    personality: string;       // Brief personality summary
+    personal_quest: string;    // Their companion quest hook
+    recruit_location: string;  // Where they're found
+    portrait_url?: string;     // Optional pre-generated portrait
+  };
 }
 
 /**

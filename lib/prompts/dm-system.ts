@@ -472,7 +472,8 @@ When game state changes occur, include these at the END of your response (after 
   "shop_open": { "shop_type": "blacksmith|alchemist|general-store|magic-shop|etc", "merchant_name": "NPC Name", "shop_name": "The Gilded Flask" } | null,
   "travel": { "destination": "City Name", "terrain": "forest|mountains|plains|desert|swamp|etc", "distance_hours": 8, "method": "walking|mounted|ship", "pace": "slow|normal|fast" } | null,
   "crafting_open": { "station_type": "forge|alchemy_lab|enchanting_table|tannery|kitchen|workshop", "station_quality": "basic|good|excellent" } | null,
-  "skill_challenge": { "name": "Challenge Name", "description": "What the player must overcome", "complexity": "simple|standard|complex|epic", "allowed_skills": ["athletics", "acrobatics", "stealth"], "stakes": "What happens on failure" } | null
+  "skill_challenge": { "name": "Challenge Name", "description": "What the player must overcome", "complexity": "simple|standard|complex|epic", "allowed_skills": ["athletics", "acrobatics", "stealth"], "stakes": "What happens on failure" } | null,
+  "companion_join": { "companion_id": "ID from world companion roster", "name": "Companion Name", "race": "Race", "class": "Class", "level": 3, "role": "healer|tank|dps-melee|dps-ranged|support|utility", "personality": "Brief personality", "personal_quest": "Their companion quest in one sentence", "recruit_location": "Where you found them" } | null
 }
 \`\`\`
 
@@ -481,6 +482,7 @@ Use shop_open when the player enters a shop, asks to trade, or a merchant offers
 Use travel when the player sets out on a journey to a distant location. This triggers the travel UI with segment-by-segment progression, encounters, and discoveries. Only use for significant journeys (not walking across town). Estimate terrain and distance_hours based on the world geography.
 Use crafting_open when the player uses a crafting station, workbench, forge, alchemy lab, or similar. The UI will show available recipes.
 Use skill_challenge for extended ability challenges like chases, negotiations, heists, or survival scenarios that need multiple skill checks to resolve. Choose complexity based on narrative importance.
+Use companion_join ONLY when a world companion definitively agrees to join the party — after earning their trust, completing their request, or during a scripted recruitment scene. This triggers a confirmation UI. Use the companion's exact ID from the world companion roster.
 Use scene_image SPARINGLY — only for truly dramatic moments like: arriving at a new major location, boss encounters, pivotal story reveals, or breathtaking vistas. Write it as a detailed visual description suitable for AI image generation.`;
 }
 

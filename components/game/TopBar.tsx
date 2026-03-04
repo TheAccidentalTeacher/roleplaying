@@ -180,6 +180,12 @@ export default function TopBar() {
               ⚙️ Settings
             </button>
             <button
+              onClick={() => { setMenuOpen(false); router.push('/journal'); }}
+              className="w-full text-left px-4 py-2.5 text-sm text-slate-300 hover:bg-slate-700 flex items-center gap-2"
+            >
+              📖 Campaign Journal
+            </button>
+            <button
               onClick={() => { setMenuOpen(false); router.push('/games'); }}
               className="w-full text-left px-4 py-2.5 text-sm text-slate-300 hover:bg-slate-700 flex items-center gap-2"
             >

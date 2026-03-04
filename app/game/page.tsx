@@ -33,6 +33,8 @@ import TravelView from '@/components/game/TravelView';
 import CraftingView from '@/components/game/CraftingView';
 import SkillChallengeView from '@/components/game/SkillChallengeView';
 import LevelUpCeremony from '@/components/game/LevelUpCeremony';
+import CompanionRecruitModal from '@/components/game/CompanionRecruitModal';
+import PartyHUD from '@/components/game/PartyHUD';
 import { stringsToItems } from '@/lib/utils/item-converter';
 import { retireCharacter } from '@/lib/engines/legacy-engine';
 import { createTravelPlan, resolveSegment } from '@/lib/engines/travel-engine';
@@ -94,6 +96,7 @@ export default function GamePage() {
     addActiveQuest,
     updateQuest,
     addKnownNPC,
+    updateNPC,
     setCombatState,
     setGameClock,
     setWeather,
@@ -134,6 +137,7 @@ export default function GamePage() {
   const [pendingLevelUp, setPendingLevelUp] = useState<LevelUpGains | null>(null);
   const [earnedAchievements, setEarnedAchievements] = useState<Achievement[]>([]);
   const [achievementPopupQueue, setAchievementPopupQueue] = useState<Achievement[]>([]);
+  const [pendingRecruitment, setPendingRecruitment] = useState<import('@/lib/utils/game-data-parser').GameDataUpdate['companion_join'] | null>(null);
   const achievementStatsRef = useRef({ totalEnemiesDefeated: 0, totalQuestsCompleted: 0, totalGoldEarned: 0, totalItemsCollected: 0, totalSecretsDiscovered: 0, events: [] as string[] });
   const sessionSummaryRef = useRef<string | undefined>(undefined);
   const { toasts, addToast, removeToast } = useToast();
@@ -750,11 +754,16 @@ export default function GamePage() {
         setActiveChallenge(challenge);
         setLastChallengeResult(undefined);
       }
+
+      // Companion recruitment — trigger the recruit modal
+      if (data.companion_join) {
+        setPendingRecruitment(data.companion_join);
+      }
     },
     [
       fullCharacter, world, activeQuests, knownNPCs, gameClock,
       updateLocation, updateActiveCharacter, setGameClock, setWeather,
-      addActiveQuest, updateQuest, addKnownNPC, setCombatState, addMessage,
+      addActiveQuest, updateQuest, addKnownNPC, updateNPC, setCombatState, addMessage,
     ]
   );
 
@@ -1268,6 +1277,64 @@ export default function GamePage() {
     [sendMessage]
   );
 
+  // ── Companion recruitment handlers ──
+  const handleRecruit = useCallback(() => {
+    if (!pendingRecruitment || !world || !fullCharacter) {
+      setPendingRecruitment(null);
+      return;
+    }
+    const { companion_id, name } = pendingRecruitment;
+
+    // Mark the NPC as an active companion in the store
+    const existingNpc = knownNPCs.find(
+      (n) => n.id === companion_id || n.name.toLowerCase() === name.toLowerCase()
+    );
+    if (existingNpc) {
+      updateNPC(existingNpc.id, { isCompanion: true, relationshipType: 'companion', attitudeTier: 'allied' });
+    } else {
+      // Create NPC record if they weren't previously met
+      const now = new Date().toISOString();
+      addKnownNPC({
+        id: companion_id || `companion-${Date.now()}`,
+        worldId: world.worldName || '',
+        characterId: fullCharacter.id,
+        name,
+        race: pendingRecruitment.race || 'unknown',
+        role: 'companion',
+        storyRole: 'major',
+        physicalDescription: '',
+        voiceDescription: '',
+        personalityCore: pendingRecruitment.personality || '',
+        motivation: pendingRecruitment.personal_quest || '',
+        fear: '',
+        secret: '',
+        speechPattern: '',
+        relationshipScore: 50,
+        relationshipType: 'companion',
+        attitudeTier: 'friendly',
+        sharedHistory: [],
+        currentEmotionalState: 'determined',
+        location: pendingRecruitment.recruit_location || '',
+        knowledgeOf: [],
+        isAlive: true,
+        isCompanion: true,
+        memories: [],
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+
+    setPendingRecruitment(null);
+    sendMessage(`I welcome ${name} to my party. We set off together.`);
+  }, [pendingRecruitment, world, fullCharacter, knownNPCs, updateNPC, addKnownNPC, sendMessage]);
+
+  const handleDeclineRecruit = useCallback(() => {
+    if (!pendingRecruitment) { setPendingRecruitment(null); return; }
+    const { name } = pendingRecruitment;
+    setPendingRecruitment(null);
+    sendMessage(`I tell ${name} that I must continue alone for now, but perhaps our paths will cross again.`);
+  }, [pendingRecruitment, sendMessage]);
+
   // ── Shop handlers ──
   const handleShopBuy = useCallback(
     (mi: MerchantItem) => {
@@ -1474,12 +1541,18 @@ export default function GamePage() {
             </div>
           )}
 
-          {/* Known NPCs */}
-          {knownNPCs.length > 0 && (
+          {/* Party HUD — active companions */}
+          <PartyHUD
+            companions={knownNPCs.filter((n) => n.isCompanion)}
+            onSelectCompanion={(npc) => setSelectedNPC(npc)}
+          />
+
+          {/* Known NPCs — non-companion NPCs only */}
+          {knownNPCs.filter((n) => !n.isCompanion).length > 0 && (
             <div className="px-3 py-2 border-t border-slate-700/30">
               <h4 className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider mb-2">Known NPCs</h4>
               <div className="space-y-2">
-                {knownNPCs.slice(0, 5).map((npc) => (
+                {knownNPCs.filter((n) => !n.isCompanion).slice(0, 5).map((npc) => (
                   <NPCPanel
                     key={npc.id}
                     npc={npc}
@@ -1487,9 +1560,9 @@ export default function GamePage() {
                     onDialogue={() => handleNPCDialogue(npc)}
                   />
                 ))}
-                {knownNPCs.length > 5 && (
+                {knownNPCs.filter((n) => !n.isCompanion).length > 5 && (
                   <p className="text-[10px] text-slate-600 text-center">
-                    +{knownNPCs.length - 5} more
+                    +{knownNPCs.filter((n) => !n.isCompanion).length - 5} more
                   </p>
                 )}
               </div>
@@ -1836,6 +1909,19 @@ export default function GamePage() {
         <AchievementPopup
           achievement={achievementPopupQueue[0]}
           onDismiss={dismissAchievementPopup}
+        />
+      )}
+
+      {/* Companion Recruit Modal — shown when a companion agrees to join */}
+      {pendingRecruitment && (
+        <CompanionRecruitModal
+          companion={pendingRecruitment}
+          worldCompanion={world?.companions?.find(
+            (c) => c.id === pendingRecruitment.companion_id ||
+                   c.name.toLowerCase() === pendingRecruitment.name.toLowerCase()
+          )}
+          onRecruit={handleRecruit}
+          onDecline={handleDeclineRecruit}
         />
       )}
 
