@@ -35,6 +35,27 @@ export default function TopBar() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [showSaveMenu, setShowSaveMenu] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [checkpointSaving, setCheckpointSaving] = useState(false);
+  const [checkpointDone, setCheckpointDone] = useState(false);
+
+  const handleCheckpoint = useCallback(async () => {
+    if (!hasActiveGame() || checkpointSaving) return;
+    setMenuOpen(false);
+    setCheckpointSaving(true);
+    try {
+      const loc = currentLocation || 'Unknown';
+      const day = gameClock?.daysSinceStart ?? 1;
+      const tod = gameClock?.timeOfDay?.replace(/_/g, ' ') || 'morning';
+      const name = `Checkpoint — Day ${day} · ${tod} · ${loc}`;
+      await saveCurrentGame(name);
+      setCheckpointDone(true);
+      setTimeout(() => setCheckpointDone(false), 3000);
+    } catch (e) {
+      console.error('[checkpoint]', e);
+    } finally {
+      setCheckpointSaving(false);
+    }
+  }, [currentLocation, gameClock, checkpointSaving]);
 
   const formatTime = () => {
     if (!gameClock) return 'Day 1';
@@ -158,7 +179,21 @@ export default function TopBar() {
       {menuOpen && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
-          <div className="absolute right-2 top-full mt-1 z-50 bg-slate-800 border border-slate-600 rounded-lg shadow-xl overflow-hidden min-w-[180px] animate-slideDown">
+          <div className="absolute right-2 top-full mt-1 z-50 bg-slate-800 border border-slate-600 rounded-lg shadow-xl overflow-hidden min-w-[200px] animate-slideDown">
+            {/* Quick Checkpoint — one-tap named save */}
+            <button
+              onClick={handleCheckpoint}
+              disabled={checkpointSaving || !savePayload}
+              className={`w-full text-left px-4 py-2.5 text-sm flex items-center justify-between gap-2 ${
+                savePayload ? 'text-emerald-300 hover:bg-slate-700' : 'text-slate-600 cursor-not-allowed'
+              }`}
+            >
+              <span className="flex items-center gap-2">
+                {checkpointDone ? '✅' : checkpointSaving ? '⏳' : '📍'}
+                {checkpointDone ? 'Checkpoint saved!' : checkpointSaving ? 'Saving…' : 'Save Checkpoint'}
+              </span>
+            </button>
+            <div className="border-t border-slate-700" />
             <button
               onClick={() => {
                 setMenuOpen(false);
@@ -171,7 +206,7 @@ export default function TopBar() {
               }`}
               disabled={!savePayload}
             >
-              💾 Save / Load
+              💾 Save / Load Slots
             </button>
             <button
               onClick={() => { setMenuOpen(false); setShowSettings(true); }}
@@ -184,6 +219,12 @@ export default function TopBar() {
               className="w-full text-left px-4 py-2.5 text-sm text-slate-300 hover:bg-slate-700 flex items-center gap-2"
             >
               📖 Campaign Journal
+            </button>
+            <button
+              onClick={() => { setMenuOpen(false); router.push('/game/edit-world'); }}
+              className="w-full text-left px-4 py-2.5 text-sm text-slate-300 hover:bg-slate-700 flex items-center gap-2"
+            >
+              ⚙️ Edit World Bible
             </button>
             <button
               onClick={() => { setMenuOpen(false); router.push('/games'); }}
