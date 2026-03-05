@@ -35,6 +35,7 @@ import SkillChallengeView from '@/components/game/SkillChallengeView';
 import LevelUpCeremony from '@/components/game/LevelUpCeremony';
 import CompanionRecruitModal from '@/components/game/CompanionRecruitModal';
 import PartyHUD from '@/components/game/PartyHUD';
+import OraclePanel from '@/components/game/OraclePanel';
 import { stringsToItems } from '@/lib/utils/item-converter';
 import { retireCharacter } from '@/lib/engines/legacy-engine';
 import { createTravelPlan, resolveSegment } from '@/lib/engines/travel-engine';
@@ -139,6 +140,7 @@ export default function GamePage() {
   const [achievementPopupQueue, setAchievementPopupQueue] = useState<Achievement[]>([]);
   const [pendingRecruitment, setPendingRecruitment] = useState<import('@/lib/utils/game-data-parser').GameDataUpdate['companion_join'] | null>(null);
   const [lastFailedMessage, setLastFailedMessage] = useState<string>('');
+  const [oracleOpen, setOracleOpen] = useState(false);
   const achievementStatsRef = useRef({ totalEnemiesDefeated: 0, totalQuestsCompleted: 0, totalGoldEarned: 0, totalItemsCollected: 0, totalSecretsDiscovered: 0, events: [] as string[] });
   const sessionSummaryRef = useRef<string | undefined>(undefined);
   const { toasts, addToast, removeToast } = useToast();
@@ -1449,7 +1451,7 @@ export default function GamePage() {
       <SettingsProvider />
 
       {/* Top Bar */}
-      <TopBar />
+      <TopBar onOpenOracle={() => setOracleOpen(true)} />
 
       {/* Main Content Area */}
       <div className="flex-1 flex overflow-hidden">
@@ -1933,6 +1935,20 @@ export default function GamePage() {
           onDecline={handleDeclineRecruit}
         />
       )}
+
+      {/* Oracle Panel — slide-out meta-analyst */}
+      <OraclePanel
+        open={oracleOpen}
+        onClose={() => setOracleOpen(false)}
+        character={fullCharacter}
+        world={world}
+        activeQuests={activeQuests}
+        knownNPCs={knownNPCs}
+        combatState={combatState}
+        gameClock={gameClock}
+        weather={weather}
+        dmMessages={chatMessages.map(m => ({ role: m.role, content: m.content }))}
+      />
 
       {/* Toast Notifications */}
       <ToastContainer toasts={toasts} onRemove={removeToast} />

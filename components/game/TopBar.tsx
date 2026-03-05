@@ -9,7 +9,11 @@ import { saveCurrentGame, hasActiveGame } from '@/lib/services/saved-games';
 import type { SavePayload } from '@/lib/services/save-service';
 import type { Character } from '@/lib/types/character';
 
-export default function TopBar() {
+interface TopBarProps {
+  onOpenOracle?: () => void;
+}
+
+export default function TopBar({ onOpenOracle }: TopBarProps) {
   const router = useRouter();
   const {
     characters,
@@ -213,6 +217,12 @@ export default function TopBar() {
               className="w-full text-left px-4 py-2.5 text-sm text-slate-300 hover:bg-slate-700 flex items-center gap-2"
             >
               ⚙️ Settings
+            </button>
+            <button
+              onClick={() => { setMenuOpen(false); if (onOpenOracle) onOpenOracle(); }}
+              className="w-full text-left px-4 py-2.5 text-sm text-purple-300 hover:bg-slate-700 flex items-center gap-2"
+            >
+              🔮 The Oracle
             </button>
             <button
               onClick={() => { setMenuOpen(false); router.push('/journal'); }}

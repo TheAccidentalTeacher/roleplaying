@@ -142,6 +142,11 @@
   to   { opacity: 1; transform: translateX(0); }
 }
 
+@keyframes slideRight {
+  from { opacity: 0; transform: translateX(-100%); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
 @keyframes pulseGlow {
   0%, 100% { box-shadow: 0 0 5px rgba(14, 165, 233, 0.3); }
   50%       { box-shadow: 0 0 20px rgba(14, 165, 233, 0.6), 0 0 40px rgba(14, 165, 233, 0.2); }
@@ -161,6 +166,7 @@
 .animate-slideUp    { animation: slideUp var(--animation-duration, 0.25s) ease-out; }
 .animate-slideDown  { animation: slideDown var(--animation-duration, 0.25s) ease-out; }
 .animate-slideInRight { animation: slideInRight var(--animation-duration, 0.3s) ease-out; }
+.animate-slideRight   { animation: slideRight var(--animation-duration, 0.3s) ease-out; }
 .animate-float      { animation: float 3s ease-in-out infinite; }
 
 /* ---- Settings: reduce-motion kills all transitions and animations ---- */
