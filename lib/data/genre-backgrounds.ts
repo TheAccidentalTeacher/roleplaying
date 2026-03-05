@@ -1,28 +1,11 @@
-'use client';
+// ============================================================
+// GENRE-SPECIFIC CHARACTER BACKGROUNDS
+// Each genre gets its own set of backgrounds with unique
+// personality traits, ideals, bonds, and flaws.
+// ============================================================
 
-import { useState } from 'react';
-import type { BackgroundType } from '@/lib/types/character';
-import { getBackgroundsForGenre } from '@/lib/data/genre-backgrounds';
-import AIHelpButton from './AIHelpButton';
-
-interface PersonalityTraitsInput {
-  traits: string[];
-  ideal: string;
-  bond: string;
-  flaw: string;
-}
-
-interface BackgroundSelectorProps {
-  selectedBackground: BackgroundType | null;
-  onBackgroundSelect: (bg: BackgroundType) => void;
-  personality: PersonalityTraitsInput;
-  onPersonalityChange: (p: PersonalityTraitsInput) => void;
-  aiContext?: Record<string, unknown>;
-  genre?: string;
-}
-
-interface BackgroundDef {
-  id: BackgroundType;
+export interface BackgroundDef {
+  id: string;
   name: string;
   icon: string;
   description: string;
@@ -34,7 +17,46 @@ interface BackgroundDef {
   suggestedFlaws: string[];
 }
 
-const BACKGROUNDS: BackgroundDef[] = [
+// ─── GENRE REGISTRY ──────────────────────────────────────────
+
+const GENRE_BACKGROUNDS: Record<string, BackgroundDef[]> = {};
+
+function register(genre: string, bgs: BackgroundDef[]) {
+  GENRE_BACKGROUNDS[genre] = bgs;
+}
+
+// Fallback chain for genres that don't yet have their own set
+const GENRE_FALLBACKS: Record<string, string> = {
+  'dark-fantasy': 'epic-fantasy',
+  'mythology': 'mythological',
+  'mythological': 'epic-fantasy',
+  'eastern': 'epic-fantasy',
+  'noir': 'mystery',
+  'military': 'survival',
+  'romance': 'epic-fantasy',
+  'comedy': 'epic-fantasy',
+};
+
+/**
+ * Get genre-appropriate backgrounds. Falls back to related
+ * genres, then to epic-fantasy as the universal default.
+ */
+export function getBackgroundsForGenre(genre?: string): BackgroundDef[] {
+  if (genre && GENRE_BACKGROUNDS[genre]) {
+    return GENRE_BACKGROUNDS[genre];
+  }
+  if (genre && GENRE_FALLBACKS[genre]) {
+    const fb = GENRE_FALLBACKS[genre];
+    if (GENRE_BACKGROUNDS[fb]) return GENRE_BACKGROUNDS[fb];
+  }
+  return GENRE_BACKGROUNDS['epic-fantasy'] ?? [];
+}
+
+// ═══════════════════════════════════════════════════════════════
+// EPIC FANTASY
+// ═══════════════════════════════════════════════════════════════
+
+register('epic-fantasy', [
   {
     id: 'soldier',
     name: 'Soldier',
@@ -354,285 +376,261 @@ const BACKGROUNDS: BackgroundDef[] = [
       'I can\'t help but pocket loose coins and trinkets I come across.',
     ],
   },
-];
+]);
 
-export default function BackgroundSelector({
-  selectedBackground,
-  onBackgroundSelect,
-  personality,
-  onPersonalityChange,
-  aiContext,
-  genre,
-}: BackgroundSelectorProps) {
-  const [showSuggestions, setShowSuggestions] = useState(true);
-  const backgrounds = getBackgroundsForGenre(genre);
-  const selectedBg = backgrounds.find((b) => b.id === selectedBackground);
+// ═══════════════════════════════════════════════════════════════
+// CYBERPUNK
+// ═══════════════════════════════════════════════════════════════
 
-  const handleTraitToggle = (trait: string) => {
-    const newTraits = personality.traits.includes(trait)
-      ? personality.traits.filter((t) => t !== trait)
-      : personality.traits.length < 3
-      ? [...personality.traits, trait]
-      : personality.traits;
-    onPersonalityChange({ ...personality, traits: newTraits });
-  };
-
-  return (
-    <div className="space-y-6">
-      <div className="text-center mb-6">
-        <h2 className="text-2xl font-cinzel text-amber-400 mb-2">Background & Personality</h2>
-        <p className="text-slate-400 text-sm">
-          Your background shapes who you were before adventure called.
-        </p>
-      </div>
-
-      {/* Background Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-        {backgrounds.map((bg) => (
-          <button
-            key={bg.id}
-            onClick={() => {
-              onBackgroundSelect(bg.id);
-              setShowSuggestions(true);
-            }}
-            className={`p-3 rounded-xl border text-left transition-all ${
-              selectedBackground === bg.id
-                ? 'border-amber-500 bg-amber-500/10 ring-1 ring-amber-500/30'
-                : 'border-slate-700 bg-slate-900/50 hover:border-sky-500/50'
-            }`}
-          >
-            <div className="text-xl mb-1">{bg.icon}</div>
-            <div className="text-white font-semibold text-sm">{bg.name}</div>
-            <div className="text-slate-400 text-xs mt-1 line-clamp-2">{bg.description}</div>
-          </button>
-        ))}
-      </div>
-
-      {/* Selected Background Details & Personality */}
-      {selectedBg && (
-        <div className="border border-slate-700 rounded-xl bg-slate-900/60 p-6 space-y-6">
-          <div className="flex items-center gap-3 mb-4">
-            <span className="text-3xl">{selectedBg.icon}</span>
-            <div>
-              <h3 className="text-lg font-cinzel text-amber-400">{selectedBg.name}</h3>
-              <p className="text-slate-400 text-sm">
-                <span className="text-sky-400">Skills:</span> {selectedBg.skillProficiencies} •{' '}
-                <span className="text-sky-400">Feature:</span> {selectedBg.feature}
-              </p>
-            </div>
-          </div>
-
-          {/* Toggle suggestions vs freeform */}
-          <div className="flex gap-2 mb-4">
-            <button
-              onClick={() => setShowSuggestions(true)}
-              className={`px-3 py-1 text-sm rounded ${
-                showSuggestions
-                  ? 'bg-sky-500/20 text-sky-400'
-                  : 'bg-slate-800 text-slate-400'
-              }`}
-            >
-              Choose from suggestions
-            </button>
-            <button
-              onClick={() => setShowSuggestions(false)}
-              className={`px-3 py-1 text-sm rounded ${
-                !showSuggestions
-                  ? 'bg-sky-500/20 text-sky-400'
-                  : 'bg-slate-800 text-slate-400'
-              }`}
-            >
-              Write your own
-            </button>
-          </div>
-
-          {showSuggestions ? (
-            <div className="space-y-4">
-              {/* Personality Traits (pick up to 2-3) */}
-              <div>
-                <label className="text-sm text-slate-300 font-semibold block mb-2">
-                  Personality Traits <span className="text-slate-500">(pick up to 3)</span>
-                </label>
-                <div className="space-y-1">
-                  {selectedBg.suggestedTraits.map((t) => (
-                    <button
-                      key={t}
-                      onClick={() => handleTraitToggle(t)}
-                      className={`w-full text-left px-3 py-2 rounded text-sm transition-all ${
-                        personality.traits.includes(t)
-                          ? 'bg-amber-500/10 text-amber-300 border border-amber-500/30'
-                          : 'bg-slate-800/50 text-slate-400 border border-transparent hover:border-slate-600'
-                      }`}
-                    >
-                      {t}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Ideal */}
-              <div>
-                <label className="text-sm text-slate-300 font-semibold block mb-2">Ideal</label>
-                <div className="flex flex-wrap gap-2">
-                  {selectedBg.suggestedIdeals.map((ideal) => (
-                    <button
-                      key={ideal}
-                      onClick={() => onPersonalityChange({ ...personality, ideal })}
-                      className={`px-3 py-1 rounded text-sm transition-all ${
-                        personality.ideal === ideal
-                          ? 'bg-sky-500/20 text-sky-400 border border-sky-500/30'
-                          : 'bg-slate-800 text-slate-400 border border-transparent hover:border-slate-600'
-                      }`}
-                    >
-                      {ideal}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Bond */}
-              <div>
-                <label className="text-sm text-slate-300 font-semibold block mb-2">Bond</label>
-                <div className="space-y-1">
-                  {selectedBg.suggestedBonds.map((bond) => (
-                    <button
-                      key={bond}
-                      onClick={() => onPersonalityChange({ ...personality, bond })}
-                      className={`w-full text-left px-3 py-2 rounded text-sm transition-all ${
-                        personality.bond === bond
-                          ? 'bg-green-500/10 text-green-300 border border-green-500/30'
-                          : 'bg-slate-800/50 text-slate-400 border border-transparent hover:border-slate-600'
-                      }`}
-                    >
-                      {bond}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Flaw */}
-              <div>
-                <label className="text-sm text-slate-300 font-semibold block mb-2">Flaw</label>
-                <div className="space-y-1">
-                  {selectedBg.suggestedFlaws.map((flaw) => (
-                    <button
-                      key={flaw}
-                      onClick={() => onPersonalityChange({ ...personality, flaw })}
-                      className={`w-full text-left px-3 py-2 rounded text-sm transition-all ${
-                        personality.flaw === flaw
-                          ? 'bg-red-500/10 text-red-300 border border-red-500/30'
-                          : 'bg-slate-800/50 text-slate-400 border border-transparent hover:border-slate-600'
-                      }`}
-                    >
-                      {flaw}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {/* Freeform Personality Traits */}
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="text-sm text-slate-300 font-semibold">
-                    Personality Traits
-                  </label>
-                  {aiContext && (
-                    <AIHelpButton
-                      field="trait"
-                      context={aiContext}
-                      onSelect={(text) =>
-                        onPersonalityChange({
-                          ...personality,
-                          traits: [...personality.traits.filter(Boolean), text].slice(0, 3),
-                        })
-                      }
-                      label="✨ Suggest Trait"
-                      compact
-                    />
-                  )}
-                </div>
-                <textarea
-                  value={personality.traits.join('\n')}
-                  onChange={(e) =>
-                    onPersonalityChange({
-                      ...personality,
-                      traits: e.target.value.split('\n').filter(Boolean),
-                    })
-                  }
-                  placeholder="Describe your character's personality (one trait per line)..."
-                  rows={3}
-                  className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm placeholder:text-slate-500 focus:border-sky-500 focus:ring-1 focus:ring-sky-500 outline-none"
-                />
-              </div>
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="text-sm text-slate-300 font-semibold">Ideal</label>
-                  {aiContext && (
-                    <AIHelpButton
-                      field="ideal"
-                      context={aiContext}
-                      onSelect={(text) => onPersonalityChange({ ...personality, ideal: text })}
-                      label="✨ Suggest"
-                      compact
-                    />
-                  )}
-                </div>
-                <input
-                  type="text"
-                  value={personality.ideal}
-                  onChange={(e) => onPersonalityChange({ ...personality, ideal: e.target.value })}
-                  placeholder="What principle guides you?"
-                  className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm placeholder:text-slate-500 focus:border-sky-500 focus:ring-1 focus:ring-sky-500 outline-none"
-                />
-              </div>
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="text-sm text-slate-300 font-semibold">Bond</label>
-                  {aiContext && (
-                    <AIHelpButton
-                      field="bond"
-                      context={aiContext}
-                      onSelect={(text) => onPersonalityChange({ ...personality, bond: text })}
-                      label="✨ Suggest"
-                      compact
-                    />
-                  )}
-                </div>
-                <input
-                  type="text"
-                  value={personality.bond}
-                  onChange={(e) => onPersonalityChange({ ...personality, bond: e.target.value })}
-                  placeholder="Who or what do you care about most?"
-                  className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm placeholder:text-slate-500 focus:border-sky-500 focus:ring-1 focus:ring-sky-500 outline-none"
-                />
-              </div>
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="text-sm text-slate-300 font-semibold">Flaw</label>
-                  {aiContext && (
-                    <AIHelpButton
-                      field="flaw"
-                      context={aiContext}
-                      onSelect={(text) => onPersonalityChange({ ...personality, flaw: text })}
-                      label="✨ Suggest"
-                      compact
-                    />
-                  )}
-                </div>
-                <input
-                  type="text"
-                  value={personality.flaw}
-                  onChange={(e) => onPersonalityChange({ ...personality, flaw: e.target.value })}
-                  placeholder="What is your greatest weakness?"
-                  className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm placeholder:text-slate-500 focus:border-sky-500 focus:ring-1 focus:ring-sky-500 outline-none"
-                />
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
+register('cyberpunk', [
+  {
+    id: 'street-samurai',
+    name: 'Street Samurai',
+    icon: '⚔️',
+    description: 'A cybernetically enhanced mercenary who lives and dies by a personal code on the neon-lit streets.',
+    skillProficiencies: 'Athletics, Intimidation',
+    feature: 'Street Rep',
+    suggestedTraits: [
+      'I settle my debts — in blood if necessary.',
+      'Chrome is who I am; meat is just the foundation.',
+      'My word is my contract. Break yours and we\'re done.',
+      'I only truly relax when I\'m armed and augmented.',
+    ],
+    suggestedIdeals: ['Honor', 'Protection', 'Survival', 'Glory'],
+    suggestedBonds: [
+      'My crew is the only family I\'ve ever known.',
+      'I carry the memory chip of a fallen partner — their unfinished job is mine now.',
+      'There\'s a bounty on my head from a corp I wronged.',
+    ],
+    suggestedFlaws: [
+      'I solve most problems with violence first.',
+      'I\'m addicted to cyberware upgrades — always chasing the next mod.',
+      'I don\'t trust anyone who isn\'t augmented.',
+    ],
+  },
+  {
+    id: 'netrunner',
+    name: 'Netrunner',
+    icon: '💻',
+    description: 'A digital ghost who hacks corporate networks and dives deep into cyberspace, where data is currency.',
+    skillProficiencies: 'Investigation, Stealth',
+    feature: 'ICE Breaker',
+    suggestedTraits: [
+      'I see the world as data streams and exploit paths.',
+      'I\'m more comfortable in cyberspace than meatspace.',
+      'I compulsively scan every device within range.',
+      'People are just wetware with backdoors.',
+    ],
+    suggestedIdeals: ['Freedom', 'Knowledge', 'Chaos', 'Truth'],
+    suggestedBonds: [
+      'I found something in a corporate database that changed everything.',
+      'My mentor was flatlined by black ICE — I\'ll find who wrote it.',
+      'I maintain a hidden data cache that could bring down a megacorp.',
+    ],
+    suggestedFlaws: [
+      'I can\'t resist jacking into unsecured networks.',
+      'I\'ve been online so long I forget to eat and sleep.',
+      'My neural interface glitches cause embarrassing episodes.',
+    ],
+  },
+  {
+    id: 'corporate-exile',
+    name: 'Corporate Exile',
+    icon: '🏢',
+    description: 'Once you climbed the megacorp ladder. Now you\'ve fallen from the tower — or been pushed.',
+    skillProficiencies: 'Deception, Persuasion',
+    feature: 'Corporate Contacts',
+    suggestedTraits: [
+      'I still dress sharp — old habits die hard.',
+      'I know exactly how the corps think because I was one of them.',
+      'I catch myself using corporate jargon and hate it.',
+      'I trust data and projections more than feelings.',
+    ],
+    suggestedIdeals: ['Redemption', 'Power', 'Freedom', 'Justice'],
+    suggestedBonds: [
+      'I know where my former employer buried the bodies — literally.',
+      'Someone inside the corp still feeds me intel.',
+      'I was framed for a crime I didn\'t commit. I need to clear my name.',
+    ],
+    suggestedFlaws: [
+      'I look down on people who\'ve never worked corporate.',
+      'I\'m paranoid that extraction teams are always watching.',
+      'I miss the luxury and sometimes consider going back.',
+    ],
+  },
+  {
+    id: 'fixer',
+    name: 'Fixer',
+    icon: '🤝',
+    description: 'The dealmaker, the info broker, the person who connects people and makes impossible things happen.',
+    skillProficiencies: 'Insight, Persuasion',
+    feature: 'Contact Network',
+    suggestedTraits: [
+      'Everyone owes me a favor, or will soon.',
+      'I never reveal my sources — that\'s business.',
+      'I treat every conversation as a negotiation.',
+      'I know everyone\'s price. Everyone has one.',
+    ],
+    suggestedIdeals: ['Profit', 'Loyalty', 'Connections', 'Neutrality'],
+    suggestedBonds: [
+      'My reputation is everything — I never break a deal.',
+      'I owe a syndicate a debt I can never fully repay.',
+      'A client I trusted burned me once. Never again.',
+    ],
+    suggestedFlaws: [
+      'I can\'t help but insert myself into other people\'s deals.',
+      'I hoard secrets compulsively, even ones I\'ll never use.',
+      'I\'ve made promises to both sides that can\'t both be kept.',
+    ],
+  },
+  {
+    id: 'techie',
+    name: 'Techie',
+    icon: '🔧',
+    description: 'A hardware specialist who builds, repairs, and invents. If it has circuits, you can make it sing.',
+    skillProficiencies: 'Investigation, Perception',
+    feature: 'Jury Rig',
+    suggestedTraits: [
+      'If it\'s broken, I can fix it. If it works, I can make it better.',
+      'I hoard components the way others hoard ammunition.',
+      'I name all my tools and talk to my projects.',
+      'I see beauty in elegant engineering that others miss.',
+    ],
+    suggestedIdeals: ['Innovation', 'Self-Reliance', 'Progress', 'Curiosity'],
+    suggestedBonds: [
+      'My workshop is my sanctuary — touch nothing.',
+      'I\'m building something that will change the world, once I find the last component.',
+      'My mentor sold out to a megacorp. I\'ll finish our work alone.',
+    ],
+    suggestedFlaws: [
+      'I tinker with things at the worst possible times.',
+      'I refuse to use technology I consider inferior.',
+      'I get so focused on a project I ignore everything else.',
+    ],
+  },
+  {
+    id: 'media',
+    name: 'Media',
+    icon: '📡',
+    description: 'A journalist, streamer, or content creator exposing truth in a world built on lies and corporate spin.',
+    skillProficiencies: 'Investigation, Persuasion',
+    feature: 'Audience',
+    suggestedTraits: [
+      'The truth is the most dangerous weapon in this city.',
+      'I\'ll go anywhere for a story — even into a firefight.',
+      'I record everything. Everything.',
+      'I\'ve learned to read people like headlines.',
+    ],
+    suggestedIdeals: ['Truth', 'Justice', 'Fame', 'Freedom'],
+    suggestedBonds: [
+      'My last exposé got someone killed. I owe it to them to keep going.',
+      'My subscriber count is my lifeline — lose the audience, lose the protection.',
+      'I have encrypted footage that powerful people would kill for.',
+    ],
+    suggestedFlaws: [
+      'I\'ll risk my life and others\' for the perfect shot.',
+      'I can\'t let a story go, even when it\'s clearly a trap.',
+      'I sensationalize things for clicks more than I\'d like to admit.',
+    ],
+  },
+  {
+    id: 'nomad',
+    name: 'Nomad',
+    icon: '🚗',
+    description: 'A road warrior from outside the city walls. You grew up in the wastes, where family is everything.',
+    skillProficiencies: 'Athletics, Survival',
+    feature: 'Road Family',
+    suggestedTraits: [
+      'The open road is the only freedom left.',
+      'I trust my clan above all else in this rotten world.',
+      'I can fix any vehicle with duct tape and determination.',
+      'City people are soft. I pity them.',
+    ],
+    suggestedIdeals: ['Family', 'Freedom', 'Honor', 'Survival'],
+    suggestedBonds: [
+      'My clan was scattered by a corporate raid. I\'m gathering us back together.',
+      'My vehicle is more than a ride — it\'s my home.',
+      'I left the wastes for the city to find medicine for someone I love.',
+    ],
+    suggestedFlaws: [
+      'I distrust walls and enclosed spaces.',
+      'I\'m fiercely territorial about my gear and vehicle.',
+      'I struggle with city customs and social rules.',
+    ],
+  },
+  {
+    id: 'ripperdoc',
+    name: 'Ripperdoc',
+    icon: '💉',
+    description: 'A street doctor who patches wounds and installs cyberware in back-alley clinics, no questions asked.',
+    skillProficiencies: 'Medicine, Insight',
+    feature: 'Back-Alley Clinic',
+    suggestedTraits: [
+      'I\'ve held people\'s lives in my hands so many times I\'ve lost count.',
+      'I don\'t judge my patients — everyone deserves to live.',
+      'I keep steady hands by never looking at the whole picture.',
+      'Every scar tells a story. I\'ve read thousands.',
+    ],
+    suggestedIdeals: ['Compassion', 'Knowledge', 'Neutrality', 'Duty'],
+    suggestedBonds: [
+      'I operate on anyone — gang, corp, civilian — no questions asked.',
+      'I lost my medical license for a reason I\'ll never discuss.',
+      'A patient died on my table and their crew still blames me.',
+    ],
+    suggestedFlaws: [
+      'I self-medicate with the same drugs I prescribe.',
+      'I\'ve installed illegal experimental cyberware in myself.',
+      'I freeze up when I encounter a situation too similar to my worst failure.',
+    ],
+  },
+  {
+    id: 'rockerboy',
+    name: 'Rockerboy',
+    icon: '🎸',
+    description: 'A musician and rebel who uses art as a weapon against the system. Every chord is a revolution.',
+    skillProficiencies: 'Performance, Persuasion',
+    feature: 'Rebellious Following',
+    suggestedTraits: [
+      'My music is my weapon — every chord is a revolution.',
+      'I live fast because tomorrow isn\'t guaranteed.',
+      'The stage is the only place I feel truly alive.',
+      'I channel rage and hope into every performance.',
+    ],
+    suggestedIdeals: ['Revolution', 'Art', 'Freedom', 'Unity'],
+    suggestedBonds: [
+      'My songs speak for the voiceless — I can\'t let them down.',
+      'My band was killed for a song that went too far. I\'m still singing it.',
+      'A megacorp offered me a deal. I burned the contract live on stage.',
+    ],
+    suggestedFlaws: [
+      'I make enemies from every stage I play.',
+      'I can\'t turn down an audience, even when it\'s obviously a setup.',
+      'My ego writes checks my chrome can\'t cash.',
+    ],
+  },
+  {
+    id: 'enforcer',
+    name: 'Enforcer',
+    icon: '🔫',
+    description: 'Muscle for hire. Whether corp security or gang lieutenant, you are the iron fist that keeps order.',
+    skillProficiencies: 'Athletics, Intimidation',
+    feature: 'Feared Reputation',
+    suggestedTraits: [
+      'I don\'t negotiate. I enforce.',
+      'My body is my weapon — chrome just makes it better.',
+      'I follow orders now so I can give them later.',
+      'Silence is more intimidating than threats.',
+    ],
+    suggestedIdeals: ['Loyalty', 'Power', 'Discipline', 'Survival'],
+    suggestedBonds: [
+      'I protect someone who doesn\'t know they need protecting.',
+      'The gang that raised me expects my loyalty forever.',
+      'I\'m paying off a debt by doing jobs I\'m not proud of.',
+    ],
+    suggestedFlaws: [
+      'I default to intimidation in every social situation.',
+      'I can\'t back down from a challenge, even one I\'ll lose.',
+      'My violent reputation follows me even when I try to change.',
+    ],
+  },
+]);

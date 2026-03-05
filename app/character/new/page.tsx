@@ -64,6 +64,8 @@ export default function NewCharacter() {
     setSelectedWorld(world);
     setRace(null);
     setCharacterClass(null);
+    setBackground(null);
+    setPersonality({ traits: [], ideal: '', bond: '', flaw: '' });
   }, []);
 
   // Validation per step
@@ -224,6 +226,7 @@ export default function NewCharacter() {
               onBackgroundSelect={setBackground}
               personality={personality}
               onPersonalityChange={setPersonality}
+              genre={selectedWorld?.genre}
               aiContext={{
                 worldName: selectedWorld?.name,
                 worldGenre: selectedWorld?.genre,
