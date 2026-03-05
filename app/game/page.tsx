@@ -138,6 +138,7 @@ export default function GamePage() {
   const [earnedAchievements, setEarnedAchievements] = useState<Achievement[]>([]);
   const [achievementPopupQueue, setAchievementPopupQueue] = useState<Achievement[]>([]);
   const [pendingRecruitment, setPendingRecruitment] = useState<import('@/lib/utils/game-data-parser').GameDataUpdate['companion_join'] | null>(null);
+  const [lastFailedMessage, setLastFailedMessage] = useState<string>('');
   const achievementStatsRef = useRef({ totalEnemiesDefeated: 0, totalQuestsCompleted: 0, totalGoldEarned: 0, totalItemsCollected: 0, totalSecretsDiscovered: 0, events: [] as string[] });
   const sessionSummaryRef = useRef<string | undefined>(undefined);
   const { toasts, addToast, removeToast } = useToast();
@@ -850,9 +851,11 @@ export default function GamePage() {
         if (gameData) {
           applyGameData(gameData);
         }
+        setLastFailedMessage(''); // clear any previous error
       } catch (error) {
         console.error('DM Error:', error);
         setStreamingContent('');
+        setLastFailedMessage(text);
         addToast('Connection to the DM was disrupted', 'error');
         const errorMsg: ChatMsg = {
           id: `msg-error-${Date.now()}`,
@@ -1476,6 +1479,11 @@ export default function GamePage() {
                 isLoading={isLoading}
                 streamingContent={streamingContent || undefined}
                 onActionClick={handleActionClick}
+                onRetry={lastFailedMessage ? () => {
+                  // Remove the last error message from chat then retry
+                  setChatMessages(prev => prev.filter(m => !m.id.startsWith('msg-error-')));
+                  sendMessage(lastFailedMessage);
+                } : undefined}
               />
               <QuickActions
                 onAction={sendMessage}

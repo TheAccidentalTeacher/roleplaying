@@ -16,6 +16,7 @@ interface ChatAreaProps {
   isLoading?: boolean;
   streamingContent?: string;
   onActionClick?: (action: string) => void;
+  onRetry?: () => void;
 }
 
 export default function ChatArea({
@@ -23,6 +24,7 @@ export default function ChatArea({
   isLoading = false,
   streamingContent,
   onActionClick,
+  onRetry,
 }: ChatAreaProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -93,14 +95,26 @@ export default function ChatArea({
 
       {/* Message list */}
       <div className="max-w-3xl mx-auto space-y-1">
-        {messages.map((msg) => (
-          <MessageBubble
-            key={msg.id}
-            role={msg.role}
-            content={msg.content}
-            timestamp={msg.timestamp}
-            onActionClick={onActionClick}
-          />
+        {messages.map((msg, idx) => (
+          <div key={msg.id}>
+            <MessageBubble
+              role={msg.role}
+              content={msg.content}
+              timestamp={msg.timestamp}
+              onActionClick={onActionClick}
+            />
+            {/* Retry button after an error message */}
+            {msg.id.startsWith('msg-error-') && onRetry && idx === messages.length - 1 && (
+              <div className="flex justify-center mt-2 mb-4">
+                <button
+                  onClick={onRetry}
+                  className="px-4 py-2 text-sm bg-slate-800 border border-slate-600 text-slate-300 rounded-lg hover:bg-slate-700 hover:text-white hover:border-slate-500 transition-all flex items-center gap-2"
+                >
+                  🔄 Try again
+                </button>
+              </div>
+            )}
+          </div>
         ))}
 
         {/* Streaming response */}
