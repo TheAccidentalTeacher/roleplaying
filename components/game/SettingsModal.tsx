@@ -2,6 +2,8 @@
 
 import { useEffect } from 'react';
 import { useGameStore } from '@/lib/store';
+import { getVoiceDescription } from '@/lib/utils/tts-voices';
+import type { TTSVoice } from '@/lib/utils/tts-voices';
 
 interface SettingsModalProps {
   onClose: () => void;
@@ -110,6 +112,57 @@ export default function SettingsModal({ onClose }: SettingsModalProps) {
               checked={settings.autoSave}
               onChange={(v) => setSettings({ autoSave: v })}
             />
+          </div>
+
+          {/* ── TTS / Voice ── */}
+          <div className="border-t border-slate-700/50 pt-4 space-y-3">
+            <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">🔊 Voice Narration</h3>
+            <ToggleSetting
+              label="Text-to-Speech"
+              description="DM responses read aloud (OpenAI TTS)"
+              checked={settings.ttsEnabled}
+              onChange={(v) => setSettings({ ttsEnabled: v })}
+            />
+            {settings.ttsEnabled && (
+              <>
+                <ToggleSetting
+                  label="Auto-Play"
+                  description="Automatically read new DM messages"
+                  checked={settings.ttsAutoPlay}
+                  onChange={(v) => setSettings({ ttsAutoPlay: v })}
+                />
+                <SettingGroup label="Voice">
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {([
+                      { value: 'auto', label: '🎲 Auto (by genre)' },
+                      { value: 'onyx', label: '🗡️ Onyx' },
+                      { value: 'echo', label: '🌑 Echo' },
+                      { value: 'fable', label: '📖 Fable' },
+                      { value: 'alloy', label: '⚡ Alloy' },
+                      { value: 'nova', label: '✨ Nova' },
+                      { value: 'shimmer', label: '💎 Shimmer' },
+                    ] as { value: typeof settings.ttsVoice; label: string }[]).map((opt) => (
+                      <button
+                        key={opt.value}
+                        onClick={() => setSettings({ ttsVoice: opt.value })}
+                        className={`px-2 py-1.5 text-xs rounded-md transition text-left ${
+                          settings.ttsVoice === opt.value
+                            ? 'bg-sky-500/30 text-sky-300 border border-sky-500/40'
+                            : 'bg-slate-800 text-slate-400 hover:text-slate-300 border border-transparent'
+                        }`}
+                      >
+                        <span className="block">{opt.label}</span>
+                        {opt.value !== 'auto' && (
+                          <span className="block text-[10px] text-slate-500">
+                            {getVoiceDescription(opt.value as TTSVoice)}
+                          </span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </SettingGroup>
+              </>
+            )}
           </div>
         </div>
 

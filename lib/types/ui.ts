@@ -126,6 +126,9 @@ export interface UserSettings {
   narrativeSpeed: 'instant' | 'fast' | 'normal' | 'dramatic';
   tooltipsEnabled: boolean;
   compactMode: boolean;
+  ttsEnabled: boolean;
+  ttsVoice: 'auto' | 'alloy' | 'echo' | 'fable' | 'onyx' | 'nova' | 'shimmer';
+  ttsAutoPlay: boolean;
 }
 
 // ---- UI State (for store) ----

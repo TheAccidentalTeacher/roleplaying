@@ -58,6 +58,9 @@ const defaultSettings: UserSettings = {
   narrativeSpeed: 'normal',
   tooltipsEnabled: true,
   compactMode: false,
+  ttsEnabled: false,
+  ttsVoice: 'auto',
+  ttsAutoPlay: true,
 }
 
 const defaultUIState: UIState = {

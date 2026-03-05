@@ -36,6 +36,8 @@ import LevelUpCeremony from '@/components/game/LevelUpCeremony';
 import CompanionRecruitModal from '@/components/game/CompanionRecruitModal';
 import PartyHUD from '@/components/game/PartyHUD';
 import OraclePanel from '@/components/game/OraclePanel';
+import { useTTS } from '@/hooks/useTTS';
+import { getVoiceForWorld } from '@/lib/utils/tts-voices';
 import { stringsToItems } from '@/lib/utils/item-converter';
 import { retireCharacter } from '@/lib/engines/legacy-engine';
 import { createTravelPlan, resolveSegment } from '@/lib/engines/travel-engine';
@@ -144,6 +146,8 @@ export default function GamePage() {
   const achievementStatsRef = useRef({ totalEnemiesDefeated: 0, totalQuestsCompleted: 0, totalGoldEarned: 0, totalItemsCollected: 0, totalSecretsDiscovered: 0, events: [] as string[] });
   const sessionSummaryRef = useRef<string | undefined>(undefined);
   const { toasts, addToast, removeToast } = useToast();
+  const tts = useTTS();
+  const ttsSettings = useGameStore((s) => s.uiState.settings);
 
   // Track whether this is a brand-new game (set by WorldGenLoading)
   const isNewGameRef = useRef(false);
@@ -854,6 +858,16 @@ export default function GamePage() {
           applyGameData(gameData);
         }
         setLastFailedMessage(''); // clear any previous error
+
+        // ── Auto-play TTS if enabled ──
+        if (ttsSettings.ttsEnabled && ttsSettings.ttsAutoPlay && cleanContent) {
+          const voice = getVoiceForWorld(
+            world?.primaryGenre,
+            world?.worldType,
+            ttsSettings.ttsVoice,
+          );
+          tts.speak(cleanContent, voice);
+        }
       } catch (error) {
         console.error('DM Error:', error);
         setStreamingContent('');
@@ -1451,7 +1465,17 @@ export default function GamePage() {
       <SettingsProvider />
 
       {/* Top Bar */}
-      <TopBar onOpenOracle={() => setOracleOpen(true)} />
+      <TopBar
+        onOpenOracle={() => setOracleOpen(true)}
+        ttsEnabled={ttsSettings.ttsEnabled}
+        ttsSpeaking={tts.isSpeaking || tts.isLoading}
+        onToggleTTS={() => {
+          const { setSettings } = useGameStore.getState();
+          setSettings({ ttsEnabled: !ttsSettings.ttsEnabled });
+          if (ttsSettings.ttsEnabled) tts.stop(); // turning off → stop playback
+        }}
+        onStopTTS={tts.stop}
+      />
 
       {/* Main Content Area */}
       <div className="flex-1 flex overflow-hidden">
@@ -1487,6 +1511,16 @@ export default function GamePage() {
                   setChatMessages(prev => prev.filter(m => !m.id.startsWith('msg-error-')));
                   sendMessage(lastFailedMessage);
                 } : undefined}
+                onSpeak={ttsSettings.ttsEnabled ? (text: string) => {
+                  const voice = getVoiceForWorld(
+                    world?.primaryGenre,
+                    world?.worldType,
+                    ttsSettings.ttsVoice,
+                  );
+                  tts.speak(text, voice);
+                } : undefined}
+                ttsState={ttsSettings.ttsEnabled ? { isSpeaking: tts.isSpeaking, isLoading: tts.isLoading } : undefined}
+                onStopTTS={tts.stop}
               />
               <QuickActions
                 onAction={sendMessage}

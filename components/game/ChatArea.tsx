@@ -17,6 +17,9 @@ interface ChatAreaProps {
   streamingContent?: string;
   onActionClick?: (action: string) => void;
   onRetry?: () => void;
+  onSpeak?: (text: string) => void;
+  ttsState?: { isSpeaking: boolean; isLoading: boolean };
+  onStopTTS?: () => void;
 }
 
 export default function ChatArea({
@@ -25,6 +28,9 @@ export default function ChatArea({
   streamingContent,
   onActionClick,
   onRetry,
+  onSpeak,
+  ttsState,
+  onStopTTS,
 }: ChatAreaProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -103,6 +109,25 @@ export default function ChatArea({
               timestamp={msg.timestamp}
               onActionClick={onActionClick}
             />
+            {/* TTS speak button on DM messages */}
+            {msg.role === 'assistant' && !msg.id.startsWith('msg-error-') && onSpeak && (
+              <div className="flex items-center gap-1 mt-0.5 mb-1 pl-2">
+                <button
+                  onClick={() => {
+                    if (ttsState?.isSpeaking || ttsState?.isLoading) {
+                      onStopTTS?.();
+                    } else {
+                      onSpeak(msg.content);
+                    }
+                  }}
+                  className="text-[10px] text-slate-500 hover:text-slate-300 transition-colors flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-slate-800/50"
+                  title={ttsState?.isSpeaking ? 'Stop' : 'Read aloud'}
+                >
+                  {ttsState?.isLoading ? '⏳' : ttsState?.isSpeaking ? '⏹️' : '🔊'}
+                  <span>{ttsState?.isSpeaking ? 'Stop' : 'Listen'}</span>
+                </button>
+              </div>
+            )}
             {/* Retry button after an error message */}
             {msg.id.startsWith('msg-error-') && onRetry && idx === messages.length - 1 && (
               <div className="flex justify-center mt-2 mb-4">

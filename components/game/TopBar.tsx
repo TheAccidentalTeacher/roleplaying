@@ -11,9 +11,13 @@ import type { Character } from '@/lib/types/character';
 
 interface TopBarProps {
   onOpenOracle?: () => void;
+  ttsEnabled?: boolean;
+  ttsSpeaking?: boolean;
+  onToggleTTS?: () => void;
+  onStopTTS?: () => void;
 }
 
-export default function TopBar({ onOpenOracle }: TopBarProps) {
+export default function TopBar({ onOpenOracle, ttsEnabled, ttsSpeaking, onToggleTTS, onStopTTS }: TopBarProps) {
   const router = useRouter();
   const {
     characters,
@@ -167,8 +171,25 @@ export default function TopBar({ onOpenOracle }: TopBarProps) {
         </div>
       </div>
 
-      {/* Right: Menu */}
-      <div className="flex items-center gap-2">
+      {/* Right: TTS + Menu */}
+      <div className="flex items-center gap-1">
+        {/* TTS quick toggle */}
+        {onToggleTTS && (
+          <button
+            onClick={ttsSpeaking ? onStopTTS : onToggleTTS}
+            className={`px-2 py-1 rounded transition-colors text-sm ${
+              ttsEnabled
+                ? ttsSpeaking
+                  ? 'text-amber-400 animate-pulse'
+                  : 'text-sky-400 hover:text-sky-300'
+                : 'text-slate-600 hover:text-slate-400'
+            }`}
+            aria-label={ttsEnabled ? (ttsSpeaking ? 'Stop narration' : 'TTS on — click to disable') : 'Enable TTS'}
+            title={ttsEnabled ? (ttsSpeaking ? 'Stop narration' : 'Voice narration ON') : 'Voice narration OFF'}
+          >
+            {ttsSpeaking ? '🔊' : ttsEnabled ? '🔈' : '🔇'}
+          </button>
+        )}
         <button
           onClick={() => setMenuOpen(!menuOpen)}
           className="text-slate-400 hover:text-white px-2 py-1 rounded transition-colors text-sm"
