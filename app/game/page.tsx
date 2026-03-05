@@ -856,12 +856,13 @@ export default function GamePage() {
         console.error('DM Error:', error);
         setStreamingContent('');
         setLastFailedMessage(text);
+        const errDetail = error instanceof Error ? error.message : String(error);
         addToast('Connection to the DM was disrupted', 'error');
         const errorMsg: ChatMsg = {
           id: `msg-error-${Date.now()}`,
           role: 'assistant',
           content:
-            '*The magical connection to the Dungeon Master has been disrupted. The threads of fate resist your call. Try again...*',
+            `*The magical connection to the Dungeon Master has been disrupted. The threads of fate resist your call.*\n\n\`${errDetail.slice(0, 300)}\``,
           timestamp: Date.now(),
         };
         setChatMessages((prev) => [...prev, errorMsg]);
