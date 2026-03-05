@@ -178,59 +178,59 @@ function buildDeepWorldContext(w: WorldRecord): string {
 
   if (w.companions?.length) {
     sections.push(`### Recruitable Companions\n${w.companions.map(c =>
-      `- **${c.name}** (${c.race} ${c.class}, ${c.role}): ${c.personality.slice(0, 80)}. Found: ${c.recruitLocation}. Quest: ${c.personalQuest.slice(0, 60)}`
+      `- **${c.name}** (${c.race} ${c.class}, ${c.role}): ${(c.personality ?? '').slice(0, 80)}. Found: ${c.recruitLocation ?? 'Unknown'}. Quest: ${(c.personalQuest ?? '').slice(0, 60)}`
     ).join('\n')}`);
   }
 
   if (w.settlements?.length) {
     sections.push(`### Key Settlements\n${w.settlements.map(s => {
-      const npcs = s.keyNPCs.slice(0, 3).map(n => `${n.name} (${n.role})`).join(', ');
-      return `- **${s.name}** (${s.type}, ${s.region}): ${s.description.slice(0, 80)}. Key NPCs: ${npcs}`;
+      const npcs = (s.keyNPCs ?? []).slice(0, 3).map(n => `${n.name} (${n.role})`).join(', ');
+      return `- **${s.name}** (${s.type}, ${s.region}): ${(s.description ?? '').slice(0, 80)}. Key NPCs: ${npcs}`;
     }).join('\n')}`);
   }
 
   if (w.bestiary?.length) {
     sections.push(`### Notable Creatures\n${w.bestiary.map(b =>
-      `- **${b.name}** (${b.type}, CR ${b.challengeRating}): ${b.description.slice(0, 60)}. Habitat: ${b.habitat.join(', ')}${b.isUnique ? ' ★BOSS' : ''}`
+      `- **${b.name}** (${b.type}, CR ${b.challengeRating}): ${(b.description ?? '').slice(0, 60)}. Habitat: ${(b.habitat ?? []).join(', ')}${b.isUnique ? ' ★BOSS' : ''}`
     ).join('\n')}`);
   }
 
   if (w.dungeons?.length) {
     sections.push(`### Dungeons & Adventure Sites\n${w.dungeons.map(d =>
-      `- **${d.name}** (${d.type}, ${d.location}): Levels ${d.levelRange.min}-${d.levelRange.max}. Boss: ${d.boss}. Lore: ${d.lore.slice(0, 60)}`
+      `- **${d.name}** (${d.type}, ${d.location}): Levels ${d.levelRange?.min ?? '?'}-${d.levelRange?.max ?? '?'}. Boss: ${d.boss ?? 'Unknown'}. Lore: ${(d.lore ?? '').slice(0, 60)}`
     ).join('\n')}`);
   }
 
   if (w.economy) {
     const e = w.economy;
-    sections.push(`### Economy\n- Trade tensions: ${e.economicTensions.join('; ')}\n- Black market: ${e.blackMarket}\n- Price regions: ${e.priceRegions.map(p => `${p.region} (×${p.priceModifier})`).join(', ')}\n- Rare materials: ${e.rareMaterials.map(m => `${m.name} (${m.source})`).join(', ')}`);
+    sections.push(`### Economy\n- Trade tensions: ${(e.economicTensions ?? []).join('; ')}\n- Black market: ${e.blackMarket ?? 'Unknown'}\n- Price regions: ${(e.priceRegions ?? []).map(p => `${p.region} (×${p.priceModifier})`).join(', ')}\n- Rare materials: ${(e.rareMaterials ?? []).map(m => `${m.name} (${m.source})`).join(', ')}`);
   }
 
   if (w.relationshipWeb?.length) {
     sections.push(`### Relationship Web\n${w.relationshipWeb.slice(0, 15).map(r =>
-      `- ${r.entityA} ↔ ${r.entityB}: ${r.relationship}${r.canChange ? ' [player-mutable]' : ''} — ${r.details.slice(0, 60)}`
+      `- ${r.entityA} ↔ ${r.entityB}: ${r.relationship}${r.canChange ? ' [player-mutable]' : ''} — ${(r.details ?? '').slice(0, 60)}`
     ).join('\n')}`);
   }
 
   if (w.travelNetwork?.length) {
     sections.push(`### Travel Routes\n${w.travelNetwork.map(r =>
-      `- ${r.from} → ${r.to}: ${r.method}, ${r.travelDays}d, danger ${r.dangerLevel}/5${r.controlledBy ? ` [${r.controlledBy}]` : ''}${r.hazards.length ? '. Hazards: ' + r.hazards.slice(0, 2).join(', ') : ''}`
+      `- ${r.from} → ${r.to}: ${r.method}, ${r.travelDays}d, danger ${r.dangerLevel}/5${r.controlledBy ? ` [${r.controlledBy}]` : ''}${(r.hazards?.length) ? '. Hazards: ' + (r.hazards ?? []).slice(0, 2).join(', ') : ''}`
     ).join('\n')}`);
   }
 
   if (w.randomEvents?.length) {
     sections.push(`### World Events (trigger when narratively appropriate)\n${w.randomEvents.map(e =>
-      `- **${e.name}** (${e.type}): ${e.description.slice(0, 60)}. Trigger: ${e.triggerCondition}`
+      `- **${e.name}** (${e.type}): ${(e.description ?? '').slice(0, 60)}. Trigger: ${e.triggerCondition ?? 'Unknown'}`
     ).join('\n')}`);
   }
 
   if (w.crafting) {
-    sections.push(`### Crafting\n${w.crafting.description.slice(0, 100)}\nDisciplines: ${w.crafting.disciplines.map(d => `${d.name} (${d.toolRequired})`).join(', ')}\nRecipes available: ${w.crafting.recipes.length}`);
+    sections.push(`### Crafting\n${(w.crafting.description ?? '').slice(0, 100)}\nDisciplines: ${(w.crafting.disciplines ?? []).map(d => `${d.name} (${d.toolRequired})`).join(', ')}\nRecipes available: ${(w.crafting.recipes ?? []).length}`);
   }
 
   if (w.lootTables?.length) {
     sections.push(`### Loot Tables\n${w.lootTables.map(t =>
-      `- **${t.name}** (${t.context}): ${t.items.slice(0, 3).map(i => `${i.name} [${i.rarity}]`).join(', ')}${t.items.length > 3 ? '...' : ''}`
+      `- **${t.name}** (${t.context}): ${(t.items ?? []).slice(0, 3).map(i => `${i.name} [${i.rarity}]`).join(', ')}${(t.items ?? []).length > 3 ? '...' : ''}`
     ).join('\n')}`);
   }
 
