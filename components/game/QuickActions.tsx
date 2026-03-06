@@ -9,6 +9,7 @@ import {
   Map,
   MessageCircle,
   Search,
+  Dice5,
 } from 'lucide-react';
 
 interface QuickAction {
@@ -82,12 +83,14 @@ interface QuickActionsProps {
   onAction: (action: string) => void;
   disabled?: boolean;
   compact?: boolean;
+  onOpenDiceTray?: () => void;
 }
 
 export default function QuickActions({
   onAction,
   disabled = false,
   compact = false,
+  onOpenDiceTray,
 }: QuickActionsProps) {
   if (compact) {
     return (
@@ -126,6 +129,16 @@ export default function QuickActions({
               {qa.label}
             </button>
           ))}
+          {/* Dice Tray — always enabled, even during loading */}
+          {onOpenDiceTray && (
+            <button
+              onClick={onOpenDiceTray}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-amber-500/40 text-xs text-amber-400 hover:bg-amber-500/10 transition-colors"
+            >
+              <Dice5 className="w-4 h-4" />
+              Roll Dice
+            </button>
+          )}
         </div>
       </div>
     </div>

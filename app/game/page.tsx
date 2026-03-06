@@ -23,6 +23,7 @@ import QuestTracker from '@/components/character/QuestTracker';
 import NPCPanel from '@/components/game/NPCPanel';
 import DiceRoller from '@/components/game/DiceRoller';
 import type { DiceCheck, DiceRollResult } from '@/components/game/DiceRoller';
+import DiceTray from '@/components/game/DiceTray';
 import RestMenu from '@/components/game/RestMenu';
 import SettingsProvider from '@/components/game/SettingsProvider';
 import LootPopup from '@/components/inventory/LootPopup';
@@ -118,6 +119,7 @@ export default function GamePage() {
   const [initialized, setInitialized] = useState(false);
   const [showRestMenu, setShowRestMenu] = useState(false);
   const [pendingDiceCheck, setPendingDiceCheck] = useState<DiceCheck | null>(null);
+  const [showDiceTray, setShowDiceTray] = useState(false);
   const [selectedNPC, setSelectedNPC] = useState<NPC | null>(null);
   const [pendingLoot, setPendingLoot] = useState<{ items: Item[]; gold: number; narration?: string } | null>(null);
   const [activeShop, setActiveShop] = useState<{
@@ -1564,6 +1566,7 @@ export default function GamePage() {
               <QuickActions
                 onAction={sendMessage}
                 disabled={isLoading}
+                onOpenDiceTray={() => setShowDiceTray(true)}
               />
               <InputBar onSend={sendMessage} disabled={isLoading} />
             </>
@@ -1832,6 +1835,11 @@ export default function GamePage() {
           onResult={handleDiceResult}
           onDismiss={() => setPendingDiceCheck(null)}
         />
+      )}
+
+      {/* Dice Tray — Free Roll */}
+      {showDiceTray && (
+        <DiceTray onClose={() => setShowDiceTray(false)} />
       )}
 
       {/* Rest Menu Modal */}
