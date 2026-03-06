@@ -41,7 +41,7 @@ async function initGlobalBox(scale: number) {
       // Default container is document.body - let the library handle it.
       // We style the canvas element it creates after init.
       globalBox = new DiceBox({
-        assetPath: '/dice/assets/',
+        assetPath: '/dice/',
         theme: 'default',
         offscreen: true,
         scale,
