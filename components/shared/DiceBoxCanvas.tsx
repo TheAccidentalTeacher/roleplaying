@@ -46,7 +46,7 @@ async function initGlobalBox(scale: number) {
         theme: 'default',
         themeColor: '#f59e0b',
         offscreen: true,
-        scale,
+        scale: 15,
         gravity: 1,
         mass: 1,
         friction: 0.8,
@@ -127,7 +127,7 @@ async function initGlobalBox(scale: number) {
 }
 
 const DiceBoxCanvas = forwardRef<DiceBoxHandle, DiceBoxCanvasProps>(
-  ({ onResult, onReady, scale = 9 }, ref) => {
+  ({ onResult, onReady, scale = 15 }, ref) => {
     const onResultRef = useRef(onResult);
     onResultRef.current = onResult;
 
