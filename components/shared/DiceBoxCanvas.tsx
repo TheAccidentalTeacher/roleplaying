@@ -67,10 +67,11 @@ const DiceBoxCanvas = forwardRef<DiceBoxHandle, DiceBoxCanvasProps>(
 
         if (!mounted) return;
 
-        const box = new DiceBox(`#${containerId}`, {
+        const box = new DiceBox({
+          id: containerId,
           assetPath: '/assets/',
           theme,
-          offscreen: false,   // OffscreenCanvas has iffy browser support; keep on main thread
+          offscreen: false,
           scale,
           gravity: 1.5,
           mass: 1,
