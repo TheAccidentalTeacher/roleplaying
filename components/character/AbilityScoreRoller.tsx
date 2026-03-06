@@ -351,26 +351,17 @@ export default function AbilityScoreRoller({
           {/* ── 3D Dice Canvas during rolling ── */}
           {(isRollingAnimation || rollSets.length === 0) && (
             <div className="flex flex-col items-center gap-3">
-              <div className="relative">
-                <DiceBoxCanvas
-                  ref={diceBoxRef}
-                  onResult={() => {}}
-                  onReady={() => setBoxReady(true)}
-                  scale={4}
-                />
-                <div className="flex items-center justify-center h-16 rounded-xl bg-slate-900/40 border border-slate-800">
-                  {!boxReady && <div className="w-5 h-5 border-2 border-amber-400/40 border-t-amber-400 rounded-full animate-spin" />}
-                  {boxReady && isRollingAnimation && <p className="text-slate-500 text-sm animate-pulse">Rolling the bones…</p>}
-                  {boxReady && !isRollingAnimation && rollSets.length === 0 && <p className="text-slate-700 text-sm italic">Click Roll to start</p>}
-                </div>
+              <DiceBoxCanvas
+                ref={diceBoxRef}
+                onResult={() => {}}
+                onReady={() => setBoxReady(true)}
+                scale={4}
+              />
+              <div className="flex items-center justify-center h-16 w-full rounded-xl bg-slate-900/40 border border-slate-800">
+                {!boxReady && <div className="w-5 h-5 border-2 border-amber-400/40 border-t-amber-400 rounded-full animate-spin" />}
+                {boxReady && isRollingAnimation && <p className="text-slate-500 text-sm animate-pulse">Rolling the bones…</p>}
+                {boxReady && !isRollingAnimation && rollSets.length === 0 && <p className="text-slate-700 text-sm italic">Click Roll to start</p>}
               </div>
-              </div>
-              {isRollingAnimation && (
-                <p className="text-center text-slate-500 text-xs animate-pulse">Rolling the bones…</p>
-              )}
-              {!isRollingAnimation && rollSets.length === 0 && (
-                <p className="text-slate-700 text-sm italic text-center">Click Roll to start</p>
-              )}
             </div>
           )}
 
