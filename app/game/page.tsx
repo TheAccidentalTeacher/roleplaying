@@ -871,6 +871,7 @@ export default function GamePage() {
 
         // ── Auto-play TTS if enabled ──
         if (ttsSettings.ttsEnabled && ttsSettings.ttsAutoPlay && cleanContent) {
+          console.log(`[TTS] Auto-play triggered for message ${dmMsg.id}, content length=${cleanContent.length}`);
           setActiveSpeakingId(dmMsg.id);
           const voice = getVoiceForWorld(
             world?.primaryGenre,
@@ -1523,6 +1524,7 @@ export default function GamePage() {
                   sendMessage(lastFailedMessage);
                 } : undefined}
                 onSpeak={ttsSettings.ttsEnabled ? (text: string, messageId: string) => {
+                  console.log(`[TTS] Manual speak triggered for message ${messageId}, text length=${text.length}`);
                   setActiveSpeakingId(messageId);
                   const voice = getVoiceForWorld(
                     world?.primaryGenre,

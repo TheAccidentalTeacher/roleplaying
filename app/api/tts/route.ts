@@ -30,12 +30,13 @@ export async function POST(req: NextRequest) {
       .replace(/\n{2,}/g, '\n')          // collapse blank lines
       .trim();
 
-    // Truncate to ~2500 chars (~35s of speech) to stay within timeout
-    const truncated = cleanText.length > 2500
-      ? cleanText.slice(0, 2500) + '...'
+    // Client now handles chunking, but still guard against absurdly long text
+    // OpenAI TTS-1 max input is 4096 chars
+    const truncated = cleanText.length > 4000
+      ? cleanText.slice(0, 4000) + '...'
       : cleanText;
 
-    console.log(`[TTS] Generating speech: voice=${voice}, chars=${truncated.length}`);
+    console.log(`[TTS] Generating speech: voice=${voice}, inputChars=${text.length}, cleanChars=${cleanText.length}, finalChars=${truncated.length}${cleanText.length > 4000 ? ' (TRUNCATED from ' + cleanText.length + ')' : ''}`);
 
     const response = await openai.audio.speech.create({
       model: 'tts-1',
