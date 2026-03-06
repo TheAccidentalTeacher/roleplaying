@@ -52,10 +52,11 @@ async function initGlobalBox(scale: number) {
         restitution: 0.1,
         angularDamping: 0.4,
         linearDamping: 0.4,
-        spinForce: 6,
-        throwForce: 4,
-        startingHeight: 20,
+        spinForce: 4,
+        throwForce: 2,
+        startingHeight: 8,
         settleTimeout: 5000,
+        delay: 100,
         suspendSimulation: false,
         enableShadows: true,
         lightIntensity: 1,
@@ -64,12 +65,12 @@ async function initGlobalBox(scale: number) {
       // Watch for the canvas being appended to body BEFORE init so we catch it
       // regardless of whether it's added sync or async.
       function styleCanvas(el: HTMLElement) {
+        // Do NOT set width/height — library controls the pixel buffer.
+        // Setting CSS dimensions larger than the buffer causes pixelation.
         Object.assign(el.style, {
           position: 'fixed',
           top: '0',
           left: '0',
-          width: '100vw',
-          height: '100vh',
           zIndex: '99999',
           pointerEvents: 'none',
         });

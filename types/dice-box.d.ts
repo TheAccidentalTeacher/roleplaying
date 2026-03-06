@@ -20,6 +20,7 @@ declare module '@3d-dice/dice-box' {
     suspendSimulation?: boolean;
     enableShadows?: boolean;
     lightIntensity?: number;
+    delay?: number;
     onBeforeRoll?: () => void;
     onRollComplete?: (results: DiceResult[]) => void;
   }
