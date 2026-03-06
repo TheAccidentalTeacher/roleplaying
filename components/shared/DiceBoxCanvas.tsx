@@ -60,13 +60,10 @@ async function initGlobalBox(scale: number) {
         lightIntensity: 0.9,
       });
 
-      await globalBox.init();
-
-      // The library creates <canvas id="dice-canvas"> on document.body.
-      // Give it fixed full-screen overlay styling so it appears over everything.
-      const canvas = document.getElementById('dice-canvas') as HTMLElement | null;
-      if (canvas) {
-        Object.assign(canvas.style, {
+      // Watch for the canvas being appended to body BEFORE init so we catch it
+      // regardless of whether it's added sync or async.
+      function styleCanvas(el: HTMLElement) {
+        Object.assign(el.style, {
           position: 'fixed',
           top: '0',
           left: '0',
@@ -75,10 +72,38 @@ async function initGlobalBox(scale: number) {
           zIndex: '99999',
           pointerEvents: 'none',
         });
-        console.log('[DiceBox] Canvas styled OK');
-      } else {
-        console.warn('[DiceBox] #dice-canvas not found after init');
+        console.log('[DiceBox] Canvas styled OK:', el.id || el.tagName);
       }
+
+      // Try immediately in case it already exists
+      const existing = document.getElementById('dice-canvas');
+      if (existing) styleCanvas(existing);
+
+      // Also observe body for any canvas added during/after init
+      const observer = new MutationObserver((mutations) => {
+        for (const m of mutations) {
+          m.addedNodes.forEach((node) => {
+            if (node instanceof HTMLElement && node.tagName === 'CANVAS') {
+              styleCanvas(node);
+              observer.disconnect();
+            }
+          });
+        }
+      });
+      observer.observe(document.body, { childList: true });
+
+      await globalBox.init();
+
+      // Disconnect observer after init settles; canvas should be styled by now
+      setTimeout(() => {
+        observer.disconnect();
+        // Last-chance check
+        const canvas = document.getElementById('dice-canvas') ||
+                       document.body.querySelector('canvas');
+        if (canvas && !(canvas as HTMLElement).style.position) {
+          styleCanvas(canvas as HTMLElement);
+        }
+      }, 2000);
 
       globalBox.onRollComplete = (results: DiceResult[]) => {
         console.log('[DiceBox] Roll complete:', results);
