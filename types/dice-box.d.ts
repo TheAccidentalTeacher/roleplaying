@@ -4,6 +4,7 @@ declare module '@3d-dice/dice-box' {
     id?: string;
     assetPath?: string;
     theme?: string;
+    themeColor?: string;
     offscreen?: boolean;
     scale?: number;
     gravity?: number;
