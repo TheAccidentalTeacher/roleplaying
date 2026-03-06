@@ -62,7 +62,7 @@ async function initGlobalBox(scale: number) {
         container: '#dice-box-root',
         theme: 'default',
         themeColor: '#f59e0b',
-        offscreen: false,
+        offscreen: true,
         scale: 25,
         gravity: 1,
         mass: 1,
