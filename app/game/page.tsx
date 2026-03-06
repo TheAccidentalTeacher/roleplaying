@@ -1537,6 +1537,7 @@ export default function GamePage() {
                 progress={tts.progress}
                 currentTime={tts.currentTime}
                 duration={tts.duration}
+                error={tts.error}
                 onPause={tts.pause}
                 onResume={tts.resume}
                 onStop={() => { tts.stop(); setActiveSpeakingId(null); }}

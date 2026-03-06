@@ -31,6 +31,9 @@
     },
     "app/api/character-portrait/route.ts": {
       "maxDuration": 120
+    },
+    "app/api/tts/route.ts": {
+      "maxDuration": 60
     }
   }
 }

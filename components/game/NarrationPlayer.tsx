@@ -19,6 +19,8 @@ interface NarrationPlayerProps {
   currentTime: number;
   /** Total duration in seconds */
   duration: number;
+  /** Error from last TTS attempt */
+  error: string | null;
   /** Pause playback */
   onPause: () => void;
   /** Resume playback */
@@ -41,13 +43,34 @@ export default function NarrationPlayer({
   progress,
   currentTime,
   duration,
+  error,
   onPause,
   onResume,
   onStop,
 }: NarrationPlayerProps) {
-  // Only show when actively playing, paused, or loading
-  const visible = isSpeaking || isPaused || isLoading;
+  // Show when actively playing, paused, loading, or errored
+  const visible = isSpeaking || isPaused || isLoading || !!error;
   if (!visible) return null;
+
+  // Error state — auto-dismiss after 4 seconds via parent clearing error
+  if (error) {
+    return (
+      <div className="mx-auto max-w-3xl px-4 py-0 animate-fadeIn">
+        <div className="bg-red-900/80 backdrop-blur-sm border border-red-600/50 rounded-xl px-4 py-2.5 flex items-center gap-3 shadow-lg">
+          <span className="text-base">⚠️</span>
+          <span className="text-xs text-red-200 flex-1 truncate">
+            Narration failed — try again
+          </span>
+          <button
+            onClick={onStop}
+            className="text-xs text-red-300 hover:text-white px-2 py-1 rounded hover:bg-red-800 transition-colors"
+          >
+            Dismiss
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-0 animate-fadeIn">

@@ -121,6 +121,11 @@ export function useTTS(): UseTTSReturn {
     const controller = new AbortController();
     abortRef.current = controller;
 
+    // Safety timeout — abort if fetch takes > 50s
+    const timeout = setTimeout(() => {
+      controller.abort();
+    }, 50_000);
+
     try {
       const response = await fetch('/api/tts', {
         method: 'POST',
@@ -129,12 +134,17 @@ export function useTTS(): UseTTSReturn {
         signal: controller.signal,
       });
 
+      clearTimeout(timeout);
+
       if (!response.ok) {
-        const errBody = await response.text();
-        throw new Error(`TTS failed: ${response.status} — ${errBody.slice(0, 100)}`);
+        const errBody = await response.text().catch(() => 'Unknown error');
+        throw new Error(`TTS failed (${response.status})`);
       }
 
       const blob = await response.blob();
+      if (blob.size === 0) {
+        throw new Error('TTS returned empty audio');
+      }
       const url = URL.createObjectURL(blob);
 
       const audio = new Audio(url);
@@ -171,10 +181,24 @@ export function useTTS(): UseTTSReturn {
         audioRef.current = null;
       };
 
-      await audio.play();
+      // play() can reject due to browser autoplay policies
+      try {
+        await audio.play();
+      } catch (playErr) {
+        // If onplay didn't fire, ensure loading flag is cleared
+        setIsLoading(false);
+        // Browser blocked autoplay — not a real error, audio may still be ready
+        console.warn('[TTS] Autoplay blocked, user interaction may be needed:', playErr);
+        setError('Tap play to start narration');
+        // Keep audio loaded so user can manually trigger via resume
+        setIsPaused(true);
+      }
     } catch (err) {
+      clearTimeout(timeout);
       if (err instanceof Error && err.name === 'AbortError') {
-        // User cancelled — not an error
+        // Aborted — could be user cancel or timeout
+        setIsLoading(false);
+        setError('Narration timed out — try a shorter passage');
         return;
       }
       console.error('[TTS] Error:', err);

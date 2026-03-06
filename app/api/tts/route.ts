@@ -5,7 +5,7 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-export const maxDuration = 30;
+export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
   try {
@@ -27,11 +27,12 @@ export async function POST(req: NextRequest) {
       .replace(/^[-*]\s+/gm, '')         // list items
       .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1') // links
       .replace(/~~(.*?)~~/g, '$1')       // strikethrough
+      .replace(/\n{2,}/g, '\n')          // collapse blank lines
       .trim();
 
-    // Truncate to ~4000 chars (~1 min of speech at normal pace)
-    const truncated = cleanText.length > 4000
-      ? cleanText.slice(0, 4000) + '...'
+    // Truncate to ~2500 chars (~35s of speech) to stay within timeout
+    const truncated = cleanText.length > 2500
+      ? cleanText.slice(0, 2500) + '...'
       : cleanText;
 
     console.log(`[TTS] Generating speech: voice=${voice}, chars=${truncated.length}`);
@@ -44,13 +45,12 @@ export async function POST(req: NextRequest) {
       speed: 1.0,
     });
 
-    // Stream the audio response
-    const audioBuffer = Buffer.from(await response.arrayBuffer());
-
-    return new NextResponse(audioBuffer, {
+    // Stream the response directly instead of buffering
+    const stream = response.body;
+    return new NextResponse(stream as ReadableStream, {
       headers: {
         'Content-Type': 'audio/mpeg',
-        'Content-Length': audioBuffer.length.toString(),
+        'Transfer-Encoding': 'chunked',
         'Cache-Control': 'no-cache',
       },
     });
