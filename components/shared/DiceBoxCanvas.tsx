@@ -54,7 +54,7 @@ async function initGlobalBox(scale: number) {
         linearDamping: 0.4,
         spinForce: 6,
         throwForce: 4,
-        startingHeight: 8,
+        startingHeight: 20,
         settleTimeout: 5000,
         suspendSimulation: false,
         enableShadows: true,
@@ -69,7 +69,7 @@ async function initGlobalBox(scale: number) {
           top: '0',
           left: '0',
           width: '100vw',
-          height: '65vh',  // only upper portion — keeps dice above the modal
+          height: '100vh',
           zIndex: '99999',
           pointerEvents: 'none',
         });
