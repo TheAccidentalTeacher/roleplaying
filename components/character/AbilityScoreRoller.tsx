@@ -1,10 +1,34 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import type { AbilityScoreMethod } from '@/lib/types/character';
 import { rollMultiple } from '@/lib/utils/dice';
 import { formatModifier } from '@/lib/utils/formatters';
-import AnimatedDie from '@/components/shared/AnimatedDie';
+import DiceBoxCanvas, { DiceBoxHandle } from '@/components/shared/DiceBoxCanvas';
+
+/* Tiny static d6 face for pool display */
+const D6_PIPS: Record<number, [number, number][]> = {
+  1: [[50, 50]],
+  2: [[25, 25], [75, 75]],
+  3: [[25, 25], [50, 50], [75, 75]],
+  4: [[25, 25], [75, 25], [25, 75], [75, 75]],
+  5: [[25, 25], [75, 25], [50, 50], [25, 75], [75, 75]],
+  6: [[25, 25], [75, 25], [25, 50], [75, 50], [25, 75], [75, 75]],
+};
+function StaticD6({ value, size = 26, faded = false }: { value: number; size?: number; faded?: boolean }) {
+  const pips = D6_PIPS[value] ?? D6_PIPS[1];
+  const p = size * 0.16;
+  return (
+    <div
+      className={`relative rounded bg-gradient-to-br from-slate-200 to-slate-400 border border-slate-500/50 flex-shrink-0 ${faded ? 'opacity-40' : ''}`}
+      style={{ width: size, height: size }}
+    >
+      {pips.map(([x, y], i) => (
+        <div key={i} className="absolute rounded-full bg-slate-800" style={{ width: p, height: p, left: `${x}%`, top: `${y}%`, transform: 'translate(-50%,-50%)' }} />
+      ))}
+    </div>
+  );
+}
 
 const STANDARD_ARRAY = [15, 14, 13, 12, 10, 8];
 const POINT_BUY_MAX = 27;
@@ -108,7 +132,8 @@ export default function AbilityScoreRoller({
   const [rollCount, setRollCount] = useState(0);
   const [isRollingAnimation, setIsRollingAnimation] = useState(false);
   const [pendingRollSets, setPendingRollSets] = useState<RollSet[]>([]);
-  const [diceAnimationKey, setDiceAnimationKey] = useState(0);
+  const [boxReady, setBoxReady] = useState(false);
+  const diceBoxRef = useRef<DiceBoxHandle>(null);
 
   // ── Standard array state ──
   const [standardArrayAssigned, setStandardArrayAssigned] = useState<(number | null)[]>(
@@ -145,18 +170,24 @@ export default function AbilityScoreRoller({
     const sets = Array.from({ length: 7 }, () => rollOneSet());
     setPendingRollSets(sets);
     setIsRollingAnimation(true);
-    setDiceAnimationKey((k) => k + 1);
     setRollSets([]);
     setAssignments(Array(6).fill(null));
     setSelectedRollIndex(null);
     setRollCount((c) => c + 1);
     onScoresChange({ str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 });
 
-    // Animation runs for ~1.8s, then reveal the numbers
+    // Trigger 3D dice roll in the canvas
+    if (diceBoxRef.current) {
+      diceBoxRef.current.clear();
+      diceBoxRef.current.roll('28d6');
+    }
+
+    // Reveal results after animation settles (~3s for 28 dice)
     setTimeout(() => {
       setIsRollingAnimation(false);
       setRollSets(sets);
-    }, 1800);
+    }, 3000);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onScoresChange]);
 
   // ── Click a pool roll ──
@@ -317,31 +348,31 @@ export default function AbilityScoreRoller({
             )}
           </div>
 
-          {/* ── Animated dice display during rolling ── */}
-          {isRollingAnimation && pendingRollSets.length > 0 && (
-            <div className="py-6 animate-fadeIn">
-              <div className="flex flex-wrap justify-center gap-6">
-                {pendingRollSets.map((set, setIdx) => (
-                  <div key={`${diceAnimationKey}-${setIdx}`} className="flex flex-col items-center gap-2">
-                    <span className="text-[10px] text-slate-600 uppercase tracking-wider">Set {setIdx + 1}</span>
-                    <div className="flex gap-1.5">
-                      {set.dice.map((dieVal, dieIdx) => (
-                        <AnimatedDie
-                          key={`${diceAnimationKey}-${setIdx}-${dieIdx}`}
-                          type="d6"
-                          value={dieVal}
-                          size={44}
-                          rolling={true}
-                          delay={setIdx * 120 + dieIdx * 60}
-                        />
-                      ))}
-                    </div>
+          {/* ── 3D Dice Canvas during rolling ── */}
+          {(isRollingAnimation || rollSets.length === 0) && (
+            <div className="flex flex-col items-center gap-3">
+              <div className="relative">
+                <DiceBoxCanvas
+                  ref={diceBoxRef}
+                  containerId="ability-score-dice-canvas"
+                  width={560}
+                  height={220}
+                  onResult={() => {}}
+                  onReady={() => setBoxReady(true)}
+                  scale={4}
+                />
+                {!boxReady && (
+                  <div className="absolute inset-0 flex items-center justify-center rounded-xl">
+                    <div className="w-5 h-5 border-2 border-amber-400/40 border-t-amber-400 rounded-full animate-spin" />
                   </div>
-                ))}
+                )}
               </div>
-              <p className="text-center text-slate-500 text-xs mt-4 animate-pulse">
-                Rolling the bones...
-              </p>
+              {isRollingAnimation && (
+                <p className="text-center text-slate-500 text-xs animate-pulse">Rolling the bones…</p>
+              )}
+              {!isRollingAnimation && rollSets.length === 0 && (
+                <p className="text-slate-700 text-sm italic text-center">Click Roll to start</p>
+              )}
             </div>
           )}
 
@@ -380,21 +411,13 @@ export default function AbilityScoreRoller({
                           }
                         `}
                       >
-                        {/* Individual dice — rendered as small d6 faces */}
+                        {/* Individual dice — rendered as small static d6 faces */}
                         <div className="flex gap-1 mb-1">
                           {set.dice.map((d, di) => {
-                            const isDroppedDie = di === 0; // dice sorted asc, index 0 is lowest
+                            const isDroppedDie = di === 0;
                             return (
-                              <div
-                                key={di}
-                                className={`relative ${isDroppedDie ? 'opacity-40' : ''}`}
-                              >
-                                <AnimatedDie
-                                  type="d6"
-                                  value={d}
-                                  size={26}
-                                  rolling={false}
-                                />
+                              <div key={di} className="relative">
+                                <StaticD6 value={d} size={26} faded={isDroppedDie} />
                                 {isDroppedDie && (
                                   <div className="absolute inset-0 flex items-center justify-center">
                                     <div className="w-full h-[2px] bg-red-500 rotate-[-30deg]" />

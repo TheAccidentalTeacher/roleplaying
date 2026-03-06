@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { roll } from '@/lib/utils/dice';
 import { getAbilityModifier } from '@/lib/utils/calculations';
-import AnimatedDie from '@/components/shared/AnimatedDie';
+import DiceBoxCanvas, { DiceBoxHandle, DiceResult } from '@/components/shared/DiceBoxCanvas';
 
 export interface DiceCheck {
   type: 'ability' | 'skill' | 'attack' | 'saving_throw' | 'custom';
@@ -45,9 +45,10 @@ export default function DiceRoller({
 }: DiceRollerProps) {
   const [rolling, setRolling] = useState(false);
   const [result, setResult] = useState<DiceRollResult | null>(null);
-  const [naturalRoll, setNaturalRoll] = useState(20);
+  const [boxReady, setBoxReady] = useState(false);
   const [showParticles, setShowParticles] = useState(false);
-  const rollComputedRef = useRef(false);
+  const pendingRollRef = useRef<number | null>(null);
+  const diceBoxRef = useRef<DiceBoxHandle>(null);
 
   // Calculate the modifier for this check
   const calculateModifier = (): number => {
@@ -82,12 +83,12 @@ export default function DiceRoller({
   const formatMod = mod >= 0 ? `+${mod}` : `${mod}`;
 
   const doRoll = useCallback(() => {
+    if (!boxReady || !diceBoxRef.current) return;
     setRolling(true);
     setResult(null);
-    rollComputedRef.current = false;
     setShowParticles(false);
 
-    // Pre-compute the roll result immediately (animation will reveal it)
+    // Pre-compute the true result — dice-box shows physics, we map our result to it
     let nr: number;
     if (check.advantage) {
       nr = Math.max(roll(20), roll(20));
@@ -96,12 +97,13 @@ export default function DiceRoller({
     } else {
       nr = roll(20);
     }
-    setNaturalRoll(nr);
-  }, [check]);
+    pendingRollRef.current = nr;
+    diceBoxRef.current.roll('1d20');
+  }, [boxReady, check]);
 
-  const handleAnimationEnd = useCallback(() => {
-    if (rollComputedRef.current) return;
-    rollComputedRef.current = true;
+  const handleDiceResult = useCallback((_results: DiceResult[]) => {
+    const naturalRoll = pendingRollRef.current ?? 1;
+    pendingRollRef.current = null;
 
     const total = naturalRoll + mod;
     const success = check.dc !== undefined ? total >= check.dc : undefined;
@@ -122,7 +124,7 @@ export default function DiceRoller({
     setResult(rollResult);
     setRolling(false);
     setShowParticles(naturalRoll === 20 || naturalRoll === 1);
-  }, [naturalRoll, mod, formatMod, label, check.dc]);
+  }, [mod, formatMod, label, check.dc]);
 
   const handleCommit = () => {
     if (result) onResult(result);
@@ -131,18 +133,14 @@ export default function DiceRoller({
   const nat20 = result?.naturalRoll === 20;
   const nat1 = result?.naturalRoll === 1;
 
-  // Determine d20 color based on result
-  const dieColor = result
-    ? nat20 ? 'amber' : nat1 ? 'red' : 'sky'
-    : 'amber';
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm animate-fadeIn">
-      <div className="bg-slate-900/95 border border-slate-700 rounded-2xl shadow-2xl p-8 w-[340px] space-y-5 animate-slideUp">
+      <div className="bg-slate-900/95 border border-slate-700 rounded-2xl shadow-2xl p-6 w-[480px] space-y-4 animate-slideUp">
+
         {/* Header */}
         <div className="text-center">
           <h3 className="font-cinzel text-amber-400 text-xl tracking-wide">{label}</h3>
-          <div className="flex items-center justify-center gap-3 mt-2">
+          <div className="flex items-center justify-center gap-3 mt-1">
             {check.dc !== undefined && (
               <span className="text-sm text-slate-400">
                 DC <span className="text-amber-400 font-bold">{check.dc}</span>
@@ -153,82 +151,73 @@ export default function DiceRoller({
             </span>
           </div>
           {(check.advantage || check.disadvantage) && (
-            <p className="text-xs text-sky-400 mt-1.5 font-semibold">
+            <p className="text-xs text-sky-400 mt-1 font-semibold">
               {check.advantage ? '🎯 Rolling with Advantage' : '⚠️ Rolling with Disadvantage'}
             </p>
           )}
         </div>
 
-        {/* ── 3D Die Area ── */}
-        <div className="flex justify-center py-4">
-          <div className={`relative ${result ? 'animate-diceLand' : ''}`}>
-            <AnimatedDie
-              type="d20"
-              value={naturalRoll}
-              size={120}
-              rolling={rolling}
-              onAnimationEnd={handleAnimationEnd}
-              color={dieColor}
-            />
-
-            {/* Particle burst on nat 20 / nat 1 */}
-            {showParticles && (
-              <div className="absolute inset-0 pointer-events-none">
-                {Array.from({ length: 12 }).map((_, i) => {
-                  const angle = (i / 12) * 360;
-                  const distance = 40 + Math.random() * 30;
-                  const emoji = nat20 ? '✨' : '💀';
-                  return (
-                    <span
-                      key={i}
-                      className="absolute text-sm"
-                      style={{
-                        left: '50%',
-                        top: '50%',
-                        animation: `particleFloat 0.8s ease-out ${i * 0.05}s forwards`,
-                        transform: `translate(-50%, -50%) rotate(${angle}deg) translateY(-${distance}px)`,
-                      }}
-                    >
-                      {emoji}
-                    </span>
-                  );
-                })}
+        {/* 3D Dice Canvas */}
+        <div className="flex justify-center relative">
+          <DiceBoxCanvas
+            ref={diceBoxRef}
+            containerId="dice-roller-canvas"
+            width={420}
+            height={240}
+            onResult={handleDiceResult}
+            onReady={() => setBoxReady(true)}
+            scale={7}
+          />
+          {!boxReady && (
+            <div className="absolute inset-0 flex items-center justify-center rounded-xl">
+              <div className="flex flex-col items-center gap-2">
+                <div className="w-6 h-6 border-2 border-amber-400/40 border-t-amber-400 rounded-full animate-spin" />
+                <span className="text-xs text-slate-600">Loading dice…</span>
               </div>
-            )}
-          </div>
+            </div>
+          )}
+          {showParticles && (
+            <div className="absolute inset-0 pointer-events-none rounded-xl overflow-hidden">
+              {Array.from({ length: 16 }).map((_, i) => {
+                const angle = (i / 16) * 360;
+                const dist = 50 + Math.random() * 40;
+                return (
+                  <span
+                    key={i}
+                    className="absolute text-base"
+                    style={{
+                      left: '50%', top: '50%',
+                      animation: `particleFloat 1s ease-out ${i * 0.04}s forwards`,
+                      transform: `translate(-50%,-50%) rotate(${angle}deg) translateY(-${dist}px)`,
+                    }}
+                  >
+                    {nat20 ? '✨' : '💀'}
+                  </span>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* Result */}
         {result && (
-          <div className="text-center space-y-2 animate-fadeIn">
-            <div className="text-3xl font-bold font-cinzel">
-              <span className="text-slate-500 text-lg mr-2">Total:</span>
+          <div className="text-center space-y-1.5 animate-fadeIn">
+            <div className="text-4xl font-bold font-cinzel">
+              <span className="text-slate-500 text-lg mr-2">Total</span>
               <span
                 className={
-                  nat20
-                    ? 'text-amber-300 drop-shadow-lg'
-                    : nat1
-                    ? 'text-red-400 drop-shadow-lg'
-                    : result.success === true
-                    ? 'text-emerald-400'
-                    : result.success === false
-                    ? 'text-red-400'
-                    : 'text-slate-200'
+                  nat20 ? 'text-amber-300 drop-shadow-lg'
+                  : nat1 ? 'text-red-400 drop-shadow-lg'
+                  : result.success === true ? 'text-emerald-400'
+                  : result.success === false ? 'text-red-400'
+                  : 'text-slate-200'
                 }
               >
                 {result.total}
               </span>
             </div>
-            {nat20 && (
-              <p className="text-amber-400 font-bold text-sm animate-diceShake">
-                ✨ NATURAL 20! Critical Success! ✨
-              </p>
-            )}
-            {nat1 && (
-              <p className="text-red-400 font-bold text-sm animate-diceShake">
-                💀 Natural 1... Critical Failure!
-              </p>
-            )}
+            {nat20 && <p className="text-amber-400 font-bold text-sm animate-diceShake">✨ NATURAL 20! Critical Success! ✨</p>}
+            {nat1 && <p className="text-red-400 font-bold text-sm animate-diceShake">💀 Natural 1… Critical Failure!</p>}
             {result.success !== undefined && !nat20 && !nat1 && (
               <p className={`font-semibold text-sm ${result.success ? 'text-emerald-400' : 'text-red-400'}`}>
                 {result.success ? '✅ Success!' : '❌ Failure'}
@@ -244,14 +233,14 @@ export default function DiceRoller({
             <>
               <button
                 onClick={doRoll}
-                disabled={rolling}
+                disabled={rolling || !boxReady}
                 className={`flex-1 px-5 py-3 rounded-xl font-semibold text-white transition-all duration-200 ${
-                  rolling
-                    ? 'bg-slate-700 cursor-not-allowed'
+                  rolling || !boxReady
+                    ? 'bg-slate-700 cursor-not-allowed opacity-60'
                     : 'bg-gradient-to-b from-sky-500 to-sky-700 hover:from-sky-400 hover:to-sky-600 shadow-lg shadow-sky-900/40 active:scale-95'
                 }`}
               >
-                {rolling ? 'Rolling...' : '🎲 Roll d20'}
+                {rolling ? 'Rolling…' : !boxReady ? 'Loading…' : '🎲 Roll d20'}
               </button>
               <button
                 onClick={onDismiss}

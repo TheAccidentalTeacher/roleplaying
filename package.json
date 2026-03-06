@@ -9,8 +9,12 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@3d-dice/dice-box": "^1.1.4",
     "@anthropic-ai/sdk": "^0.78.0",
+    "@react-three/drei": "^9.122.0",
+    "@react-three/fiber": "^8.18.0",
     "@supabase/supabase-js": "^2.97.0",
+    "@types/three": "^0.183.1",
     "@vercel/analytics": "^1.1.2",
     "jsonrepair": "^3.13.2",
     "lucide-react": "^0.316.0",
@@ -20,6 +24,7 @@
     "react-dom": "^18.2.0",
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1",
+    "three": "^0.183.2",
     "zustand": "^4.5.0"
   },
   "devDependencies": {

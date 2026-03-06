@@ -1,0 +1,43 @@
+declare module '@3d-dice/dice-box' {
+  interface DiceBoxConfig {
+    assetPath?: string;
+    theme?: string;
+    offscreen?: boolean;
+    scale?: number;
+    gravity?: number;
+    mass?: number;
+    friction?: number;
+    restitution?: number;
+    angularDamping?: number;
+    linearDamping?: number;
+    spinForce?: number;
+    throwForce?: number;
+    startingHeight?: number;
+    settleTimeout?: number;
+    suspendSimulation?: boolean;
+    enableShadows?: boolean;
+    lightIntensity?: number;
+    onBeforeRoll?: () => void;
+    onRollComplete?: (results: DiceResult[]) => void;
+  }
+
+  interface DiceResult {
+    groupId: number;
+    rollId: number;
+    sides: number;
+    value: number;
+    theme?: string;
+  }
+
+  class DiceBox {
+    constructor(container: string, config?: DiceBoxConfig);
+    init(): Promise<void>;
+    roll(notation: string): Promise<DiceResult[]>;
+    clear(): void;
+    hide(): void;
+    show(): void;
+    onRollComplete: ((results: DiceResult[]) => void) | null;
+  }
+
+  export default DiceBox;
+}

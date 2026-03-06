@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useRef } from 'react';
 import { roll } from '@/lib/utils/dice';
-import AnimatedDie from '@/components/shared/AnimatedDie';
+import DiceBoxCanvas, { DiceBoxHandle, DiceResult } from '@/components/shared/DiceBoxCanvas';
 import { X } from 'lucide-react';
 
 /* ============================================================
@@ -45,11 +45,12 @@ interface DiceTrayProps {
 export default function DiceTray({ onClose }: DiceTrayProps) {
   const [selectedDice, setSelectedDice] = useState<{ type: DieType; sides: number }[]>([]);
   const [rolling, setRolling] = useState(false);
+  const [boxReady, setBoxReady] = useState(false);
   const [currentRoll, setCurrentRoll] = useState<{ type: DieType; sides: number; value: number }[] | null>(null);
   const [rollHistory, setRollHistory] = useState<RollEntry[]>([]);
-  const [animationKey, setAnimationKey] = useState(0);
   const nextIdRef = useRef(1);
-  const animationsCompleteRef = useRef(0);
+  const pendingRollsRef = useRef<{ type: DieType; sides: number; value: number }[] | null>(null);
+  const diceBoxRef = useRef<DiceBoxHandle>(null);
 
   // Add a die to the tray
   const addDie = (config: DieConfig) => {
@@ -73,68 +74,60 @@ export default function DiceTray({ onClose }: DiceTrayProps) {
 
   // Quick-roll: single die of this type
   const quickRoll = useCallback((config: DieConfig) => {
-    if (rolling) return;
+    if (rolling || !boxReady || !diceBoxRef.current) return;
     const value = roll(config.sides);
+    const rollData = [{ type: config.type, sides: config.sides, value }];
     setSelectedDice([{ type: config.type, sides: config.sides }]);
-    setCurrentRoll([{ type: config.type, sides: config.sides, value }]);
+    setCurrentRoll(rollData);
+    pendingRollsRef.current = rollData;
     setRolling(true);
-    setAnimationKey((k) => k + 1);
-    animationsCompleteRef.current = 0;
+    diceBoxRef.current.clear();
+    diceBoxRef.current.roll(`1${config.type}`);
+  }, [rolling, boxReady]);
 
-    // Animation finishes after ~1.6s
-    setTimeout(() => {
-      setRolling(false);
-      const entry: RollEntry = {
-        id: nextIdRef.current++,
-        dice: [{ type: config.type, sides: config.sides, value }],
-        total: value,
-        label: `${config.label}: ${value}`,
-        timestamp: Date.now(),
-      };
-      setRollHistory((prev) => [entry, ...prev].slice(0, 20));
-    }, 1700);
-  }, [rolling]);
+  // Called when dice-box finishes settling
+  const handleDiceResult = useCallback((_results: DiceResult[]) => {
+    const results = pendingRollsRef.current;
+    if (!results) return;
+    pendingRollsRef.current = null;
+
+    const total = results.reduce((sum, d) => sum + d.value, 0);
+    const grouped: Record<string, number[]> = {};
+    results.forEach((d) => {
+      if (!grouped[d.type]) grouped[d.type] = [];
+      grouped[d.type].push(d.value);
+    });
+    const parts = Object.entries(grouped).map(([type, vals]) => `${vals.length}${type}`);
+    const valStr = results.map((d) => d.value).join(' + ');
+
+    const entry: RollEntry = {
+      id: nextIdRef.current++,
+      dice: results,
+      total,
+      label: `${parts.join(' + ')}: ${valStr} = ${total}`,
+      timestamp: Date.now(),
+    };
+    setRollHistory((prev) => [entry, ...prev].slice(0, 20));
+    setRolling(false);
+  }, []);
 
   // Roll all selected dice
   const rollAll = useCallback(() => {
-    if (rolling || selectedDice.length === 0) return;
+    if (rolling || selectedDice.length === 0 || !boxReady || !diceBoxRef.current) return;
 
-    const results = selectedDice.map((d) => ({
-      ...d,
-      value: roll(d.sides),
-    }));
-
+    const results = selectedDice.map((d) => ({ ...d, value: roll(d.sides) }));
     setCurrentRoll(results);
+    pendingRollsRef.current = results;
     setRolling(true);
-    setAnimationKey((k) => k + 1);
-    animationsCompleteRef.current = 0;
 
-    // Wait for animation
-    setTimeout(() => {
-      setRolling(false);
-      const total = results.reduce((sum, d) => sum + d.value, 0);
+    // Build dice-box notation e.g. "2d6" or "1d6 + 1d8"
+    const grouped: Record<string, number> = {};
+    selectedDice.forEach((d) => { grouped[d.type] = (grouped[d.type] || 0) + 1; });
+    const notation = Object.entries(grouped).map(([type, count]) => `${count}${type}`).join(' + ');
 
-      // Build label like "2d6 + 1d8: 4 + 5 + 3 = 12"
-      const grouped: Record<string, number[]> = {};
-      results.forEach((d) => {
-        if (!grouped[d.type]) grouped[d.type] = [];
-        grouped[d.type].push(d.value);
-      });
-      const parts = Object.entries(grouped).map(
-        ([type, vals]) => `${vals.length}${type}`
-      );
-      const valStr = results.map((d) => d.value).join(' + ');
-
-      const entry: RollEntry = {
-        id: nextIdRef.current++,
-        dice: results,
-        total,
-        label: `${parts.join(' + ')}: ${valStr} = ${total}`,
-        timestamp: Date.now(),
-      };
-      setRollHistory((prev) => [entry, ...prev].slice(0, 20));
-    }, 1700);
-  }, [rolling, selectedDice]);
+    diceBoxRef.current.clear();
+    diceBoxRef.current.roll(notation);
+  }, [rolling, selectedDice, boxReady]);
 
   // Build summary label for selected dice
   const selectionLabel = (() => {
@@ -148,20 +141,9 @@ export default function DiceTray({ onClose }: DiceTrayProps) {
       .join(' + ');
   })();
 
-  // Color map for the AnimatedDie color prop
-  const dieColorMap: Record<DieType, string> = {
-    d4: 'emerald',
-    d6: 'sky',
-    d8: 'purple',
-    d10: 'amber',
-    d12: 'red',
-    d20: 'amber',
-    d100: 'red',
-  };
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm animate-fadeIn">
-      <div className="bg-slate-900/95 border border-slate-700 rounded-2xl shadow-2xl w-[420px] max-w-[95vw] max-h-[90vh] flex flex-col animate-slideUp">
+      <div className="bg-slate-900/95 border border-slate-700 rounded-2xl shadow-2xl w-[480px] max-w-[95vw] max-h-[90vh] flex flex-col animate-slideUp">
         {/* Header */}
         <div className="flex items-center justify-between px-6 pt-5 pb-3">
           <h2 className="font-cinzel text-amber-400 text-xl tracking-wide">🎲 Dice Tray</h2>
@@ -193,7 +175,7 @@ export default function DiceTray({ onClose }: DiceTrayProps) {
           </div>
         </div>
 
-        {/* Selected dice tray */}
+        {/* Selected dice chips */}
         <div className="px-6 pb-2">
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm text-slate-400 font-mono">{selectionLabel}</span>
@@ -207,9 +189,7 @@ export default function DiceTray({ onClose }: DiceTrayProps) {
               </button>
             )}
           </div>
-
-          {/* Dice chips (removable) */}
-          {selectedDice.length > 0 && !currentRoll && (
+          {selectedDice.length > 0 && (
             <div className="flex flex-wrap gap-1.5 mb-2">
               {selectedDice.map((d, i) => {
                 const config = DICE_TYPES.find((c) => c.type === d.type)!;
@@ -228,53 +208,45 @@ export default function DiceTray({ onClose }: DiceTrayProps) {
           )}
         </div>
 
-        {/* ── Rolling area ── */}
-        <div className="px-6 py-4 flex-1 overflow-y-auto min-h-[140px]">
-          {currentRoll ? (
-            <div className="flex flex-wrap justify-center items-center gap-4">
-              {currentRoll.map((d, i) => {
-                // Use d6 3D cube for d6, d20 shape for d20, d20 shape for others (with different face)
-                const useD6 = d.type === 'd6';
-                const dieSize = currentRoll.length <= 2 ? 100 : currentRoll.length <= 4 ? 72 : 56;
-                return (
-                  <div key={`${animationKey}-${i}`} className="flex flex-col items-center gap-1">
-                    <AnimatedDie
-                      type={useD6 ? 'd6' : 'd20'}
-                      value={d.value}
-                      size={dieSize}
-                      rolling={rolling}
-                      delay={i * 100}
-                      color={dieColorMap[d.type]}
-                    />
-                    {!rolling && (
-                      <span className="text-[10px] text-slate-500 font-mono mt-1">{d.type}</span>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="flex items-center justify-center h-full text-slate-700 text-sm italic">
-              {selectedDice.length === 0
-                ? 'Add some dice and roll!'
-                : 'Ready to roll — hit the button!'}
-            </div>
-          )}
+        {/* ── 3D Dice Canvas ── */}
+        <div className="px-6 py-2 flex-1">
+          <div className="relative">
+            <DiceBoxCanvas
+              ref={diceBoxRef}
+              containerId="dice-tray-canvas"
+              width={432}
+              height={220}
+              onResult={handleDiceResult}
+              onReady={() => setBoxReady(true)}
+              scale={6}
+            />
+            {!boxReady && (
+              <div className="absolute inset-0 flex items-center justify-center rounded-xl">
+                <div className="flex flex-col items-center gap-2">
+                  <div className="w-5 h-5 border-2 border-amber-400/40 border-t-amber-400 rounded-full animate-spin" />
+                  <span className="text-xs text-slate-600">Loading dice…</span>
+                </div>
+              </div>
+            )}
+            {boxReady && !currentRoll && (
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <p className="text-slate-700 text-sm italic">
+                  {selectedDice.length === 0 ? 'Add some dice and roll!' : 'Ready — hit the button!'}
+                </p>
+              </div>
+            )}
+          </div>
 
-          {/* Total display after roll */}
+          {/* Result total */}
           {currentRoll && !rolling && (
-            <div className="text-center mt-4 animate-fadeIn">
-              <div className="text-3xl font-bold font-cinzel text-white">
-                {currentRoll.length > 1 && (
-                  <span className="text-slate-500 text-lg mr-2">Total:</span>
-                )}
-                <span className="text-amber-300">
-                  {currentRoll.reduce((sum, d) => sum + d.value, 0)}
-                </span>
+            <div className="text-center mt-3 animate-fadeIn">
+              <div className="text-3xl font-bold font-cinzel">
+                {currentRoll.length > 1 && <span className="text-slate-500 text-lg mr-2">Total:</span>}
+                <span className="text-amber-300">{currentRoll.reduce((s, d) => s + d.value, 0)}</span>
               </div>
               {currentRoll.length > 1 && (
                 <p className="text-xs text-slate-500 font-mono mt-1">
-                  {currentRoll.map((d) => d.value).join(' + ')}
+                  {currentRoll.map((d) => `${d.type}: ${d.value}`).join('  +  ')}
                 </p>
               )}
             </div>
@@ -285,35 +257,26 @@ export default function DiceTray({ onClose }: DiceTrayProps) {
         <div className="px-6 pb-3">
           <button
             onClick={rollAll}
-            disabled={rolling || selectedDice.length === 0}
+            disabled={rolling || selectedDice.length === 0 || !boxReady}
             className={`w-full py-3 rounded-xl font-semibold text-white text-lg transition-all duration-200 ${
-              rolling || selectedDice.length === 0
+              rolling || selectedDice.length === 0 || !boxReady
                 ? 'bg-slate-700 cursor-not-allowed text-slate-500'
                 : 'bg-gradient-to-b from-amber-500 to-amber-700 hover:from-amber-400 hover:to-amber-600 shadow-lg shadow-amber-900/40 active:scale-[0.98]'
             }`}
           >
-            {rolling ? '🎲 Rolling...' : `🎲 Roll ${selectionLabel}`}
+            {rolling ? '🎲 Rolling…' : !boxReady ? 'Loading…' : `🎲 Roll ${selectionLabel}`}
           </button>
         </div>
 
         {/* Roll history */}
         {rollHistory.length > 0 && (
-          <div className="border-t border-slate-800 px-6 py-3 max-h-[160px] overflow-y-auto">
-            <p className="text-[10px] text-slate-600 uppercase tracking-wider mb-2 font-semibold">
-              Roll History
-            </p>
+          <div className="border-t border-slate-800 px-6 py-3 max-h-[140px] overflow-y-auto">
+            <p className="text-[10px] text-slate-600 uppercase tracking-wider mb-2 font-semibold">History</p>
             <div className="space-y-1">
               {rollHistory.map((entry) => (
-                <div
-                  key={entry.id}
-                  className="flex items-center justify-between text-xs py-1 border-b border-slate-800/50 last:border-0"
-                >
-                  <span className="text-slate-400 font-mono truncate flex-1 mr-2">
-                    {entry.label}
-                  </span>
-                  <span className="text-amber-400 font-bold text-sm tabular-nums">
-                    {entry.total}
-                  </span>
+                <div key={entry.id} className="flex items-center justify-between text-xs py-1 border-b border-slate-800/50 last:border-0">
+                  <span className="text-slate-400 font-mono truncate flex-1 mr-2">{entry.label}</span>
+                  <span className="text-amber-400 font-bold text-sm tabular-nums">{entry.total}</span>
                 </div>
               ))}
             </div>
