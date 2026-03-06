@@ -214,7 +214,7 @@ export default function DiceTray({ onClose }: DiceTrayProps) {
             ref={diceBoxRef}
             onResult={handleDiceResult}
             onReady={() => setBoxReady(true)}
-            scale={6}
+            scale={9}
           />
 
           {/* Placeholder area */}

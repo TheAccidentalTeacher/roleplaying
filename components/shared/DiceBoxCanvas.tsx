@@ -43,21 +43,22 @@ async function initGlobalBox(scale: number) {
       globalBox = new DiceBox({
         assetPath: '/dice/',
         theme: 'default',
+        themeColor: '#8b5cf6',  // vivid purple — numbers clearly visible
         offscreen: true,
         scale,
-        gravity: 1.5,
+        gravity: 1,
         mass: 1,
         friction: 0.8,
-        restitution: 0.05,
-        angularDamping: 0.5,
-        linearDamping: 0.5,
-        spinForce: 5,
-        throwForce: 5,
-        startingHeight: 10,
+        restitution: 0.1,
+        angularDamping: 0.4,
+        linearDamping: 0.4,
+        spinForce: 6,
+        throwForce: 4,
+        startingHeight: 8,
         settleTimeout: 5000,
         suspendSimulation: false,
         enableShadows: true,
-        lightIntensity: 0.9,
+        lightIntensity: 1,
       });
 
       // Watch for the canvas being appended to body BEFORE init so we catch it
@@ -68,7 +69,7 @@ async function initGlobalBox(scale: number) {
           top: '0',
           left: '0',
           width: '100vw',
-          height: '100vh',
+          height: '65vh',  // only upper portion — keeps dice above the modal
           zIndex: '99999',
           pointerEvents: 'none',
         });
