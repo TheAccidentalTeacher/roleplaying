@@ -61,6 +61,7 @@ const defaultSettings: UserSettings = {
   ttsEnabled: false,
   ttsVoice: 'auto',
   ttsAutoPlay: true,
+  ttsSpeed: 1.0,
 }
 
 const defaultUIState: UIState = {

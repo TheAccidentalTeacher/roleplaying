@@ -161,6 +161,26 @@ export default function SettingsModal({ onClose }: SettingsModalProps) {
                     ))}
                   </div>
                 </SettingGroup>
+                <SettingGroup label="Playback Speed">
+                  <div className="flex items-center gap-1.5">
+                    {([1, 1.5, 2, 2.5, 3] as const).map((speed) => (
+                      <button
+                        key={speed}
+                        onClick={() => setSettings({ ttsSpeed: speed })}
+                        className={`flex-1 px-2 py-1.5 text-xs font-bold rounded-md transition tabular-nums ${
+                          (settings.ttsSpeed ?? 1) === speed
+                            ? 'bg-amber-500/30 text-amber-300 border border-amber-500/40'
+                            : 'bg-slate-800 text-slate-400 hover:text-slate-300 border border-transparent'
+                        }`}
+                      >
+                        {speed}x
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-[10px] text-slate-500 mt-1">
+                    {(settings.ttsSpeed ?? 1) >= 2 ? 'Audiobook speed' : (settings.ttsSpeed ?? 1) >= 1.5 ? 'Faster narration' : 'Normal pace'}
+                  </p>
+                </SettingGroup>
               </>
             )}
           </div>

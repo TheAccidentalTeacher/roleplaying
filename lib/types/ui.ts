@@ -129,6 +129,7 @@ export interface UserSettings {
   ttsEnabled: boolean;
   ttsVoice: 'auto' | 'alloy' | 'echo' | 'fable' | 'onyx' | 'nova' | 'shimmer';
   ttsAutoPlay: boolean;
+  ttsSpeed: number; // playback rate 0.5–3.0
 }
 
 // ---- UI State (for store) ----

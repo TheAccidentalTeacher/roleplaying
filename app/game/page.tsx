@@ -151,6 +151,14 @@ export default function GamePage() {
   const ttsSettings = useGameStore((s) => s.uiState.settings);
   const [activeSpeakingId, setActiveSpeakingId] = useState<string | null>(null);
 
+  // Sync stored playback speed with TTS hook
+  useEffect(() => {
+    if (ttsSettings.ttsSpeed && ttsSettings.ttsSpeed !== tts.playbackRate) {
+      tts.setPlaybackRate(ttsSettings.ttsSpeed);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ttsSettings.ttsSpeed]);
+
   // Track whether this is a brand-new game (set by WorldGenLoading)
   const isNewGameRef = useRef(false);
 
@@ -1538,9 +1546,18 @@ export default function GamePage() {
                 currentTime={tts.currentTime}
                 duration={tts.duration}
                 error={tts.error}
+                playbackRate={tts.playbackRate}
                 onPause={tts.pause}
                 onResume={tts.resume}
                 onStop={() => { tts.stop(); setActiveSpeakingId(null); }}
+                onSeek={tts.seek}
+                onSkipForward={tts.skipForward}
+                onSkipBack={tts.skipBack}
+                onSetSpeed={(rate) => {
+                  tts.setPlaybackRate(rate);
+                  const { setSettings } = useGameStore.getState();
+                  setSettings({ ttsSpeed: rate });
+                }}
               />
               <QuickActions
                 onAction={sendMessage}

@@ -18,6 +18,16 @@ interface UseTTSReturn {
   resume: () => void;
   /** Stop playback immediately (cannot resume) */
   stop: () => void;
+  /** Seek to a specific time in seconds */
+  seek: (time: number) => void;
+  /** Skip forward by N seconds (default 10) */
+  skipForward: (seconds?: number) => void;
+  /** Skip back by N seconds (default 10) */
+  skipBack: (seconds?: number) => void;
+  /** Set playback speed (0.5–3.0) */
+  setPlaybackRate: (rate: number) => void;
+  /** Current playback speed */
+  playbackRate: number;
   /** Error from last attempt */
   error: string | null;
   /** Playback progress 0–1 */
@@ -36,6 +46,7 @@ export function useTTS(): UseTTSReturn {
   const [progress, setProgress] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [playbackRate, setPlaybackRateState] = useState(1.0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const rafRef = useRef<number | null>(null);
@@ -109,6 +120,45 @@ export function useTTS(): UseTTSReturn {
     }
   }, [isPaused, startProgressLoop]);
 
+  /** Seek to a specific time in seconds */
+  const seek = useCallback((time: number) => {
+    const audio = audioRef.current;
+    if (!audio || !audio.duration) return;
+    const clamped = Math.max(0, Math.min(time, audio.duration));
+    audio.currentTime = clamped;
+    setCurrentTime(clamped);
+    setProgress(clamped / audio.duration);
+  }, []);
+
+  /** Skip forward by N seconds */
+  const skipForward = useCallback((seconds = 10) => {
+    const audio = audioRef.current;
+    if (!audio || !audio.duration) return;
+    const newTime = Math.min(audio.currentTime + seconds, audio.duration);
+    audio.currentTime = newTime;
+    setCurrentTime(newTime);
+    setProgress(newTime / audio.duration);
+  }, []);
+
+  /** Skip back by N seconds */
+  const skipBack = useCallback((seconds = 10) => {
+    const audio = audioRef.current;
+    if (!audio || !audio.duration) return;
+    const newTime = Math.max(audio.currentTime - seconds, 0);
+    audio.currentTime = newTime;
+    setCurrentTime(newTime);
+    setProgress(newTime / audio.duration);
+  }, []);
+
+  /** Set playback rate (applies immediately if audio exists) */
+  const setPlaybackRate = useCallback((rate: number) => {
+    const clamped = Math.max(0.5, Math.min(rate, 3.0));
+    setPlaybackRateState(clamped);
+    if (audioRef.current) {
+      audioRef.current.playbackRate = clamped;
+    }
+  }, []);
+
   const speak = useCallback(async (text: string, voice: TTSVoice) => {
     // Stop previous playback
     stop();
@@ -148,6 +198,7 @@ export function useTTS(): UseTTSReturn {
       const url = URL.createObjectURL(blob);
 
       const audio = new Audio(url);
+      audio.playbackRate = playbackRate;
       audioRef.current = audio;
 
       audio.onplay = () => {
@@ -205,7 +256,7 @@ export function useTTS(): UseTTSReturn {
       setError(err instanceof Error ? err.message : 'TTS failed');
       setIsLoading(false);
     }
-  }, [stop, startProgressLoop, stopProgressLoop]);
+  }, [stop, startProgressLoop, stopProgressLoop, playbackRate]);
 
-  return { isSpeaking, isPaused, isLoading, speak, pause, resume, stop, error, progress, currentTime, duration };
+  return { isSpeaking, isPaused, isLoading, speak, pause, resume, stop, seek, skipForward, skipBack, setPlaybackRate, playbackRate, error, progress, currentTime, duration };
 }
