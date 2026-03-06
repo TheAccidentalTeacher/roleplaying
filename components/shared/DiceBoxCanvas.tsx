@@ -21,31 +21,12 @@ interface DiceBoxCanvasProps {
   scale?: number;
 }
 
-// Singleton â€” only one dice-box instance ever exists across the app
+// Singleton - only one dice-box instance ever exists across the app
 let globalBox: any = null;
 let globalReady = false;
 let globalCallbacks: Array<(results: DiceResult[]) => void> = [];
 let globalReadyCallbacks: Array<() => void> = [];
 let initPromise: Promise<void> | null = null;
-
-function ensureRootDiv(): HTMLElement {
-  let el = document.getElementById('dice-box-root');
-  if (!el) {
-    el = document.createElement('div');
-    el.id = 'dice-box-root';
-    Object.assign(el.style, {
-      position: 'fixed',
-      top: '0',
-      left: '0',
-      width: '100vw',
-      height: '100vh',
-      zIndex: '99999',
-      pointerEvents: 'none',
-    });
-    document.body.appendChild(el);
-  }
-  return el;
-}
 
 async function initGlobalBox(scale: number) {
   if (globalReady) return;
@@ -54,15 +35,15 @@ async function initGlobalBox(scale: number) {
   initPromise = (async () => {
     try {
       console.log('[DiceBox] Initialising global instance...');
-      ensureRootDiv();
 
       const { default: DiceBox } = await import('@3d-dice/dice-box');
 
+      // Default container is document.body - let the library handle it.
+      // We style the canvas element it creates after init.
       globalBox = new DiceBox({
-        container: '#dice-box-root',
         assetPath: '/dice/assets/',
         theme: 'default',
-        offscreen: false,
+        offscreen: true,
         scale,
         gravity: 1.5,
         mass: 1,
@@ -81,13 +62,31 @@ async function initGlobalBox(scale: number) {
 
       await globalBox.init();
 
+      // The library creates <canvas id="dice-canvas"> on document.body.
+      // Give it fixed full-screen overlay styling so it appears over everything.
+      const canvas = document.getElementById('dice-canvas') as HTMLElement | null;
+      if (canvas) {
+        Object.assign(canvas.style, {
+          position: 'fixed',
+          top: '0',
+          left: '0',
+          width: '100vw',
+          height: '100vh',
+          zIndex: '99999',
+          pointerEvents: 'none',
+        });
+        console.log('[DiceBox] Canvas styled OK');
+      } else {
+        console.warn('[DiceBox] #dice-canvas not found after init');
+      }
+
       globalBox.onRollComplete = (results: DiceResult[]) => {
         console.log('[DiceBox] Roll complete:', results);
         globalCallbacks.forEach(cb => cb(results));
       };
 
       globalReady = true;
-      console.log('[DiceBox] Ready âœ“');
+      console.log('[DiceBox] Ready');
       globalReadyCallbacks.forEach(cb => cb());
       globalReadyCallbacks = [];
     } catch (err) {
@@ -117,7 +116,7 @@ const DiceBoxCanvas = forwardRef<DiceBoxHandle, DiceBoxCanvasProps>(
     }));
 
     useEffect(() => {
-      // Register this instance's result callback
+      // Register this instance result callback
       const cb = (results: DiceResult[]) => onResultRef.current(results);
       globalCallbacks.push(cb);
 
@@ -134,7 +133,7 @@ const DiceBoxCanvas = forwardRef<DiceBoxHandle, DiceBoxCanvasProps>(
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    // Renders nothing â€” the canvas lives on document.body
+    // Renders nothing - the canvas lives on document.body
     return null;
   }
 );
