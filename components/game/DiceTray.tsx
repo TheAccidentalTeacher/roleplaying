@@ -120,13 +120,13 @@ export default function DiceTray({ onClose }: DiceTrayProps) {
     pendingRollsRef.current = results;
     setRolling(true);
 
-    // Build dice-box notation e.g. "2d6" or "1d6 + 1d8"
+    // Build dice-box notation as array so mixed types work e.g. ['2d6', '1d8']
     const grouped: Record<string, number> = {};
     selectedDice.forEach((d) => { grouped[d.type] = (grouped[d.type] || 0) + 1; });
-    const notation = Object.entries(grouped).map(([type, count]) => `${count}${type}`).join(' + ');
+    const notationArray = Object.entries(grouped).map(([type, count]) => `${count}${type}`);
 
     diceBoxRef.current.clear();
-    diceBoxRef.current.roll(notation);
+    diceBoxRef.current.roll(notationArray);
   }, [rolling, selectedDice, boxReady]);
 
   // Build summary label for selected dice

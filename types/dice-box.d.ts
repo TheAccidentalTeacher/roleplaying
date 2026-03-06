@@ -36,7 +36,7 @@ declare module '@3d-dice/dice-box' {
   class DiceBox {
     constructor(config: DiceBoxConfig);
     init(): Promise<void>;
-    roll(notation: string): Promise<DiceResult[]>;
+    roll(notation: string | string[]): Promise<any[]>;
     clear(): void;
     hide(): void;
     show(): void;
