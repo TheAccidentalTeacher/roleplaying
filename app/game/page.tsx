@@ -36,6 +36,7 @@ import LevelUpCeremony from '@/components/game/LevelUpCeremony';
 import CompanionRecruitModal from '@/components/game/CompanionRecruitModal';
 import PartyHUD from '@/components/game/PartyHUD';
 import OraclePanel from '@/components/game/OraclePanel';
+import NarrationPlayer from '@/components/game/NarrationPlayer';
 import { useTTS } from '@/hooks/useTTS';
 import { getVoiceForWorld } from '@/lib/utils/tts-voices';
 import { stringsToItems } from '@/lib/utils/item-converter';
@@ -148,6 +149,7 @@ export default function GamePage() {
   const { toasts, addToast, removeToast } = useToast();
   const tts = useTTS();
   const ttsSettings = useGameStore((s) => s.uiState.settings);
+  const [activeSpeakingId, setActiveSpeakingId] = useState<string | null>(null);
 
   // Track whether this is a brand-new game (set by WorldGenLoading)
   const isNewGameRef = useRef(false);
@@ -861,6 +863,7 @@ export default function GamePage() {
 
         // ── Auto-play TTS if enabled ──
         if (ttsSettings.ttsEnabled && ttsSettings.ttsAutoPlay && cleanContent) {
+          setActiveSpeakingId(dmMsg.id);
           const voice = getVoiceForWorld(
             world?.primaryGenre,
             world?.worldType,
@@ -1468,13 +1471,13 @@ export default function GamePage() {
       <TopBar
         onOpenOracle={() => setOracleOpen(true)}
         ttsEnabled={ttsSettings.ttsEnabled}
-        ttsSpeaking={tts.isSpeaking || tts.isLoading}
+        ttsSpeaking={tts.isSpeaking || tts.isPaused || tts.isLoading}
         onToggleTTS={() => {
           const { setSettings } = useGameStore.getState();
           setSettings({ ttsEnabled: !ttsSettings.ttsEnabled });
-          if (ttsSettings.ttsEnabled) tts.stop(); // turning off → stop playback
+          if (ttsSettings.ttsEnabled) { tts.stop(); setActiveSpeakingId(null); } // turning off → stop playback
         }}
-        onStopTTS={tts.stop}
+        onStopTTS={() => { tts.stop(); setActiveSpeakingId(null); }}
       />
 
       {/* Main Content Area */}
@@ -1511,7 +1514,8 @@ export default function GamePage() {
                   setChatMessages(prev => prev.filter(m => !m.id.startsWith('msg-error-')));
                   sendMessage(lastFailedMessage);
                 } : undefined}
-                onSpeak={ttsSettings.ttsEnabled ? (text: string) => {
+                onSpeak={ttsSettings.ttsEnabled ? (text: string, messageId: string) => {
+                  setActiveSpeakingId(messageId);
                   const voice = getVoiceForWorld(
                     world?.primaryGenre,
                     world?.worldType,
@@ -1519,8 +1523,23 @@ export default function GamePage() {
                   );
                   tts.speak(text, voice);
                 } : undefined}
-                ttsState={ttsSettings.ttsEnabled ? { isSpeaking: tts.isSpeaking, isLoading: tts.isLoading } : undefined}
-                onStopTTS={tts.stop}
+                ttsState={ttsSettings.ttsEnabled ? { isSpeaking: tts.isSpeaking, isPaused: tts.isPaused, isLoading: tts.isLoading } : undefined}
+                activeSpeakingId={activeSpeakingId}
+                onPauseTTS={tts.pause}
+                onResumeTTS={tts.resume}
+                onStopTTS={() => { tts.stop(); setActiveSpeakingId(null); }}
+              />
+              {/* Floating narration player */}
+              <NarrationPlayer
+                isSpeaking={tts.isSpeaking}
+                isPaused={tts.isPaused}
+                isLoading={tts.isLoading}
+                progress={tts.progress}
+                currentTime={tts.currentTime}
+                duration={tts.duration}
+                onPause={tts.pause}
+                onResume={tts.resume}
+                onStop={() => { tts.stop(); setActiveSpeakingId(null); }}
               />
               <QuickActions
                 onAction={sendMessage}

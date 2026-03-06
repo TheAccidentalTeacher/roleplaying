@@ -17,8 +17,11 @@ interface ChatAreaProps {
   streamingContent?: string;
   onActionClick?: (action: string) => void;
   onRetry?: () => void;
-  onSpeak?: (text: string) => void;
-  ttsState?: { isSpeaking: boolean; isLoading: boolean };
+  onSpeak?: (text: string, messageId: string) => void;
+  ttsState?: { isSpeaking: boolean; isPaused: boolean; isLoading: boolean };
+  activeSpeakingId?: string | null;
+  onPauseTTS?: () => void;
+  onResumeTTS?: () => void;
   onStopTTS?: () => void;
 }
 
@@ -30,6 +33,9 @@ export default function ChatArea({
   onRetry,
   onSpeak,
   ttsState,
+  activeSpeakingId,
+  onPauseTTS,
+  onResumeTTS,
   onStopTTS,
 }: ChatAreaProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -110,24 +116,52 @@ export default function ChatArea({
               onActionClick={onActionClick}
             />
             {/* TTS speak button on DM messages */}
-            {msg.role === 'assistant' && !msg.id.startsWith('msg-error-') && onSpeak && (
-              <div className="flex items-center gap-1 mt-0.5 mb-1 pl-2">
-                <button
-                  onClick={() => {
-                    if (ttsState?.isSpeaking || ttsState?.isLoading) {
-                      onStopTTS?.();
-                    } else {
-                      onSpeak(msg.content);
-                    }
-                  }}
-                  className="text-[10px] text-slate-500 hover:text-slate-300 transition-colors flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-slate-800/50"
-                  title={ttsState?.isSpeaking ? 'Stop' : 'Read aloud'}
-                >
-                  {ttsState?.isLoading ? '⏳' : ttsState?.isSpeaking ? '⏹️' : '🔊'}
-                  <span>{ttsState?.isSpeaking ? 'Stop' : 'Listen'}</span>
-                </button>
-              </div>
-            )}
+            {msg.role === 'assistant' && !msg.id.startsWith('msg-error-') && onSpeak && (() => {
+              const isThisMsg = activeSpeakingId === msg.id;
+              const isActive = isThisMsg && (ttsState?.isSpeaking || ttsState?.isPaused || ttsState?.isLoading);
+              return (
+                <div className="flex items-center gap-1.5 mt-1 mb-2 pl-7">
+                  <button
+                    onClick={() => {
+                      if (isThisMsg && ttsState?.isSpeaking) {
+                        onPauseTTS?.();
+                      } else if (isThisMsg && ttsState?.isPaused) {
+                        onResumeTTS?.();
+                      } else if (isThisMsg && ttsState?.isLoading) {
+                        onStopTTS?.();
+                      } else {
+                        onSpeak(msg.content, msg.id);
+                      }
+                    }}
+                    className={`text-xs flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-all ${
+                      isActive
+                        ? 'bg-amber-500/10 border-amber-500/30 text-amber-300 hover:bg-amber-500/20'
+                        : 'bg-slate-800/50 border-slate-700/50 text-slate-400 hover:text-slate-200 hover:bg-slate-700/50 hover:border-slate-600'
+                    }`}
+                    title={isThisMsg && ttsState?.isSpeaking ? 'Pause' : isThisMsg && ttsState?.isPaused ? 'Resume' : 'Listen to this passage'}
+                  >
+                    {isThisMsg && ttsState?.isLoading ? (
+                      <><span className="animate-pulse">⏳</span> Loading…</>
+                    ) : isThisMsg && ttsState?.isSpeaking ? (
+                      <><span>⏸️</span> Pause</>
+                    ) : isThisMsg && ttsState?.isPaused ? (
+                      <><span>▶️</span> Resume</>
+                    ) : (
+                      <><span>🔊</span> Listen</>
+                    )}
+                  </button>
+                  {isActive && (
+                    <button
+                      onClick={() => onStopTTS?.()}
+                      className="text-xs flex items-center gap-1 px-2 py-1.5 rounded-lg text-slate-500 hover:text-red-400 transition-colors"
+                      title="Stop"
+                    >
+                      ⏹️
+                    </button>
+                  )}
+                </div>
+              );
+            })()}
             {/* Retry button after an error message */}
             {msg.id.startsWith('msg-error-') && onRetry && idx === messages.length - 1 && (
               <div className="flex justify-center mt-2 mb-4">
