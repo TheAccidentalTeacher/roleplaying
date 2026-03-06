@@ -42,8 +42,9 @@ async function initGlobalBox(scale: number) {
       // We style the canvas element it creates after init.
       globalBox = new DiceBox({
         assetPath: '/dice/',
+        container: 'body',
         theme: 'default',
-        themeColor: '#f59e0b',  // amber — dark numbers on bright face = readable
+        themeColor: '#f59e0b',
         offscreen: true,
         scale,
         gravity: 1,
@@ -126,7 +127,7 @@ async function initGlobalBox(scale: number) {
 }
 
 const DiceBoxCanvas = forwardRef<DiceBoxHandle, DiceBoxCanvasProps>(
-  ({ onResult, onReady, scale = 7 }, ref) => {
+  ({ onResult, onReady, scale = 9 }, ref) => {
     const onResultRef = useRef(onResult);
     onResultRef.current = onResult;
 
