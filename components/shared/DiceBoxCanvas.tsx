@@ -49,10 +49,12 @@ const DiceBoxCanvas = forwardRef<DiceBoxHandle, DiceBoxCanvasProps>(
 
     useImperativeHandle(ref, () => ({
       roll(notation: string) {
+        console.log(`[DiceBox] roll("${notation}") — ready:`, readyRef.current, '| box:', !!boxRef.current);
         if (!boxRef.current || !readyRef.current) return;
         boxRef.current.roll(notation);
       },
       clear() {
+        console.log('[DiceBox] clear()');
         if (!boxRef.current) return;
         boxRef.current.clear?.();
       },
@@ -62,12 +64,24 @@ const DiceBoxCanvas = forwardRef<DiceBoxHandle, DiceBoxCanvasProps>(
       let mounted = true;
 
       const init = async () => {
-        // Dynamic import — dice-box is client-only (WebGL + Web Workers)
-        const { default: DiceBox } = await import('@3d-dice/dice-box');
+        console.log(`[DiceBox] Starting init for #${containerId}`);
+
+        const el = document.getElementById(containerId);
+        console.log(`[DiceBox] Container element:`, el, '| dimensions:', el?.clientWidth, 'x', el?.clientHeight);
+
+        let DiceBox: any;
+        try {
+          const mod = await import('@3d-dice/dice-box');
+          DiceBox = mod.default;
+          console.log('[DiceBox] Module loaded:', DiceBox);
+        } catch (err) {
+          console.error('[DiceBox] Failed to import module:', err);
+          return;
+        }
 
         if (!mounted) return;
 
-        const box = new DiceBox({
+        const config = {
           container: `#${containerId}`,
           assetPath: '/dice/',
           theme,
@@ -86,22 +100,41 @@ const DiceBoxCanvas = forwardRef<DiceBoxHandle, DiceBoxCanvasProps>(
           suspendSimulation: false,
           enableShadows: true,
           lightIntensity: 0.9,
-        });
+        };
+        console.log('[DiceBox] Config:', config);
 
-        await box.init();
+        let box: any;
+        try {
+          box = new DiceBox(config);
+          console.log('[DiceBox] Instance created:', box);
+        } catch (err) {
+          console.error('[DiceBox] Constructor failed:', err);
+          return;
+        }
+
+        try {
+          console.log('[DiceBox] Calling init()...');
+          await box.init();
+          console.log('[DiceBox] init() complete');
+        } catch (err) {
+          console.error('[DiceBox] init() failed:', err);
+          return;
+        }
 
         if (!mounted) return;
 
         box.onRollComplete = (results: DiceResult[]) => {
+          console.log('[DiceBox] onRollComplete:', results);
           onResultRef.current(results);
         };
 
         boxRef.current = box;
         readyRef.current = true;
+        console.log('[DiceBox] Ready ✓');
         onReady?.();
       };
 
-      init().catch(console.error);
+      init().catch((err) => console.error('[DiceBox] Unhandled init error:', err));
 
       return () => {
         mounted = false;
