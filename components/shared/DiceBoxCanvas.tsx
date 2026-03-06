@@ -49,7 +49,7 @@ async function initGlobalBox(scale: number) {
           top: '0',
           left: '0',
           width: '100vw',
-          height: '50vh',
+          height: '60vh',
           zIndex: '99999',
           pointerEvents: 'none',
           overflow: 'hidden',
@@ -63,15 +63,15 @@ async function initGlobalBox(scale: number) {
         theme: 'default',
         themeColor: '#f59e0b',
         offscreen: true,
-        scale: 15,
+        scale: 25,
         gravity: 1,
         mass: 1,
         friction: 0.8,
         restitution: 0.1,
         angularDamping: 0.4,
         linearDamping: 0.4,
-        spinForce: 4,
-        throwForce: 2,
+        spinForce: 5,
+        throwForce: 8,
         startingHeight: 8,
         settleTimeout: 5000,
         delay: 100,
@@ -103,7 +103,7 @@ async function initGlobalBox(scale: number) {
 }
 
 const DiceBoxCanvas = forwardRef<DiceBoxHandle, DiceBoxCanvasProps>(
-  ({ onResult, onReady, scale = 15 }, ref) => {
+  ({ onResult, onReady, scale = 25 }, ref) => {
     const onResultRef = useRef(onResult);
     onResultRef.current = onResult;
 
