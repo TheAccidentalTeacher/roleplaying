@@ -55,6 +55,8 @@ async function initGlobalBox(scale: number) {
           overflow: 'hidden',
         });
         document.body.appendChild(container);
+        // Force layout so clientWidth/clientHeight are available when DiceBox reads them
+        void container.offsetWidth;
       }
 
       globalBox = new DiceBox({
