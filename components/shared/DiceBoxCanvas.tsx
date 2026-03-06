@@ -83,7 +83,7 @@ const DiceBoxCanvas = forwardRef<DiceBoxHandle, DiceBoxCanvasProps>(
 
         const config = {
           container: `#${containerId}`,
-          assetPath: '/dice/',
+          assetPath: '/dice/assets/',
           theme,
           offscreen: false,
           scale,
