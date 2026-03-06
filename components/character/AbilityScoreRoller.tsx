@@ -354,18 +354,16 @@ export default function AbilityScoreRoller({
               <div className="relative">
                 <DiceBoxCanvas
                   ref={diceBoxRef}
-                  containerId="ability-score-dice-canvas"
-                  width={560}
-                  height={220}
                   onResult={() => {}}
                   onReady={() => setBoxReady(true)}
                   scale={4}
                 />
-                {!boxReady && (
-                  <div className="absolute inset-0 flex items-center justify-center rounded-xl">
-                    <div className="w-5 h-5 border-2 border-amber-400/40 border-t-amber-400 rounded-full animate-spin" />
-                  </div>
-                )}
+                <div className="flex items-center justify-center h-16 rounded-xl bg-slate-900/40 border border-slate-800">
+                  {!boxReady && <div className="w-5 h-5 border-2 border-amber-400/40 border-t-amber-400 rounded-full animate-spin" />}
+                  {boxReady && isRollingAnimation && <p className="text-slate-500 text-sm animate-pulse">Rolling the bones…</p>}
+                  {boxReady && !isRollingAnimation && rollSets.length === 0 && <p className="text-slate-700 text-sm italic">Click Roll to start</p>}
+                </div>
+              </div>
               </div>
               {isRollingAnimation && (
                 <p className="text-center text-slate-500 text-xs animate-pulse">Rolling the bones…</p>

@@ -157,40 +157,32 @@ export default function DiceRoller({
           )}
         </div>
 
-        {/* 3D Dice Canvas */}
-        <div className="flex justify-center relative">
-          <DiceBoxCanvas
-            ref={diceBoxRef}
-            containerId="dice-roller-canvas"
-            width={420}
-            height={240}
-            onResult={handleDiceResult}
-            onReady={() => setBoxReady(true)}
-            scale={7}
-          />
+        {/* Dice-box mounts full-screen on document.body */}
+        <DiceBoxCanvas
+          ref={diceBoxRef}
+          onResult={handleDiceResult}
+          onReady={() => setBoxReady(true)}
+          scale={7}
+        />
+
+        {/* Placeholder shown while rolling / loading */}
+        <div className="flex items-center justify-center h-20">
           {!boxReady && (
-            <div className="absolute inset-0 flex items-center justify-center rounded-xl">
-              <div className="flex flex-col items-center gap-2">
-                <div className="w-6 h-6 border-2 border-amber-400/40 border-t-amber-400 rounded-full animate-spin" />
-                <span className="text-xs text-slate-600">Loading dice…</span>
-              </div>
+            <div className="flex flex-col items-center gap-2">
+              <div className="w-6 h-6 border-2 border-amber-400/40 border-t-amber-400 rounded-full animate-spin" />
+              <span className="text-xs text-slate-600">Loading dice…</span>
             </div>
           )}
+          {boxReady && rolling && (
+            <p className="text-slate-500 text-sm animate-pulse">Rolling…</p>
+          )}
           {showParticles && (
-            <div className="absolute inset-0 pointer-events-none rounded-xl overflow-hidden">
+            <div className="relative h-16 w-full pointer-events-none">
               {Array.from({ length: 16 }).map((_, i) => {
                 const angle = (i / 16) * 360;
-                const dist = 50 + Math.random() * 40;
+                const dist = 40 + Math.random() * 30;
                 return (
-                  <span
-                    key={i}
-                    className="absolute text-base"
-                    style={{
-                      left: '50%', top: '50%',
-                      animation: `particleFloat 1s ease-out ${i * 0.04}s forwards`,
-                      transform: `translate(-50%,-50%) rotate(${angle}deg) translateY(-${dist}px)`,
-                    }}
-                  >
+                  <span key={i} className="absolute text-base" style={{ left: '50%', top: '50%', animation: `particleFloat 1s ease-out ${i * 0.04}s forwards`, transform: `translate(-50%,-50%) rotate(${angle}deg) translateY(-${dist}px)` }}>
                     {nat20 ? '✨' : '💀'}
                   </span>
                 );

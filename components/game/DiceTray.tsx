@@ -208,49 +208,45 @@ export default function DiceTray({ onClose }: DiceTrayProps) {
           )}
         </div>
 
-        {/* ── 3D Dice Canvas ── */}
+        {/* ── 3D Dice Canvas (mounts on document.body full-screen) ── */}
         <div className="px-6 py-2 flex-1">
-          <div className="relative">
-            <DiceBoxCanvas
-              ref={diceBoxRef}
-              containerId="dice-tray-canvas"
-              width={432}
-              height={220}
-              onResult={handleDiceResult}
-              onReady={() => setBoxReady(true)}
-              scale={6}
-            />
+          <DiceBoxCanvas
+            ref={diceBoxRef}
+            onResult={handleDiceResult}
+            onReady={() => setBoxReady(true)}
+            scale={6}
+          />
+
+          {/* Placeholder area */}
+          <div className="flex items-center justify-center h-24 rounded-xl bg-slate-900/40 border border-slate-800">
             {!boxReady && (
-              <div className="absolute inset-0 flex items-center justify-center rounded-xl">
-                <div className="flex flex-col items-center gap-2">
-                  <div className="w-5 h-5 border-2 border-amber-400/40 border-t-amber-400 rounded-full animate-spin" />
-                  <span className="text-xs text-slate-600">Loading dice…</span>
-                </div>
+              <div className="flex flex-col items-center gap-2">
+                <div className="w-5 h-5 border-2 border-amber-400/40 border-t-amber-400 rounded-full animate-spin" />
+                <span className="text-xs text-slate-600">Loading dice…</span>
               </div>
             )}
-            {boxReady && !currentRoll && (
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                <p className="text-slate-700 text-sm italic">
-                  {selectedDice.length === 0 ? 'Add some dice and roll!' : 'Ready — hit the button!'}
-                </p>
+            {boxReady && rolling && (
+              <p className="text-slate-500 text-sm animate-pulse">🎲 Rolling…</p>
+            )}
+            {boxReady && !rolling && !currentRoll && (
+              <p className="text-slate-700 text-sm italic">
+                {selectedDice.length === 0 ? 'Add some dice and roll!' : 'Ready — hit the button!'}
+              </p>
+            )}
+            {currentRoll && !rolling && (
+              <div className="text-center animate-fadeIn">
+                <div className="text-3xl font-bold font-cinzel">
+                  {currentRoll.length > 1 && <span className="text-slate-500 text-lg mr-2">Total:</span>}
+                  <span className="text-amber-300">{currentRoll.reduce((s, d) => s + d.value, 0)}</span>
+                </div>
+                {currentRoll.length > 1 && (
+                  <p className="text-xs text-slate-500 font-mono mt-1">
+                    {currentRoll.map((d) => `${d.type}:${d.value}`).join(' + ')}
+                  </p>
+                )}
               </div>
             )}
           </div>
-
-          {/* Result total */}
-          {currentRoll && !rolling && (
-            <div className="text-center mt-3 animate-fadeIn">
-              <div className="text-3xl font-bold font-cinzel">
-                {currentRoll.length > 1 && <span className="text-slate-500 text-lg mr-2">Total:</span>}
-                <span className="text-amber-300">{currentRoll.reduce((s, d) => s + d.value, 0)}</span>
-              </div>
-              {currentRoll.length > 1 && (
-                <p className="text-xs text-slate-500 font-mono mt-1">
-                  {currentRoll.map((d) => `${d.type}: ${d.value}`).join('  +  ')}
-                </p>
-              )}
-            </div>
-          )}
         </div>
 
         {/* Roll button */}
