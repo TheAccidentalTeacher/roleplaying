@@ -1,5 +1,6 @@
 declare module '@3d-dice/dice-box' {
   interface DiceBoxConfig {
+    container?: string;
     id?: string;
     assetPath?: string;
     theme?: string;
