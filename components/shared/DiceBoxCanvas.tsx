@@ -43,7 +43,7 @@ async function initGlobalBox(scale: number) {
       globalBox = new DiceBox({
         assetPath: '/dice/',
         theme: 'default',
-        themeColor: '#8b5cf6',  // vivid purple — numbers clearly visible
+        themeColor: '#f59e0b',  // amber — dark numbers on bright face = readable
         offscreen: true,
         scale,
         gravity: 1,
