@@ -8,15 +8,24 @@ import type { Item, ItemRarity, LootDrop, Material } from '@/lib/types/items';
 import type { Genre } from '@/lib/types/world';
 import { d4, d6, d8, d10 } from '@/lib/utils/dice';
 import { getGenreCommonItems, resolveGenreFamily, type GenreFamily } from '@/lib/data/genre-equipment';
+import {
+  ALL_WEAPONS,
+  getWeaponsForGenre,
+  getWeaponsForArchetype,
+  getWeaponsByRarity,
+  type WeaponCatalogEntry,
+} from '@/lib/data/weapons/index';
+import type { ArchetypeTag, WeaponCategory } from '@/lib/data/weapons/types';
+import { rollAffix, type ItemAffix } from '@/lib/data/item-affixes';
 
 // ---- Rarity weights by encounter difficulty ----
 
 const RARITY_WEIGHTS: Record<string, Record<ItemRarity, number>> = {
-  easy: { junk: 25, common: 50, uncommon: 20, rare: 4, epic: 1, legendary: 0, mythic: 0, artifact: 0 },
-  medium: { junk: 10, common: 40, uncommon: 30, rare: 15, epic: 4, legendary: 1, mythic: 0, artifact: 0 },
-  hard: { junk: 5, common: 20, uncommon: 30, rare: 25, epic: 15, legendary: 4, mythic: 1, artifact: 0 },
-  deadly: { junk: 0, common: 10, uncommon: 20, rare: 30, epic: 25, legendary: 10, mythic: 4, artifact: 1 },
-  boss: { junk: 0, common: 5, uncommon: 15, rare: 30, epic: 30, legendary: 15, mythic: 4, artifact: 1 },
+  easy:   { junk: 25, common: 50, uncommon: 20, rare: 4, 'very-rare': 1, epic: 0, legendary: 0, mythic: 0, artifact: 0 },
+  medium: { junk: 10, common: 40, uncommon: 30, rare: 12, 'very-rare': 5, epic: 2, legendary: 1, mythic: 0, artifact: 0 },
+  hard:   { junk: 5, common: 20, uncommon: 25, rare: 25, 'very-rare': 12, epic: 8, legendary: 4, mythic: 1, artifact: 0 },
+  deadly: { junk: 0, common: 10, uncommon: 20, rare: 25, 'very-rare': 20, epic: 15, legendary: 8, mythic: 2, artifact: 0 },
+  boss:   { junk: 0, common: 5, uncommon: 15, rare: 25, 'very-rare': 25, epic: 18, legendary: 10, mythic: 2, artifact: 0 },
 };
 
 // ---- Gold ranges by encounter difficulty ----
@@ -32,14 +41,15 @@ const GOLD_RANGES: Record<string, { min: number; max: number }> = {
 // ---- Base value ranges by rarity ----
 
 const RARITY_VALUE: Record<ItemRarity, { min: number; max: number }> = {
-  junk: { min: 0, max: 2 },
-  common: { min: 1, max: 15 },
-  uncommon: { min: 10, max: 75 },
-  rare: { min: 50, max: 500 },
-  epic: { min: 200, max: 2000 },
-  legendary: { min: 1000, max: 10000 },
-  mythic: { min: 5000, max: 50000 },
-  artifact: { min: 25000, max: 100000 },
+  junk:       { min: 0,     max: 2 },
+  common:     { min: 1,     max: 15 },
+  uncommon:   { min: 10,    max: 75 },
+  rare:       { min: 50,    max: 500 },
+  'very-rare': { min: 300,  max: 2500 },
+  epic:       { min: 200,   max: 2000 },
+  legendary:  { min: 1000,  max: 10000 },
+  mythic:     { min: 5000,  max: 50000 },
+  artifact:   { min: 25000, max: 100000 },
 };
 
 // ---- Utility: pick rarity from weighted table ----
@@ -75,19 +85,35 @@ export function buildItemGenerationPrompt(params: {
   itemType?: string;
   rarity: ItemRarity;
   genre?: Genre;
+  genreFamily?: GenreFamily;
+  archetypeTag?: ArchetypeTag;
   characterLevel?: number;
   context?: string;
 }): string {
-  const { itemType, rarity, genre, characterLevel, context } = params;
+  const { itemType, rarity, genre, genreFamily, archetypeTag, characterLevel, context } = params;
+
+  // Pull catalog context if generating a weapon with known genre/archetype
+  let catalogContext = '';
+  if (itemType === 'weapon' && genreFamily) {
+    const exampleWeapons = getWeaponsForGenre(genreFamily)
+      .filter(w => w.rarity === rarity || w.rarity === 'common')
+      .slice(0, 3)
+      .map(w => `"${w.name}" (${w.subtype}, ${w.damage} ${w.damageType})`)
+      .join(', ');
+    if (exampleWeapons) {
+      catalogContext = `\nCatalog examples for reference tone/scale: ${exampleWeapons}`;
+    }
+  }
 
   return `Generate a single RPG item as JSON.
 
 Requirements:
 - Rarity: ${rarity}
 - ${itemType ? `Type: ${itemType}` : 'Any type appropriate to the context'}
-- ${genre ? `Genre/setting: ${genre}` : 'Standard fantasy'}
+- ${genre ? `Genre/setting: ${genre}` : genreFamily ? `Genre family: ${genreFamily}` : 'Standard fantasy'}
+- ${archetypeTag ? `Archetype: ${archetypeTag}` : ''}
 - ${characterLevel ? `Appropriate for level ${characterLevel}` : ''}
-- ${context ? `Context: ${context}` : ''}
+- ${context ? `Context: ${context}` : ''}${catalogContext}
 
 Return ONLY valid JSON matching this structure (no markdown, no explanation):
 {
@@ -207,6 +233,202 @@ function createItem(
     boundToCharacter: false,
     tags: [type, rarity],
   };
+}
+
+// ---- Weapon Catalog Integration ----
+
+/**
+ * Pick a weapon from the catalog filtered by genre and optional archetype.
+ * Falls back to any weapon in the genre if no archetype match found.
+ */
+export function getWeaponFromCatalog(
+  genreFamily: GenreFamily,
+  options?: {
+    archetypeTag?: ArchetypeTag;
+    rarity?: ItemRarity;
+    excludeCraftingOnly?: boolean;
+  }
+): WeaponCatalogEntry | null {
+  let pool = getWeaponsForGenre(genreFamily);
+
+  if (options?.excludeCraftingOnly) {
+    pool = pool.filter(w => !w.craftingOnly);
+  }
+
+  if (options?.rarity) {
+    // Map item-generator rarities to weapon catalog rarities
+    const rarityMap: Partial<Record<ItemRarity, string[]>> = {
+      common: ['common'],
+      uncommon: ['uncommon'],
+      rare: ['rare'],
+      'very-rare': ['very-rare'],
+      epic: ['very-rare', 'legendary'],
+      legendary: ['legendary'],
+    };
+    const targetRarities = rarityMap[options.rarity] ?? [options.rarity];
+    const rarityFiltered = pool.filter(w => targetRarities.includes(w.rarity));
+    if (rarityFiltered.length > 0) pool = rarityFiltered;
+  }
+
+  if (options?.archetypeTag) {
+    const archetypeFiltered = pool.filter(w => w.archetypeTags.includes(options.archetypeTag!));
+    // Only apply archetype filter if it doesn't empty the pool
+    if (archetypeFiltered.length > 0) pool = archetypeFiltered;
+  }
+
+  if (pool.length === 0) return null;
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
+/**
+ * Apply an affix to a weapon catalog entry, producing a modified name and bonus description.
+ */
+export function applyAffix(
+  weapon: WeaponCatalogEntry,
+  affix: ItemAffix
+): { modifiedName: string; bonusDescription: string } {
+  const modifiedName = affix.type === 'prefix'
+    ? `${affix.name} ${weapon.name}`
+    : `${weapon.name} ${affix.name}`;
+
+  const bonusParts: string[] = [];
+  const { statBonus } = affix;
+
+  if (statBonus.attackBonus && statBonus.attackBonus > 0) bonusParts.push(`+${statBonus.attackBonus} to attack`);
+  if (statBonus.attackBonus && statBonus.attackBonus < 0) bonusParts.push(`${statBonus.attackBonus} to attack`);
+  if (statBonus.damageBonus && statBonus.damageBonus > 0) bonusParts.push(`+${statBonus.damageBonus} damage`);
+  if (statBonus.damageDice) bonusParts.push(`+${statBonus.damageDice} ${statBonus.damageDiceType ?? 'bonus'} damage`);
+  if (statBonus.range) bonusParts.push(`+${statBonus.range}ft range`);
+  if (statBonus.stealth) bonusParts.push(`${statBonus.stealth > 0 ? '+' : ''}${statBonus.stealth} stealth`);
+  if (statBonus.critRange) bonusParts.push(`crit range ${19 + statBonus.critRange}-20`);
+  if (affix.specialEffect) bonusParts.push(affix.specialEffect);
+
+  return {
+    modifiedName,
+    bonusDescription: bonusParts.join(', '),
+  };
+}
+
+/**
+ * Convert a WeaponCatalogEntry to a full Item object for inventory use.
+ */
+export function catalogEntryToItem(
+  entry: WeaponCatalogEntry,
+  options?: {
+    applyPrefix?: ItemAffix;
+    applySuffix?: ItemAffix;
+  }
+): Item {
+  const id = `item-${entry.id}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+  const baseValue = entry.baseValue || generateBaseValue(entry.rarity as ItemRarity);
+
+  let finalName = entry.name;
+  const appliedAffixes: string[] = [];
+
+  if (options?.applyPrefix) {
+    const { modifiedName } = applyAffix(entry, options.applyPrefix);
+    finalName = modifiedName;
+    appliedAffixes.push(options.applyPrefix.id);
+  }
+  if (options?.applySuffix) {
+    const { modifiedName } = applyAffix({ ...entry, name: finalName }, options.applySuffix);
+    finalName = modifiedName;
+    appliedAffixes.push(options.applySuffix.id);
+  }
+
+  // Map weapon catalog rarity to item rarity
+  const rarityMap: Record<string, ItemRarity> = {
+    common: 'common',
+    uncommon: 'uncommon',
+    rare: 'rare',
+    'very-rare': 'very-rare',
+    legendary: 'legendary',
+  };
+  const itemRarity: ItemRarity = rarityMap[entry.rarity] ?? 'common';
+
+  return {
+    id,
+    name: finalName,
+    type: 'weapon',
+    subtype: entry.subtype,
+    rarity: itemRarity,
+    description: entry.description,
+    flavorText: entry.flavorText,
+    loreText: entry.loreText,
+    damage: entry.damage,
+    damageType: entry.damageType,
+    properties: entry.properties,
+    specialEffects: entry.specialAbility
+      ? [`${entry.specialAbility}: ${entry.specialAbilityDescription ?? ''}`]
+      : [],
+    equippable: true,
+    equipSlot: 'weapon-main',
+    stackable: false,
+    quantity: 1,
+    maxStackSize: 1,
+    weight: entry.weight,
+    condition: 'good',
+    enchantments: [],
+    canBeEnchanted: !entry.requiresAttunement,
+    maxEnchantments: itemRarity === 'legendary' ? 0 : 2,
+    baseValue,
+    sellValue: Math.floor(baseValue * 0.5),
+    buyValue: Math.floor(baseValue * 1.5),
+    canBeSold: entry.baseValue > 0,
+    canBeDropped: !entry.requiresAttunement,
+    isCrafted: entry.craftingOnly ?? false,
+    craftingRecipeId: entry.craftingRecipeId,
+    isUnique: itemRarity === 'legendary',
+    boundToCharacter: entry.requiresAttunement,
+    attunementRequired: entry.requiresAttunement,
+    imageGenerationPrompt: entry.imagePromptHint,
+    tags: [...entry.tags, entry.category, entry.subtype],
+    // Weapon catalog integration fields
+    weaponCatalogId: entry.id,
+    weaponSubtype: entry.subtype,
+    archetypeTags: entry.archetypeTags,
+    craftingOnly: entry.craftingOnly,
+    genreFamilies: entry.genreFamilies,
+    appliedAffixes: appliedAffixes.length > 0 ? appliedAffixes : undefined,
+  };
+}
+
+/**
+ * Generate a weapon item from the catalog, with optional random affixes.
+ */
+export function generateCatalogWeapon(params: {
+  genreFamily: GenreFamily;
+  rarity: ItemRarity;
+  archetypeTag?: ArchetypeTag;
+  withAffixes?: boolean;
+}): Item | null {
+  const { genreFamily, rarity, archetypeTag, withAffixes = false } = params;
+
+  const entry = getWeaponFromCatalog(genreFamily, {
+    archetypeTag,
+    rarity,
+    excludeCraftingOnly: true,
+  });
+
+  if (!entry) return null;
+
+  let applyPrefix: ItemAffix | undefined;
+  let applySuffix: ItemAffix | undefined;
+
+  if (withAffixes) {
+    // Roll for affixes based on rarity tier
+    const affixRoll = Math.random();
+    if (affixRoll < 0.3 || rarity === 'uncommon' || rarity === 'rare' || rarity === 'very-rare' || rarity === 'legendary') {
+      const prefix = rollAffix(entry.category as WeaponCategory, 'prefix', rarity);
+      if (prefix) applyPrefix = prefix;
+    }
+    if (affixRoll < 0.15 || rarity === 'rare' || rarity === 'very-rare' || rarity === 'legendary') {
+      const suffix = rollAffix(entry.category as WeaponCategory, 'suffix', rarity);
+      if (suffix) applySuffix = suffix;
+    }
+  }
+
+  return catalogEntryToItem(entry, { applyPrefix, applySuffix });
 }
 
 // ---- Generate loot for post-combat ----

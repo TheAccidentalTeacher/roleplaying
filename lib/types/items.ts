@@ -6,7 +6,7 @@
 // ---- Enums & Union Types ----
 
 export type ItemRarity =
-  | 'junk' | 'common' | 'uncommon' | 'rare'
+  | 'junk' | 'common' | 'uncommon' | 'rare' | 'very-rare'
   | 'epic' | 'legendary' | 'mythic' | 'artifact';
 
 export type ItemType =
@@ -21,7 +21,7 @@ export type ItemQuality = 'shoddy' | 'standard' | 'quality' | 'masterwork' | 'le
 export type WeaponProperty =
   | 'finesse' | 'heavy' | 'light' | 'loading' | 'reach'
   | 'thrown' | 'two-handed' | 'versatile' | 'ammunition'
-  | 'special'
+  | 'special' | 'magical' | 'concealed' | 'conjured'
   | string;
 
 export type CraftingSkill =
@@ -110,6 +110,14 @@ export interface Item {
   boundToCharacter: boolean;
   questTied?: string; // Quest ID
   tags: string[];
+
+  // Weapon Catalog Integration
+  weaponCatalogId?: string;           // references WeaponCatalogEntry.id
+  weaponSubtype?: string;             // from WeaponSubtype union
+  archetypeTags?: string[];           // from ArchetypeTag union
+  craftingOnly?: boolean;             // true = can only be crafted, not found/bought
+  genreFamilies?: string[];           // which genre families this item belongs to
+  appliedAffixes?: string[];          // affix IDs applied at generation time
 
   // Story
   discoveryStory?: string;
