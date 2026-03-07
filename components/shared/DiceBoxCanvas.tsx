@@ -38,30 +38,9 @@ async function initGlobalBox(scale: number) {
 
       const { default: DiceBox } = await import('@3d-dice/dice-box');
 
-      // Create a fixed container div that defines the roll area (top half of screen).
-      // Canvas pixel buffer matches this div exactly — no CSS stretching, no blur.
-      let container = document.getElementById('dice-box-root');
-      if (!container) {
-        container = document.createElement('div');
-        container.id = 'dice-box-root';
-        Object.assign(container.style, {
-          position: 'fixed',
-          top: '0',
-          left: '0',
-          width: window.innerWidth + 'px',
-          height: window.innerHeight + 'px',
-          zIndex: '99999',
-          pointerEvents: 'none',
-          overflow: 'hidden',
-        });
-        document.body.appendChild(container);
-        // Force layout so clientWidth/clientHeight are available when DiceBox reads them
-        void container.offsetWidth;
-      }
-
       globalBox = new DiceBox({
         assetPath: '/dice/',
-        container: '#dice-box-root',
+        container: 'body',
         theme: 'default',
         themeColor: '#f59e0b',
         offscreen: true,
@@ -85,6 +64,15 @@ async function initGlobalBox(scale: number) {
       await globalBox.init();
       console.log('[DiceBox] init() complete');
 
+      // Make the canvas overlay non-blocking
+      const canvas = document.querySelector('#dice-canvas') as HTMLElement | null;
+      if (canvas) {
+        canvas.style.pointerEvents = 'none';
+        canvas.style.zIndex = '99999';
+        canvas.style.position = 'fixed';
+        canvas.style.top = '0';
+        canvas.style.left = '0';
+      }
 
       globalBox.onRollComplete = (results: DiceResult[]) => {
         console.log('[DiceBox] Roll complete:', results);
