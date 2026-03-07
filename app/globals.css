@@ -194,8 +194,13 @@
 .animate-diceLand   { animation: diceLand 0.35s ease-out; }
 .animate-diceShake  { animation: diceShake 0.5s ease-in-out; }
 
-/* Force the dice-box canvas above all Next.js page content */
-#dice-canvas {
+/* Force the dice-box canvas above all Next.js page content, full viewport */
+.dice-box-canvas {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
   z-index: 99999 !important;
   pointer-events: none !important;
 }
