@@ -44,7 +44,7 @@ async function initGlobalBox(scale: number) {
         theme: 'default',
         themeColor: '#f59e0b',
         offscreen: true,
-        scale: 25,
+        scale: 6,
         gravity: 1,
         mass: 1,
         friction: 0.8,
