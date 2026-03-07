@@ -88,6 +88,28 @@ export interface GameDataUpdate {
     recruit_location: string;  // Where they're found
     portrait_url?: string;     // Optional pre-generated portrait
   };
+  // Spell casting — deducts a slot and optionally starts concentration
+  spell_cast?: {
+    spell_name: string;        // Must match a spell in character.spellcasting.knownSpells or cantrips
+    slot_level: number;        // 0 = cantrip (unlimited); 1-9 = leveled slot to consume
+    concentration?: boolean;   // true if this spell requires concentration
+  };
+  // Learn a new spell — adds it to knownSpells or cantrips
+  gain_spell?: {
+    name: string;
+    level: number;             // 0 = cantrip
+    school: string;
+    description: string;
+    damage?: string;
+    castingTime: string;
+    range: string;
+    duration: string;
+    savingThrow?: string;
+    isRitual?: boolean;
+    components?: string;
+  };
+  // End active concentration spell
+  concentration_end?: boolean;
 }
 
 /**

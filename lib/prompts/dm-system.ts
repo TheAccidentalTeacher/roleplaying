@@ -299,11 +299,54 @@ function buildSection3_Character(ctx: DMContext): string {
     .join('\n');
 
   const spellsStr = c.spellcasting
-    ? (c.spellcasting.knownSpells ?? [])
-        .slice(0, 15)
-        .map((s) => `- ${s.name} (Level ${s.level})`)
-        .join('\n')
+    ? (() => {
+        const sc = c.spellcasting;
+        // Slot status per level
+        const slotLines = sc.spellSlots.length > 0
+          ? sc.spellSlots.map(s => {
+              const filled = '🔵'.repeat(s.remaining);
+              const empty  = '⬜'.repeat(s.total - s.remaining);
+              return `  ${ordinal(s.level)}: ${filled}${empty} (${s.remaining}/${s.total})`;
+            }).join('\n')
+          : '  No leveled slots';
+
+        // Active concentration
+        const concSpell = c.conditions?.find(cond => (cond as unknown as string) === 'concentrating');
+        const concLine = sc.activeConcentrationSpell
+          ? `\n**Active Concentration**: ${sc.activeConcentrationSpell} ← break on damage (CON save DC 10 or half damage)`
+          : '';
+
+        // Cantrips
+        const cantripLine = (sc.cantrips ?? []).length > 0
+          ? `**Cantrips (unlimited)**: ${sc.cantrips.map(c => c.name).join(', ')}`
+          : '';
+
+        // Spells by level
+        const spellsByLevel = (sc.knownSpells ?? []).reduce<Record<number, string[]>>((acc, sp) => {
+          (acc[sp.level] = acc[sp.level] ?? []).push(
+            `${sp.name} (${sp.castingTime ?? '1 action'}, ${sp.range ?? '-'}, ${sp.duration ?? '-'}${
+              sp.damage ? `, ${sp.damage}` : ''
+            }${
+              sp.savingThrow ? `, ${String(sp.savingThrow).toUpperCase()} save` : ''
+            })`
+          );
+          return acc;
+        }, {});
+        const spellLines = Object.entries(spellsByLevel)
+          .sort(([a], [b]) => Number(a) - Number(b))
+          .map(([lvl, names]) => `  **${ordinal(Number(lvl))} level**: ${names.join(' | ')}`)
+          .join('\n');
+
+        return `**Spellcasting**: Ability=${String(sc.ability).toUpperCase()}, DC=${sc.spellSaveDC}, Atk+${sc.spellAttackBonus}${concLine}\n**Spell Slots**:\n${slotLines}\n${cantripLine}\n**Known Spells**:\n${spellLines}`;
+      })()
     : '';
+
+  function ordinal(n: number): string {
+    if (n === 0) return 'Cantrip';
+    const s = ['th','st','nd','rd'];
+    const v = n % 100;
+    return n + (s[(v - 20) % 10] ?? s[v] ?? s[0]);
+  }
 
   const conditionsStr = (c.conditions ?? []).length > 0
     ? c.conditions.join(', ')
@@ -449,9 +492,14 @@ function buildSection6_Rules(): string {
 - Critical success (nat 20): extraordinary result. Critical fail (nat 1): comical or dangerous failure.
 
 ### Magic
-- Spell slots are tracked. Cantrips are unlimited.
+- Spell slots are tracked. Cantrips are unlimited and scale in damage at levels 5, 11, and 17.
+- ALWAYS emit `spell_cast` in game-data when a leveled spell is cast — include `spell_name` (match exactly to known spell name), `slot_level` (1-9), and `concentration: true` if the spell requires concentration.
+- For cantrips, emit `spell_cast` with `slot_level: 0` (no slot consumed, just for tracking).
+- The system will deduct the slot automatically — do NOT say the character has fewer slots unless narrating their own awareness of it.
+- Concentration: only ONE concentration spell can be active at a time. If a new concentration spell is cast, the old one ends. If the character takes damage while concentrating, they must make a CON save (DC = 10 or half damage taken, whichever is higher) or lose concentration. Emit `concentration_end: true` when concentration breaks.
+- When a character learns a new spell (from scroll, mentor, magical event, or level-up), emit `gain_spell` with full spell details. Spell names SHOULD be thematic to the world's magic system flavor when possible.
+- Upcasting: a character can expend a higher-level slot for a lower-level spell for enhanced effects. Use `slot_level` equal to the slot actually used.
 - Spell effects should be described cinematically, not just mechanically.
-- Concentration spells can be disrupted.
 
 ### Exploration & Rest
 - Track rations, water, torches in harsh environments.
@@ -520,7 +568,10 @@ When game state changes occur, include these at the END of your response (after 
   "travel": { "destination": "City Name", "terrain": "forest|mountains|plains|desert|swamp|etc", "distance_hours": 8, "method": "walking|mounted|ship", "pace": "slow|normal|fast" } | null,
   "crafting_open": { "station_type": "forge|alchemy_lab|enchanting_table|tannery|kitchen|workshop", "station_quality": "basic|good|excellent" } | null,
   "skill_challenge": { "name": "Challenge Name", "description": "What the player must overcome", "complexity": "simple|standard|complex|epic", "allowed_skills": ["athletics", "acrobatics", "stealth"], "stakes": "What happens on failure" } | null,
-  "companion_join": { "companion_id": "ID from world companion roster", "name": "Companion Name", "race": "Race", "class": "Class", "level": 3, "role": "healer|tank|dps-melee|dps-ranged|support|utility", "personality": "Brief personality", "personal_quest": "Their companion quest in one sentence", "recruit_location": "Where you found them" } | null
+  "companion_join": { "companion_id": "ID from world companion roster", "name": "Companion Name", "race": "Race", "class": "Class", "level": 3, "role": "healer|tank|dps-melee|dps-ranged|support|utility", "personality": "Brief personality", "personal_quest": "Their companion quest in one sentence", "recruit_location": "Where you found them" } | null,
+  "spell_cast": { "spell_name": "Fireball", "slot_level": 3, "concentration": false } | null,
+  "gain_spell": { "name": "Spell Name", "level": 1, "school": "Evocation", "description": "...", "damage": "2d6 fire", "castingTime": "1 action", "range": "60 feet", "duration": "Instantaneous", "savingThrow": "dex", "isRitual": false } | null,
+  "concentration_end": true | null
 }
 \`\`\`
 
@@ -530,6 +581,9 @@ Use travel when the player sets out on a journey to a distant location. This tri
 Use crafting_open when the player uses a crafting station, workbench, forge, alchemy lab, or similar. The UI will show available recipes.
 Use skill_challenge for extended ability challenges like chases, negotiations, heists, or survival scenarios that need multiple skill checks to resolve. Choose complexity based on narrative importance.
 Use companion_join ONLY when a world companion definitively agrees to join the party — after earning their trust, completing their request, or during a scripted recruitment scene. This triggers a confirmation UI. Use the companion's exact ID from the world companion roster.
+Use spell_cast whenever a leveled spell is successfully cast (slot_level 1-9) or a cantrip fires (slot_level 0). The engine deducts the slot automatically. Set concentration: true for concentration spells.
+Use gain_spell when the character genuinely learns a new spell — from a scroll, sage, magical event, spellbook study, or level-up breakthrough. Name it thematically to the world's magic system.
+Use concentration_end: true when concentration is broken by damage, voluntary release, or a new concentration spell replacing the old one.
 Use scene_image SPARINGLY — only for truly dramatic moments like: arriving at a new major location, boss encounters, pivotal story reveals, or breathtaking vistas. Write it as a detailed visual description suitable for AI image generation.`;
 }
 

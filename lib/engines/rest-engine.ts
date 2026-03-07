@@ -68,6 +68,11 @@ export function processShortRest(
     )
     .map((f) => f.name);
 
+  // Warlock pact magic: recharge all spell slots on short rest
+  const warlockSlotRecharge = character.class === 'warlock' && character.spellcasting
+    ? character.spellcasting.spellSlots.some(s => s.remaining < s.total)
+    : false;
+
   return {
     characterId: character.id,
     hitDiceSpent: actual,
@@ -79,7 +84,10 @@ export function processShortRest(
       hpRecovered > 0 ? `, recovering ${hpRecovered} HP` : ''
     }${
       recharged.length > 0 ? ` and recharging ${recharged.join(', ')}` : ''
+    }${
+      warlockSlotRecharge ? '. Your pact magic slots are restored.' : ''
     }.`,
+    warlockSlotRecharge,
   };
 }
 

@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useGameStore } from '@/lib/store';
-import type { Character as FullCharacter } from '@/lib/types/character';
+import type { Character as FullCharacter, Spell } from '@/lib/types/character';
 import type { WorldRecord } from '@/lib/types/world';
 import type { CombatState } from '@/lib/types/combat';
 import { parseGameData, parseTimeAdvance, stripGameDataBlock, type GameDataUpdate } from '@/lib/utils/game-data-parser';
@@ -38,6 +38,7 @@ import CompanionRecruitModal from '@/components/game/CompanionRecruitModal';
 import PartyHUD from '@/components/game/PartyHUD';
 import OraclePanel from '@/components/game/OraclePanel';
 import WeaponCodex from '@/components/game/WeaponCodex';
+import SpellCastModal from '@/components/game/SpellCastModal';
 import NarrationPlayer from '@/components/game/NarrationPlayer';
 import { useTTS } from '@/hooks/useTTS';
 import { getVoiceForWorld } from '@/lib/utils/tts-voices';
@@ -148,6 +149,7 @@ export default function GamePage() {
   const [lastFailedMessage, setLastFailedMessage] = useState<string>('');
   const [oracleOpen, setOracleOpen] = useState(false);
   const [showCodex, setShowCodex] = useState(false);
+  const [showSpellCastModal, setShowSpellCastModal] = useState(false);
   const achievementStatsRef = useRef({ totalEnemiesDefeated: 0, totalQuestsCompleted: 0, totalGoldEarned: 0, totalItemsCollected: 0, totalSecretsDiscovered: 0, events: [] as string[] });
   const sessionSummaryRef = useRef<string | undefined>(undefined);
   const { toasts, addToast, removeToast } = useToast();
@@ -780,11 +782,60 @@ export default function GamePage() {
       if (data.companion_join) {
         setPendingRecruitment(data.companion_join);
       }
+
+      // spell_cast — deduct slot, track concentration
+      if (data.spell_cast && fullCharacter?.spellcasting) {
+        const { spell_name, slot_level, concentration } = data.spell_cast;
+        const sc = fullCharacter.spellcasting;
+        const updatedSlots = slot_level > 0
+          ? sc.spellSlots.map(s => s.level === slot_level ? { ...s, remaining: Math.max(0, s.remaining - 1) } : s)
+          : sc.spellSlots;
+        const updatedSpellcasting = {
+          ...sc,
+          spellSlots: updatedSlots,
+          activeConcentrationSpell: concentration ? spell_name : (concentration === false ? undefined : sc.activeConcentrationSpell),
+        };
+        updateActiveCharacter({ spellcasting: updatedSpellcasting });
+        setFullCharacter(prev => prev ? { ...prev, spellcasting: updatedSpellcasting } : prev);
+      }
+
+      // gain_spell — add to knownSpells or cantrips
+      if (data.gain_spell && fullCharacter?.spellcasting) {
+        const newSpell: Spell = {
+          id: `spell-${Date.now()}`,
+          name: data.gain_spell.name,
+          level: data.gain_spell.level,
+          school: data.gain_spell.school,
+          description: data.gain_spell.description,
+          damage: data.gain_spell.damage,
+          castingTime: data.gain_spell.castingTime,
+          range: data.gain_spell.range,
+          duration: data.gain_spell.duration,
+          savingThrow: data.gain_spell.savingThrow,
+          isRitual: data.gain_spell.isRitual ?? false,
+          components: data.gain_spell.components ?? 'V, S',
+          isPrepared: false,
+        };
+        const sc = fullCharacter.spellcasting;
+        const updatedSpellcasting = newSpell.level === 0
+          ? { ...sc, cantrips: [...(sc.cantrips ?? []), newSpell] }
+          : { ...sc, knownSpells: [...(sc.knownSpells ?? []), newSpell] };
+        updateActiveCharacter({ spellcasting: updatedSpellcasting });
+        setFullCharacter(prev => prev ? { ...prev, spellcasting: updatedSpellcasting } : prev);
+        addToast({ message: `📖 Learned: ${newSpell.name}`, type: 'success' });
+      }
+
+      // concentration_end — clear active concentration
+      if (data.concentration_end && fullCharacter?.spellcasting) {
+        const updatedSpellcasting = { ...fullCharacter.spellcasting, activeConcentrationSpell: undefined };
+        updateActiveCharacter({ spellcasting: updatedSpellcasting });
+        setFullCharacter(prev => prev ? { ...prev, spellcasting: { ...prev.spellcasting!, activeConcentrationSpell: undefined } } : prev);
+      }
     },
     [
       fullCharacter, world, activeQuests, knownNPCs, gameClock,
       updateLocation, updateActiveCharacter, setGameClock, setWeather,
-      addActiveQuest, updateQuest, addKnownNPC, updateNPC, setCombatState, addMessage,
+      addActiveQuest, updateQuest, addKnownNPC, updateNPC, setCombatState, addMessage, addToast,
     ]
   );
 
@@ -911,8 +962,21 @@ export default function GamePage() {
   );
 
   const handleActionClick = (action: string) => {
+    if (action === 'cast-spell' && fullCharacter?.spellcasting) {
+      setShowSpellCastModal(true);
+      return;
+    }
     sendMessage(action);
   };
+
+  const handleSpellCast = useCallback((spell: Spell, slotLevel: number) => {
+    setShowSpellCastModal(false);
+    const ordinal = (n: number) => n === 1 ? '1st' : n === 2 ? '2nd' : n === 3 ? '3rd' : `${n}th`;
+    const isCantrip = slotLevel === 0;
+    const upcast = !isCantrip && slotLevel > (spell.level ?? 0);
+    const castMsg = `I cast ${spell.name}${upcast ? ` at ${ordinal(slotLevel)}-level slot` : ''}.`;
+    sendMessage(castMsg);
+  }, [sendMessage]);
 
   // ---- Travel handlers ----
   const handleTravelContinue = useCallback(() => {
@@ -2027,6 +2091,16 @@ export default function GamePage() {
           onClose={() => setShowCodex(false)}
           worldGenre={world?.primaryGenre}
           inventory={fullCharacter?.inventory ?? []}
+        />
+      )}
+
+      {/* Spell Cast Modal — in-combat spell picker */}
+      {showSpellCastModal && fullCharacter?.spellcasting && (
+        <SpellCastModal
+          spellcasting={fullCharacter.spellcasting}
+          characterLevel={fullCharacter.level}
+          onCast={handleSpellCast}
+          onClose={() => setShowSpellCastModal(false)}
         />
       )}
 

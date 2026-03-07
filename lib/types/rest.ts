@@ -65,6 +65,7 @@ export interface ShortRestResult {
   interrupted: boolean;
   interruptionEvent?: string;
   narration: string;
+  warlockSlotRecharge?: boolean; // true if warlock pact slots were recharged
 }
 
 // ---- Long Rest (5-Phase System) ----

@@ -113,6 +113,8 @@ export interface Spellcasting {
   knownSpells: Spell[];
   preparedSpells: string[]; // spell IDs
   cantrips: Spell[];
+  /** Name of the currently active concentration spell, if any */
+  activeConcentrationSpell?: string;
 }
 
 export interface Skill {

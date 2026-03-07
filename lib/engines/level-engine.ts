@@ -58,6 +58,28 @@ const SUBCLASS_LEVELS: Record<string, number> = {
 
 const MARTIAL_CLASSES = ['warrior', 'paladin', 'ranger', 'monk'];
 
+// ---- Cantrip damage scaling by character level ----
+// Returns the damage bonus dice to add at each tier.
+export function getCantripScaling(characterLevel: number): number {
+  if (characterLevel >= 17) return 3; // 4 dice total
+  if (characterLevel >= 11) return 2; // 3 dice total
+  if (characterLevel >= 5)  return 1; // 2 dice total
+  return 0;                           // 1 die total (base)
+}
+
+/**
+ * Scale a cantrip's damage string for the given character level.
+ * e.g. "1d10 fire" at level 5 becomes "2d10 fire"
+ */
+export function scaleCantrip(damage: string, characterLevel: number): string {
+  const bonus = getCantripScaling(characterLevel);
+  if (bonus === 0) return damage;
+  // Match patterns like "1d10 fire" or "1d8 cold" — bump the die count
+  return damage.replace(/^(\d+)(d\d+)/, (_, count, die) => {
+    return `${parseInt(count) + bonus}${die}`;
+  });
+}
+
 // ---- Caster Spell Slot Progression (simplified) ----
 
 const FULL_CASTER_SLOTS: Record<number, { level: number; slots: number }[]> = {
