@@ -64,15 +64,6 @@ async function initGlobalBox(scale: number) {
       await globalBox.init();
       console.log('[DiceBox] init() complete');
 
-      // Ensure the canvas floats above Next.js page content - only z-index, never touch position/size
-      requestAnimationFrame(() => {
-        const canvas = document.querySelector('#dice-canvas') as HTMLElement | null;
-        if (canvas) {
-          canvas.style.zIndex = '99999';
-          canvas.style.pointerEvents = 'none';
-        }
-      });
-
       globalBox.onRollComplete = (results: DiceResult[]) => {
         console.log('[DiceBox] Roll complete:', results);
         globalCallbacks.forEach(cb => cb(results));

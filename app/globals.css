@@ -194,6 +194,12 @@
 .animate-diceLand   { animation: diceLand 0.35s ease-out; }
 .animate-diceShake  { animation: diceShake 0.5s ease-in-out; }
 
+/* Force the dice-box canvas above all Next.js page content */
+#dice-canvas {
+  z-index: 99999 !important;
+  pointer-events: none !important;
+}
+
 .animate-fadeIn     { animation: fadeIn var(--animation-duration, 0.2s) ease-out; }
 .animate-slideUp    { animation: slideUp var(--animation-duration, 0.25s) ease-out; }
 .animate-slideDown  { animation: slideDown var(--animation-duration, 0.25s) ease-out; }
