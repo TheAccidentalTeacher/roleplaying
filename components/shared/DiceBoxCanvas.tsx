@@ -64,16 +64,6 @@ async function initGlobalBox(scale: number) {
       await globalBox.init();
       console.log('[DiceBox] init() complete');
 
-      // Make the canvas overlay non-blocking
-      const canvas = document.querySelector('#dice-canvas') as HTMLElement | null;
-      if (canvas) {
-        canvas.style.pointerEvents = 'none';
-        canvas.style.zIndex = '99999';
-        canvas.style.position = 'fixed';
-        canvas.style.top = '0';
-        canvas.style.left = '0';
-      }
-
       globalBox.onRollComplete = (results: DiceResult[]) => {
         console.log('[DiceBox] Roll complete:', results);
         globalCallbacks.forEach(cb => cb(results));
