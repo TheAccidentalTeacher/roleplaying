@@ -5,6 +5,7 @@
 // ============================================================
 
 import type { Item, ItemRarity, ItemType, ItemCondition } from '@/lib/types/items';
+import { ALL_WEAPONS } from '@/lib/data/weapons';
 
 // ---- Rarity inference from name keywords ----
 const RARITY_PATTERNS: [RegExp, ItemRarity][] = [
@@ -100,9 +101,61 @@ function inferCondition(name: string): ItemCondition {
 
 /**
  * Convert a plain item name string into a full Item object.
- * Uses heuristic inference for rarity, type, damage, etc.
+ * First tries to match against the weapon catalog by exact or fuzzy name.
+ * Falls back to heuristic inference for rarity, type, damage, etc.
  */
 export function stringToItem(name: string, index?: number): Item {
+  // ── Catalog lookup ───────────────────────────────────────────
+  const lower = name.toLowerCase().trim();
+  const catalogEntry = ALL_WEAPONS.find(
+    w => w.name.toLowerCase() === lower ||
+         w.id === lower ||
+         lower.includes(w.name.toLowerCase())
+  );
+
+  if (catalogEntry) {
+    const RARITY_VALUE_CATALOG: Record<string, number> = {
+      junk: 1, common: 5, uncommon: 25, rare: 100,
+      'very-rare': 400, epic: 500, legendary: 2000, mythic: 10000, artifact: 50000,
+    };
+    const baseValue = catalogEntry.baseValue ?? RARITY_VALUE_CATALOG[catalogEntry.rarity] ?? 10;
+    return {
+      id: `item-${Date.now()}-${index ?? Math.floor(Math.random() * 10000)}`,
+      name: catalogEntry.name,
+      type: 'weapon',
+      rarity: catalogEntry.rarity as ItemRarity,
+      description: catalogEntry.description,
+      specialEffects: catalogEntry.specialAbility ? [catalogEntry.specialAbility] : [],
+      equippable: true,
+      stackable: false,
+      quantity: 1,
+      maxStackSize: 1,
+      weight: catalogEntry.weight ?? 3,
+      condition: 'good',
+      enchantments: [],
+      canBeEnchanted: catalogEntry.rarity !== 'junk',
+      maxEnchantments: catalogEntry.rarity === 'legendary' ? 3 : catalogEntry.rarity === 'epic' ? 2 : 1,
+      baseValue,
+      sellValue: Math.floor(baseValue * 0.5),
+      buyValue: Math.floor(baseValue * 1.5),
+      canBeSold: true,
+      canBeDropped: true,
+      isCrafted: catalogEntry.craftingOnly ?? false,
+      isUnique: ['legendary', 'mythic', 'artifact'].includes(catalogEntry.rarity),
+      boundToCharacter: catalogEntry.rarity === 'artifact',
+      tags: ['weapon', catalogEntry.rarity, catalogEntry.category, ...catalogEntry.genreFamilies],
+      damage: catalogEntry.damage,
+      damageType: catalogEntry.damageType,
+      equipSlot: 'weapon-main',
+      weaponCatalogId: catalogEntry.id,
+      weaponSubtype: catalogEntry.subtype as string,
+      archetypeTags: [...catalogEntry.archetypeTags],
+      craftingOnly: catalogEntry.craftingOnly,
+      genreFamilies: [...catalogEntry.genreFamilies],
+    };
+  }
+
+  // ── Heuristic fallback ───────────────────────────────────
   const rarity = inferRarity(name);
   const type = inferType(name);
   const damage = type === 'weapon' ? inferDamage(name) : undefined;
@@ -110,7 +163,7 @@ export function stringToItem(name: string, index?: number): Item {
 
   const RARITY_VALUE: Record<ItemRarity, number> = {
     junk: 1, common: 5, uncommon: 25, rare: 100,
-    epic: 500, legendary: 2000, mythic: 10000, artifact: 50000,
+    'very-rare': 400, epic: 500, legendary: 2000, mythic: 10000, artifact: 50000,
   };
 
   const baseValue = RARITY_VALUE[rarity];

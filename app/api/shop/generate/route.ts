@@ -41,7 +41,7 @@ interface RawMerchant {
 
 /** Convert raw AI item to proper Item */
 function rawToItem(raw: RawShopItem, index: number): Item {
-  const validRarities: ItemRarity[] = ['junk', 'common', 'uncommon', 'rare', 'epic', 'legendary', 'mythic', 'artifact'];
+  const validRarities: ItemRarity[] = ['junk', 'common', 'uncommon', 'rare', 'very-rare', 'epic', 'legendary', 'mythic', 'artifact'];
   const rarity: ItemRarity = validRarities.includes(raw.rarity as ItemRarity)
     ? (raw.rarity as ItemRarity)
     : 'common';

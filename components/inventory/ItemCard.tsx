@@ -17,6 +17,7 @@ const rarityColors: Record<ItemRarity, { border: string; bg: string; text: strin
   common: { border: 'border-slate-500/40', bg: 'bg-slate-800/30', text: 'text-slate-300', glow: '' },
   uncommon: { border: 'border-green-500/40', bg: 'bg-green-900/10', text: 'text-green-400', glow: '' },
   rare: { border: 'border-blue-500/40', bg: 'bg-blue-900/10', text: 'text-blue-400', glow: 'shadow-blue-500/10 shadow-md' },
+  'very-rare': { border: 'border-cyan-500/40', bg: 'bg-cyan-900/10', text: 'text-cyan-400', glow: 'shadow-cyan-500/15 shadow-md' },
   epic: { border: 'border-purple-500/40', bg: 'bg-purple-900/10', text: 'text-purple-400', glow: 'shadow-purple-500/15 shadow-md' },
   legendary: { border: 'border-amber-500/40', bg: 'bg-amber-900/10', text: 'text-amber-400', glow: 'shadow-amber-500/20 shadow-lg' },
   mythic: { border: 'border-red-500/40', bg: 'bg-red-900/10', text: 'text-red-400', glow: 'shadow-red-500/20 shadow-lg' },

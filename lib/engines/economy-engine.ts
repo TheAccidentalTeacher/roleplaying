@@ -13,6 +13,20 @@ import type {
 import type { Character } from '@/lib/types/character';
 import type { Item, ItemRarity } from '@/lib/types/items';
 import type { WorldRecord } from '@/lib/types/world';
+import { getWeaponsForGenre } from '@/lib/data/weapons';
+
+/** Map Genre → GenreFamily tags */
+function genreToFamilies(genre: string): string[] {
+  const map: Record<string, string[]> = {
+    'epic-fantasy': ['medieval-fantasy'], 'dark-fantasy': ['dark-fantasy', 'medieval-fantasy'],
+    'post-apocalypse': ['post-apocalypse'], 'steampunk': ['steampunk'],
+    'cyberpunk': ['cyberpunk'], 'sci-fi': ['sci-fi'],
+    'pirate': ['pirate'], 'western': ['western'],
+    'mythological': ['mythological'], 'lovecraftian': ['cosmic-horror'],
+    'japanese': ['japanese'], 'noir': ['contemporary'], 'contemporary': ['contemporary'],
+  };
+  return map[genre] ?? [genre];
+}
 
 // ---- Price Calculation ----
 
@@ -21,6 +35,7 @@ const RARITY_MULTIPLIER: Record<ItemRarity, number> = {
   common: 1,
   uncommon: 5,
   rare: 25,
+  'very-rare': 80,
   epic: 125,
   legendary: 625,
   mythic: 2000,
@@ -300,12 +315,26 @@ export function buildMerchantPrompt(
     ? `\nECONOMY CONTEXT:\n${economyLines.map(l => `- ${l}`).join('\n')}\nReflect these economic conditions in pricing and inventory.`
     : '';
 
+  // Inject catalog weapon names for this genre so AI uses real item names
+  const catalogFamilies = genreToFamilies(world.primaryGenre ?? 'epic-fantasy');
+  const catalogSeen = new Set<string>();
+  const catalogWeapons = catalogFamilies
+    .flatMap(f => getWeaponsForGenre(f))
+    .filter(w => { if (catalogSeen.has(w.id)) return false; catalogSeen.add(w.id); return true; });
+  const catalogByRarity = ['common', 'uncommon', 'rare', 'very-rare', 'epic'].map(r => {
+    const names = catalogWeapons.filter(w => w.rarity === r && !w.craftingOnly).slice(0, 4).map(w => w.name);
+    return names.length ? `${r}: ${names.join(', ')}` : '';
+  }).filter(Boolean);
+  const catalogContext = catalogByRarity.length
+    ? `\nWEAPON CATALOG (use these exact names in inventory when shop sells weapons):\n${catalogByRarity.map(l => `- ${l}`).join('\n')}`
+    : '';
+
   return `You are creating a merchant NPC for an RPG.
 
 World: ${world.worldName}
 Genre: ${world.primaryGenre}
 Location: ${location}
-Shop Type: ${shopType}${economyContext}
+Shop Type: ${shopType}${economyContext}${catalogContext}
 
 Generate a merchant as JSON:
 {

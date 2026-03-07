@@ -14,6 +14,10 @@ import type { Character } from '@/lib/types/character';
 import type { WorldRecord } from '@/lib/types/world';
 import { d20 } from '@/lib/utils/dice';
 import { getProficiencyBonus } from '@/lib/utils/calculations';
+import { POST_APOC_RECIPES } from '@/lib/data/crafting-catalog/post-apocalypse';
+import { FANTASY_RECIPES } from '@/lib/data/crafting-catalog/fantasy';
+import type { PostApocCraftingRecipe } from '@/lib/data/crafting-catalog/post-apocalypse';
+import type { FantasyCraftingRecipe } from '@/lib/data/crafting-catalog/fantasy';
 
 // ---- Quality Tiers (WoW-style proc system) ----
 
@@ -208,7 +212,51 @@ Respond as JSON array:
 export function getWorldCraftingRecipes(
   world: WorldRecord,
 ): CraftingRecipe[] {
-  if (!world.crafting?.recipes?.length) return [];
+  // ── Build catalog recipes for this genre ──────────────────
+  const genre = world.primaryGenre ?? 'epic-fantasy';
+  const catalogRecipes: CraftingRecipe[] = [];
+
+  const isPostApoc = ['post-apocalypse', 'survival'].includes(genre);
+  const isFantasy = ['epic-fantasy', 'dark-fantasy', 'mythological', 'steampunk'].includes(genre);
+
+  if (isPostApoc) {
+    for (const r of POST_APOC_RECIPES as PostApocCraftingRecipe[]) {
+      catalogRecipes.push({
+        id: r.recipeId,
+        name: r.outputName,
+        skill: r.skillRequired,
+        skillLevelRequired: r.skillLevel,
+        materials: r.materials.map(m => ({ materialName: m.item, quantity: m.quantity })),
+        resultDescription: r.outputName,
+        difficultyDC: r.craftingDC,
+        craftingTimeHours: Math.ceil(r.timeMinutes / 60),
+        requiresStation: r.station !== 'field-craft',
+        stationType: r.station,
+        isDiscovered: r.station === 'field-craft',
+      });
+    }
+  }
+
+  if (isFantasy) {
+    for (const r of FANTASY_RECIPES as FantasyCraftingRecipe[]) {
+      catalogRecipes.push({
+        id: r.recipeId,
+        name: r.outputName,
+        skill: r.skillRequired,
+        skillLevelRequired: r.skillLevel,
+        materials: r.materials.map(m => ({ materialName: m.item, quantity: m.quantity })),
+        resultDescription: r.outputName,
+        difficultyDC: r.craftingDC,
+        craftingTimeHours: Math.ceil(r.timeMinutes / 60),
+        requiresStation: true, // All fantasy stations require tools
+        stationType: r.station,
+        isDiscovered: false,
+      });
+    }
+  }
+
+  // ── Merge world recipes (override catalog if same name) ───
+  if (!world.crafting?.recipes?.length) return catalogRecipes;
 
   const difficultyToDC: Record<string, number> = {
     novice: 10,
@@ -224,22 +272,23 @@ export function getWorldCraftingRecipes(
     master: 8,
   };
 
-  return world.crafting.recipes.map((r, i) => ({
+  // Merge: world recipes take precedence over catalog by name
+  const worldRecipes: CraftingRecipe[] = world.crafting.recipes.map((r, i) => ({
     id: `world-recipe-${i}`,
     name: r.name,
     skill: r.discipline.toLowerCase() as CraftingSkill,
     skillLevelRequired: difficultyToDC[r.difficulty] ? Math.floor(difficultyToDC[r.difficulty] / 5) : 3,
-    materials: r.inputs.map(inp => ({
-      materialName: inp.material,
-      quantity: inp.quantity,
-    })),
+    materials: r.inputs.map(inp => ({ materialName: inp.material, quantity: inp.quantity })),
     resultDescription: r.output,
     difficultyDC: difficultyToDC[r.difficulty] || 15,
     craftingTimeHours: difficultyToTime[r.difficulty] || 2,
     requiresStation: true,
     stationType: r.discipline,
-    isDiscovered: false, // Must be discovered through gameplay
+    isDiscovered: false,
   }));
+  const worldNames = new Set(worldRecipes.map(r => r.name.toLowerCase()));
+  const filteredCatalog = catalogRecipes.filter(r => !worldNames.has(r.name.toLowerCase()));
+  return [...filteredCatalog, ...worldRecipes];
 }
 
 /**

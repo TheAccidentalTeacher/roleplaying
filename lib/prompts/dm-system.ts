@@ -10,6 +10,51 @@ import type { Quest } from '@/lib/types/quest';
 import type { NPC } from '@/lib/types/npc';
 import type { CombatState } from '@/lib/types/combat';
 import type { GameClock, Weather } from '@/lib/types/exploration';
+import { getWeaponsForGenre } from '@/lib/data/weapons';
+
+/** Map world Genre → GenreFamily tags used by the weapon catalog */
+function genreToGenreFamilies(genre: string): string[] {
+  const map: Record<string, string[]> = {
+    'epic-fantasy':    ['medieval-fantasy'],
+    'dark-fantasy':    ['dark-fantasy', 'medieval-fantasy'],
+    'post-apocalypse': ['post-apocalypse'],
+    'steampunk':       ['steampunk'],
+    'cyberpunk':       ['cyberpunk'],
+    'sci-fi':          ['sci-fi'],
+    'horror':          ['dark-fantasy', 'cosmic-horror'],
+    'lovecraftian':    ['cosmic-horror'],
+    'pirate':          ['pirate'],
+    'western':         ['western'],
+    'mythological':    ['mythological'],
+    'noir':            ['contemporary'],
+    'contemporary':    ['contemporary'],
+    'survival':        ['post-apocalypse'],
+    'japanese':        ['japanese'],
+  };
+  return map[genre] ?? [genre];
+}
+
+/** Build a compact weapon catalog section for the DM prompt */
+function buildWeaponCatalogSection(world: WorldRecord): string {
+  const families = genreToGenreFamilies(world.primaryGenre ?? 'epic-fantasy');
+  const seen = new Set<string>();
+  const weapons = families
+    .flatMap(f => getWeaponsForGenre(f))
+    .filter(w => { if (seen.has(w.id)) return false; seen.add(w.id); return true; });
+  if (!weapons.length) return '';
+
+  // Group by category, cap 8 per group to keep token cost low
+  const groups: Record<string, string[]> = {};
+  for (const w of weapons) {
+    if (!groups[w.category]) groups[w.category] = [];
+    if (groups[w.category].length < 8) {
+      groups[w.category].push(`${w.name} [${w.rarity}]`);
+    }
+  }
+  const lines = Object.entries(groups)
+    .map(([cat, names]) => `  ${cat}: ${names.join(', ')}`);
+  return `\n\n### WEAPON CATALOG — use these exact names when awarding loot, describing enemy gear, or stocking shops\n${lines.join('\n')}`;
+}
 
 export interface DMContext {
   world: WorldRecord;
@@ -234,6 +279,7 @@ function buildDeepWorldContext(w: WorldRecord): string {
     ).join('\n')}`);
   }
 
+  sections.push(buildWeaponCatalogSection(w));
   return sections.length > 0 ? '\n\n' + sections.join('\n\n') : '';
 }
 
