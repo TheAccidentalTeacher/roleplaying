@@ -5,8 +5,20 @@ import DiceBoxCanvas, { DiceBoxHandle, DiceResult } from '@/components/shared/Di
 import { X } from 'lucide-react';
 
 /* ============================================================
-   DiceTray — Free-roll dice playground
-   Roll any combination of d4, d6, d8, d10, d12, d20, d100
+   DiceTray — Free-roll dice playground modal
+   ============================================================
+   Allows selecting any combination of d4–d100 (up to 10 dice)
+   and rolling them with the 3D physics dice engine.
+
+   Key behaviours:
+   - Single tap a die button → add to tray
+   - Double-tap a die button → instant quick-roll (1 die)
+   - "Roll" button → throw all selected dice at once
+   - Results come from onRollComplete (physics engine),
+     NOT from pre-computed JS random numbers
+   - Mixed die types require array notation: ['2d6','1d8']
+     (string notation like '2d6+1d8' only works same-type)
+   - X button clears dice and closes the modal
    ============================================================ */
 
 type DieType = 'd4' | 'd6' | 'd8' | 'd10' | 'd12' | 'd20' | 'd100';

@@ -1,5 +1,33 @@
 ﻿'use client';
 
+/**
+ * DiceBoxCanvas — Singleton 3D physics dice renderer.
+ *
+ * ## Architecture
+ * One global `DiceBox` instance is shared across the entire app. All React
+ * components that mount this wrapper share the same canvas and physics world.
+ *
+ * ## Canvas visibility
+ * The library appends a `<canvas class="dice-box-canvas">` to `document.body`.
+ * `app/globals.css` applies `position:fixed; 100vw×100vh; z-index:99999;
+ * pointer-events:none` to that class **before** any JS runs, which is critical:
+ * `DiceBox.init()` reads `canvas.clientWidth/clientHeight` to size the physics
+ * world. If this CSS is missing, the canvas defaults to 300×150 px and all dice
+ * spawn in the top-left corner.
+ *
+ * ## Roll results
+ * Values come from `onRollComplete` — the actual physics simulation outcome.
+ * Never pre-compute random numbers and ignore what the dice show.
+ *
+ * ## Mixed die types
+ * Pass an array: `roll(['2d6', '1d20'])`. A single string like `'2d6+1d20'`
+ * only works for same-type dice.
+ *
+ * ## Assets
+ * Workers and WASM live in `/public/dice/` (`assetPath: '/dice/'`).
+ * Directory layout: workers at root, `ammo/` for physics, `themes/` for textures.
+ */
+
 import { useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 
 export interface DiceResult {
@@ -21,12 +49,14 @@ interface DiceBoxCanvasProps {
   scale?: number;
 }
 
-// Singleton - only one dice-box instance ever exists across the app
-let globalBox: any = null;
-let globalReady = false;
-let globalCallbacks: Array<(results: DiceResult[]) => void> = [];
-let globalReadyCallbacks: Array<() => void> = [];
-let initPromise: Promise<void> | null = null;
+// ─── Singleton state ────────────────────────────────────────────────────────
+// Module-level variables survive React component unmounts/remounts, ensuring
+// only one DiceBox instance is ever created per browser session.
+let globalBox: any = null;                                       // DiceBox instance
+let globalReady = false;                                         // true after init() resolves
+let globalCallbacks: Array<(results: DiceResult[]) => void> = []; // one per mounted consumer
+let globalReadyCallbacks: Array<() => void> = [];                // queued onReady handlers
+let initPromise: Promise<void> | null = null;                    // deduplicates parallel init calls
 
 async function initGlobalBox(scale: number) {
   if (globalReady) return;
