@@ -37,6 +37,7 @@ import LevelUpCeremony from '@/components/game/LevelUpCeremony';
 import CompanionRecruitModal from '@/components/game/CompanionRecruitModal';
 import PartyHUD from '@/components/game/PartyHUD';
 import OraclePanel from '@/components/game/OraclePanel';
+import WeaponCodex from '@/components/game/WeaponCodex';
 import NarrationPlayer from '@/components/game/NarrationPlayer';
 import { useTTS } from '@/hooks/useTTS';
 import { getVoiceForWorld } from '@/lib/utils/tts-voices';
@@ -146,6 +147,7 @@ export default function GamePage() {
   const [pendingRecruitment, setPendingRecruitment] = useState<import('@/lib/utils/game-data-parser').GameDataUpdate['companion_join'] | null>(null);
   const [lastFailedMessage, setLastFailedMessage] = useState<string>('');
   const [oracleOpen, setOracleOpen] = useState(false);
+  const [showCodex, setShowCodex] = useState(false);
   const achievementStatsRef = useRef({ totalEnemiesDefeated: 0, totalQuestsCompleted: 0, totalGoldEarned: 0, totalItemsCollected: 0, totalSecretsDiscovered: 0, events: [] as string[] });
   const sessionSummaryRef = useRef<string | undefined>(undefined);
   const { toasts, addToast, removeToast } = useToast();
@@ -1586,6 +1588,7 @@ export default function GamePage() {
                 level={displayLevel}
                 hp={displayHP}
                 character={fullCharacter}
+                onOpenCodex={() => setShowCodex(true)}
               />
             )}
 
@@ -1724,6 +1727,7 @@ export default function GamePage() {
                 level={displayLevel}
                 hp={displayHP}
                 character={fullCharacter}
+                onOpenCodex={() => setShowCodex(true)}
               />
             )}
 
@@ -2014,6 +2018,15 @@ export default function GamePage() {
           )}
           onRecruit={handleRecruit}
           onDecline={handleDeclineRecruit}
+        />
+      )}
+
+      {/* Weapon Codex — full-screen browsable weapon catalog */}
+      {showCodex && (
+        <WeaponCodex
+          onClose={() => setShowCodex(false)}
+          worldGenre={world?.primaryGenre}
+          inventory={fullCharacter?.inventory ?? []}
         />
       )}
 

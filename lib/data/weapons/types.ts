@@ -7,6 +7,7 @@
 
 import type { ItemRarity, WeaponProperty } from '@/lib/types/items';
 import type { GenreFamily } from '@/lib/data/genre-equipment';
+export type { GenreFamily };
 
 // ── Archetype Tags ─────────────────────────────────────────
 // Playstyle archetypes that prefer certain weapon families.

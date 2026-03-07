@@ -12,6 +12,7 @@ interface CharacterSidebarProps {
   level: number;
   hp: { current: number; max: number };
   character: Character | null;
+  onOpenCodex?: () => void;
 }
 
 export default function CharacterSidebar({
@@ -20,6 +21,7 @@ export default function CharacterSidebar({
   level,
   hp,
   character,
+  onOpenCodex,
 }: CharacterSidebarProps) {
   const hpPercent = hp.max > 0 ? (hp.current / hp.max) * 100 : 100;
   const hpColor =
@@ -151,6 +153,18 @@ export default function CharacterSidebar({
           )}
         </div>
       </div>
+
+      {/* Weapon Codex button */}
+      {onOpenCodex && (
+        <div className="pt-2 border-t border-slate-700/30">
+          <button
+            onClick={onOpenCodex}
+            className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-amber-900/20 hover:bg-amber-800/30 border border-amber-700/30 rounded-lg text-xs text-amber-400 hover:text-amber-300 transition-colors"
+          >
+            ⚔️ Weapon Codex
+          </button>
+        </div>
+      )}
     </div>
   );
 }
