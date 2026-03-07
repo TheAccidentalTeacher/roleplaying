@@ -148,7 +148,7 @@ export default function DiceTray({ onClose }: DiceTrayProps) {
         <div className="flex items-center justify-between px-6 pt-5 pb-3">
           <h2 className="font-cinzel text-amber-400 text-xl tracking-wide">🎲 Dice Tray</h2>
           <button
-            onClick={onClose}
+            onClick={() => { diceBoxRef.current?.clear(); onClose(); }}
             className="p-1.5 hover:bg-slate-800 rounded-lg text-slate-500 hover:text-slate-300 transition-colors"
           >
             <X className="w-5 h-5" />
