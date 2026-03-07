@@ -811,7 +811,7 @@ export default function GamePage() {
           castingTime: data.gain_spell.castingTime,
           range: data.gain_spell.range,
           duration: data.gain_spell.duration,
-          savingThrow: data.gain_spell.savingThrow,
+          savingThrow: data.gain_spell.savingThrow as Spell['savingThrow'],
           isRitual: data.gain_spell.isRitual ?? false,
           components: data.gain_spell.components ?? 'V, S',
           isPrepared: false,
@@ -822,7 +822,7 @@ export default function GamePage() {
           : { ...sc, knownSpells: [...(sc.knownSpells ?? []), newSpell] };
         updateActiveCharacter({ spellcasting: updatedSpellcasting });
         setFullCharacter(prev => prev ? { ...prev, spellcasting: updatedSpellcasting } : prev);
-        addToast({ message: `📖 Learned: ${newSpell.name}`, type: 'success' });
+        addToast(`📖 Learned: ${newSpell.name}`);
       }
 
       // concentration_end — clear active concentration
@@ -2101,6 +2101,8 @@ export default function GamePage() {
           characterLevel={fullCharacter.level}
           onCast={handleSpellCast}
           onClose={() => setShowSpellCastModal(false)}
+          genre={world?.primaryGenre}
+          magicSystem={world?.magicSystem}
         />
       )}
 

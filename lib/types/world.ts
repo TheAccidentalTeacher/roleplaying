@@ -163,6 +163,19 @@ export interface MagicSystem {
   limitations: string[];
   socialAttitude: string; // How society views magic
   schools?: string[]; // Categories of magic if applicable
+  /** Genre-adaptive naming: overrides ability/verb/slot labels in the UI */
+  abilityTerminology?: {
+    ability?: string;          // "spell" / "psionic ability" / "program" / "hex"
+    abilities?: string;        // plural form
+    verb?: string;             // "cast" / "activate" / "execute" / "invoke"
+    schoolsLabel?: string;     // "Schools" / "Disciplines" / "Subroutines"
+    slotLabel?: string;        // "slot" / "psi point" / "bandwidth unit"
+    slotsLabel?: string;       // "slots" / "psi points" / "bandwidth"
+    cantripLabel?: string;     // "cantrip" / "at-will ability" / "routine"
+    cantripsLabel?: string;    // plural form
+    concentratingVerb?: string;// "Concentrating" / "Channeling" / "Running"
+    upcastVerb?: string;       // "Upcasting" / "Overclocking" / "Amplifying"
+  };
 }
 
 export interface WorldRecord {

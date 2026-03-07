@@ -10,29 +10,76 @@
 import { useState, useMemo } from 'react';
 import { X, Sparkles, Zap, Clock, Crosshair, Timer } from 'lucide-react';
 import type { Spell, Spellcasting } from '@/lib/types/character';
+import type { MagicSystem } from '@/lib/types/world';
+import { getSpellTerminology, renameSchool } from '@/lib/utils/spell-terminology';
 
 interface SpellCastModalProps {
   spellcasting: Spellcasting;
   characterLevel: number;
   onCast: (spell: Spell, slotLevel: number) => void;
   onClose: () => void;
+  /** Primary genre of the world — drives all UI label theming */
+  genre?: string;
+  /** Full magic system record — may contain abilityTerminology overrides */
+  magicSystem?: MagicSystem;
 }
 
 // ── School color mapping ─────────────────────────────────────
+// Keyed by canonical D&D school name plus common genre-renamed equivalents.
+// getSchoolStyle() also does a keyword scan so dynamically renamed schools
+// (e.g. AI-generated "Voltaic Kinetics") still get an appropriate color.
 const SCHOOL_COLORS: Record<string, { text: string; bg: string; border: string }> = {
-  Evocation:    { text: 'text-red-400',    bg: 'bg-red-900/15',    border: 'border-red-500/30' },
-  Conjuration:  { text: 'text-purple-400', bg: 'bg-purple-900/15', border: 'border-purple-500/30' },
-  Enchantment:  { text: 'text-pink-400',   bg: 'bg-pink-900/15',   border: 'border-pink-500/30' },
-  Abjuration:   { text: 'text-blue-400',   bg: 'bg-blue-900/15',   border: 'border-blue-500/30' },
-  Illusion:     { text: 'text-violet-400', bg: 'bg-violet-900/15', border: 'border-violet-500/30' },
-  Necromancy:   { text: 'text-green-400',  bg: 'bg-green-900/15',  border: 'border-green-500/30' },
-  Divination:   { text: 'text-cyan-400',   bg: 'bg-cyan-900/15',   border: 'border-cyan-500/30' },
-  Transmutation:{ text: 'text-amber-400',  bg: 'bg-amber-900/15',  border: 'border-amber-500/30' },
+  // D&D / Fantasy names
+  Evocation:           { text: 'text-red-400',    bg: 'bg-red-900/15',    border: 'border-red-500/30' },
+  Conjuration:         { text: 'text-purple-400', bg: 'bg-purple-900/15', border: 'border-purple-500/30' },
+  Enchantment:         { text: 'text-pink-400',   bg: 'bg-pink-900/15',   border: 'border-pink-500/30' },
+  Abjuration:          { text: 'text-blue-400',   bg: 'bg-blue-900/15',   border: 'border-blue-500/30' },
+  Illusion:            { text: 'text-violet-400', bg: 'bg-violet-900/15', border: 'border-violet-500/30' },
+  Necromancy:          { text: 'text-green-400',  bg: 'bg-green-900/15',  border: 'border-green-500/30' },
+  Divination:          { text: 'text-cyan-400',   bg: 'bg-cyan-900/15',   border: 'border-cyan-500/30' },
+  Transmutation:       { text: 'text-amber-400',  bg: 'bg-amber-900/15',  border: 'border-amber-500/30' },
+  // Sci-Fi renames
+  Kinetics:            { text: 'text-red-400',    bg: 'bg-red-900/15',    border: 'border-red-500/30' },
+  Teleportation:       { text: 'text-purple-400', bg: 'bg-purple-900/15', border: 'border-purple-500/30' },
+  'Neural Override':   { text: 'text-pink-400',   bg: 'bg-pink-900/15',   border: 'border-pink-500/30' },
+  'Force Barrier':     { text: 'text-blue-400',   bg: 'bg-blue-900/15',   border: 'border-blue-500/30' },
+  'Holographic Projection': { text: 'text-violet-400', bg: 'bg-violet-900/15', border: 'border-violet-500/30' },
+  Biogenesis:          { text: 'text-green-400',  bg: 'bg-green-900/15',  border: 'border-green-500/30' },
+  'Deep Scan':         { text: 'text-cyan-400',   bg: 'bg-cyan-900/15',   border: 'border-cyan-500/30' },
+  'Molecular Shift':   { text: 'text-amber-400',  bg: 'bg-amber-900/15',  border: 'border-amber-500/30' },
+  // Cyberpunk renames
+  Surge:               { text: 'text-red-400',    bg: 'bg-red-900/15',    border: 'border-red-500/30' },
+  Spawn:               { text: 'text-purple-400', bg: 'bg-purple-900/15', border: 'border-purple-500/30' },
+  'Neural Hack':       { text: 'text-pink-400',   bg: 'bg-pink-900/15',   border: 'border-pink-500/30' },
+  Firewall:            { text: 'text-blue-400',   bg: 'bg-blue-900/15',   border: 'border-blue-500/30' },
+  Spoof:               { text: 'text-violet-400', bg: 'bg-violet-900/15', border: 'border-violet-500/30' },
+  'Deadware Revival':  { text: 'text-green-400',  bg: 'bg-green-900/15',  border: 'border-green-500/30' },
+  'Deep Recon':        { text: 'text-cyan-400',   bg: 'bg-cyan-900/15',   border: 'border-cyan-500/30' },
+  Biohack:             { text: 'text-amber-400',  bg: 'bg-amber-900/15',  border: 'border-amber-500/30' },
 };
 const DEFAULT_SCHOOL = { text: 'text-slate-400', bg: 'bg-slate-800/40', border: 'border-slate-600/30' };
 
 function getSchoolStyle(school: string) {
-  return SCHOOL_COLORS[school] ?? DEFAULT_SCHOOL;
+  if (SCHOOL_COLORS[school]) return SCHOOL_COLORS[school];
+  // Loose keyword scan — covers AI-generated school names
+  const s = school.toLowerCase();
+  if (/fire|burst|surge|kinet|volt|blast|brimstone|jutsu|solar|thunder|evoc|bolt|combustion|radiation/.test(s))
+    return SCHOOL_COLORS.Evocation;
+  if (/summon|portal|tele|warp|spawn|call|conjur|fabricat|assembly|drift|manufacture/.test(s))
+    return SCHOOL_COLORS.Conjuration;
+  if (/charm|neural|social|psych|hack|bewitch|enchant|dream|whisp|coer|mesmeri|override|manipulation/.test(s))
+    return SCHOOL_COLORS.Enchantment;
+  if (/ward|shield|barrier|protect|abjur|firewall|aegis|seal|iron|fortif|compliance/.test(s))
+    return SCHOOL_COLORS.Abjuration;
+  if (/illus|holograph|spoof|ghost|veil|mirage|camoufl|dece|phantom|spoof|pr veil/.test(s))
+    return SCHOOL_COLORS.Illusion;
+  if (/necro|undead|dead|corpse|reviv|regenerat|biogene|galvanic|mortif|drowned|resurrection/.test(s))
+    return SCHOOL_COLORS.Necromancy;
+  if (/divin|scan|recon|oracle|precog|sense|survey|read|sight|trail|intel|recon/.test(s))
+    return SCHOOL_COLORS.Divination;
+  if (/trans|alch|muta|shift|morph|reconstitut|recompile|splice|tinctur|terraform|biohack|optimiz/.test(s))
+    return SCHOOL_COLORS.Transmutation;
+  return DEFAULT_SCHOOL;
 }
 
 function ordinal(n: number) {
@@ -49,11 +96,16 @@ export default function SpellCastModal({
   characterLevel,
   onCast,
   onClose,
+  genre,
+  magicSystem,
 }: SpellCastModalProps) {
+  const term = useMemo(() => getSpellTerminology(genre, magicSystem), [genre, magicSystem]);
+
+  // Rename school labels to genre-appropriate equivalents on the fly
   const allSpells = useMemo(() => [
-    ...(spellcasting.cantrips ?? []).map(s => ({ ...s, level: 0 })),
-    ...(spellcasting.knownSpells ?? []),
-  ], [spellcasting]);
+    ...(spellcasting.cantrips ?? []).map(s => ({ ...s, level: 0, school: renameSchool(s.school, genre) })),
+    ...(spellcasting.knownSpells ?? []).map(s => ({ ...s, school: renameSchool(s.school, genre) })),
+  ], [spellcasting, genre]);
 
   const [selected, setSelected] = useState<Spell | null>(null);
   const [chosenSlotLevel, setChosenSlotLevel] = useState<number | null>(null);
@@ -96,10 +148,10 @@ export default function SpellCastModal({
     return Array.from(new Set(allSpells.map(s => s.school))).sort();
   }, [allSpells]);
 
-  // Slot summary used in the header
+  // Slot summary in the header (genre-adaptive labels)
   const slotSummary = spellcasting.spellSlots
     .filter(s => s.total > 0)
-    .map(s => `${ordinal(s.level)}: ${s.remaining}/${s.total}`)
+    .map(s => `${term.tierLabel(s.level)}: ${s.remaining}/${s.total} ${term.slotsLabel}`)
     .join(' · ');
 
   const canCast = selected !== null && (
@@ -125,7 +177,10 @@ export default function SpellCastModal({
             <Sparkles className="w-4 h-4 text-purple-200" />
           </div>
           <div>
-            <h2 className="font-cinzel text-purple-300 font-bold text-base leading-none">Cast a Spell</h2>
+            <h2 className={`font-cinzel font-bold text-base leading-none ${term.accentColor}`}>
+              {term.headerIcon} {term.verb.charAt(0).toUpperCase() + term.verb.slice(1)}{' '}
+              {term.ability.charAt(0).toUpperCase() + term.ability.slice(1)}
+            </h2>
             {slotSummary && (
               <p className="text-[10px] text-slate-500 mt-0.5">{slotSummary}</p>
             )}
@@ -133,7 +188,7 @@ export default function SpellCastModal({
           {spellcasting.activeConcentrationSpell && (
             <div className="ml-3 flex items-center gap-1.5 bg-amber-900/20 border border-amber-500/30 rounded-lg px-2 py-1">
               <Zap className="w-3 h-3 text-amber-400" />
-              <span className="text-[10px] text-amber-400">Concentrating: {spellcasting.activeConcentrationSpell}</span>
+              <span className="text-[10px] text-amber-400">{term.concentratingVerb}: {spellcasting.activeConcentrationSpell}</span>
             </div>
           )}
           <button
@@ -156,7 +211,12 @@ export default function SpellCastModal({
                   : 'border-slate-700/40 bg-slate-800/30 text-slate-500 hover:text-slate-300'
               }`}
             >
-              {tab === 'all' ? 'All' : tab === 'cantrip' ? '✨ Cantrips' : '📿 Leveled'}
+              {tab === 'all'
+                ? `All ${term.abilities}`
+                : tab === 'cantrip'
+                ? `${term.headerIcon} ${term.cantripsLabel.charAt(0).toUpperCase()}${term.cantripsLabel.slice(1)}`
+                : `📿 Leveled`
+              }
             </button>
           ))}
           <div className="w-px h-4 bg-slate-700/50 flex-shrink-0" />
@@ -165,7 +225,7 @@ export default function SpellCastModal({
             onChange={e => setSchoolFilter(e.target.value)}
             className="text-[11px] bg-slate-800/60 border border-slate-600/40 rounded-md px-2 py-1 text-slate-300 flex-shrink-0 focus:outline-none focus:border-purple-500/50"
           >
-            <option value="all">All schools</option>
+            <option value="all">All {term.schoolsLabel.toLowerCase()}</option>
             {schools.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
         </div>
@@ -230,11 +290,13 @@ export default function SpellCastModal({
                     </div>
                     <div className="flex-shrink-0 text-right">
                       <div className={`text-xs font-bold ${sch.text}`}>
-                        {spell.level === 0 ? 'Cantrip' : ordinal(spell.level)}
+                        {spell.level === 0
+                          ? term.cantripLabel.charAt(0).toUpperCase() + term.cantripLabel.slice(1)
+                          : term.tierLabel(spell.level)}
                       </div>
                       {spell.level > 0 && slotForSpell && (
                         <div className="text-[9px] text-slate-600 mt-0.5">
-                          {slotForSpell.remaining}/{slotForSpell.total} slots
+                          {slotForSpell.remaining}/{slotForSpell.total} {term.slotsLabel}
                         </div>
                       )}
                     </div>
@@ -275,11 +337,11 @@ export default function SpellCastModal({
                   </div>
                 )}
                 {selected.level > 0 && availableSlotLevels.length === 0 && (
-                  <p className="text-[11px] text-red-400 mt-0.5">No available spell slots.</p>
+                  <p className="text-[11px] text-red-400 mt-0.5">No available {term.slotsLabel}.</p>
                 )}
                 {isUpcast && (
                   <p className="text-[10px] text-amber-400 mt-0.5">
-                    ✨ Upcasting at {ordinal(chosenSlotLevel!)} level — enhanced effects
+                    ✨ {term.upcastVerb} at {term.tierLabel(chosenSlotLevel!)} — enhanced effects
                   </p>
                 )}
               </div>
@@ -293,11 +355,16 @@ export default function SpellCastModal({
                 }`}
               >
                 <Sparkles className={`w-4 h-4 ${canCast ? 'text-purple-400' : 'text-slate-600'}`} />
-                {selected.level === 0 ? 'Cast Cantrip' : `Cast (${ordinal(chosenSlotLevel ?? selected.level)} slot)`}
+                {selected.level === 0
+                  ? `${term.verb.charAt(0).toUpperCase()}${term.verb.slice(1)} ${term.cantripLabel}`
+                  : `${term.verb.charAt(0).toUpperCase()}${term.verb.slice(1)} (${term.tierLabel(chosenSlotLevel ?? selected.level)} ${term.slotLabel})`
+                }
               </button>
             </div>
           ) : (
-            <p className="text-xs text-slate-600 italic text-center">Select a spell to cast.</p>
+            <p className="text-xs text-slate-600 italic text-center">
+              Select {/^[aeiou]/i.test(term.ability) ? 'an' : 'a'} {term.ability} to {term.verb}.
+            </p>
           )}
         </div>
       </div>
