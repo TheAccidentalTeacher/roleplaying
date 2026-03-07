@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useCallback, useRef } from 'react';
-import { roll } from '@/lib/utils/dice';
 import DiceBoxCanvas, { DiceBoxHandle, DiceResult } from '@/components/shared/DiceBoxCanvas';
 import { X } from 'lucide-react';
 
@@ -42,6 +41,8 @@ interface DiceTrayProps {
   onClose: () => void;
 }
 
+const SIDES_TO_TYPE: Record<number, DieType> = { 4:'d4', 6:'d6', 8:'d8', 10:'d10', 12:'d12', 20:'d20', 100:'d100' };
+
 export default function DiceTray({ onClose }: DiceTrayProps) {
   const [selectedDice, setSelectedDice] = useState<{ type: DieType; sides: number }[]>([]);
   const [rolling, setRolling] = useState(false);
@@ -75,23 +76,28 @@ export default function DiceTray({ onClose }: DiceTrayProps) {
   // Quick-roll: single die of this type
   const quickRoll = useCallback((config: DieConfig) => {
     if (rolling || !boxReady || !diceBoxRef.current) return;
-    const value = roll(config.sides);
-    const rollData = [{ type: config.type, sides: config.sides, value }];
     setSelectedDice([{ type: config.type, sides: config.sides }]);
-    setCurrentRoll(rollData);
-    pendingRollsRef.current = rollData;
+    setCurrentRoll(null);
+    pendingRollsRef.current = null;
     setRolling(true);
     diceBoxRef.current.clear();
     diceBoxRef.current.roll(`1${config.type}`);
   }, [rolling, boxReady]);
 
-  // Called when dice-box finishes settling
-  const handleDiceResult = useCallback((_results: DiceResult[]) => {
-    const results = pendingRollsRef.current;
-    if (!results) return;
+  // Called when dice-box finishes settling — use the ACTUAL values from the physics engine
+  const handleDiceResult = useCallback((libraryResults: DiceResult[]) => {
+    if (!libraryResults || libraryResults.length === 0) return;
     pendingRollsRef.current = null;
 
+    const results = libraryResults.map((r) => ({
+      type: (SIDES_TO_TYPE[r.sides] ?? `d${r.sides}`) as DieType,
+      sides: r.sides,
+      value: r.value,
+    }));
+
     const total = results.reduce((sum, d) => sum + d.value, 0);
+    setCurrentRoll(results);
+
     const grouped: Record<string, number[]> = {};
     results.forEach((d) => {
       if (!grouped[d.type]) grouped[d.type] = [];
@@ -115,9 +121,8 @@ export default function DiceTray({ onClose }: DiceTrayProps) {
   const rollAll = useCallback(() => {
     if (rolling || selectedDice.length === 0 || !boxReady || !diceBoxRef.current) return;
 
-    const results = selectedDice.map((d) => ({ ...d, value: roll(d.sides) }));
-    setCurrentRoll(results);
-    pendingRollsRef.current = results;
+    setCurrentRoll(null);
+    pendingRollsRef.current = null;
     setRolling(true);
 
     // Build dice-box notation as array so mixed types work e.g. ['2d6', '1d8']
