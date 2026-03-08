@@ -186,6 +186,8 @@ export default function AbilityScoreRoller({
     setTimeout(() => {
       setIsRollingAnimation(false);
       setRollSets(sets);
+      // Clear the 3D dice from the canvas once we show the roll pool
+      diceBoxRef.current?.clear();
     }, 3000);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onScoresChange]);
@@ -348,8 +350,8 @@ export default function AbilityScoreRoller({
             )}
           </div>
 
-          {/* ── 3D Dice Canvas during rolling ── */}
-          {(isRollingAnimation || rollSets.length === 0) && (
+          {/* ── 3D Dice Canvas — always mounted in roll mode so diceBoxRef stays valid ── */}
+          <div className={isRollingAnimation || rollSets.length === 0 ? 'block' : 'hidden'}>
             <div className="flex flex-col items-center gap-3">
               <DiceBoxCanvas
                 ref={diceBoxRef}
@@ -363,7 +365,7 @@ export default function AbilityScoreRoller({
                 {boxReady && !isRollingAnimation && rollSets.length === 0 && <p className="text-slate-700 text-sm italic">Click Roll to start</p>}
               </div>
             </div>
-          )}
+          </div>
 
           {/* Roll Pool */}
           {rollSets.length > 0 && (
