@@ -5,6 +5,7 @@
 // ============================================================
 
 import type { DMContext } from './dm-system';
+import { getSpellTerminology } from '@/lib/utils/spell-terminology';
 
 /**
  * Build the Oracle system prompt — dumps full game state in raw
@@ -92,6 +93,19 @@ ${actDetails}`;
   const hp = c.hitPoints ?? { current: 0, max: 0 };
   const companionIds = c.companionIds ?? [];
 
+  // ── Spell status (genre-adaptive) ───────────────────────
+  const oracleTerm = getSpellTerminology(w.primaryGenre, w.magicSystem);
+  const capO = (s: string) => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+  const spellStatusStr = c.spellcasting ? (() => {
+    const sc = c.spellcasting;
+    const slots = sc.spellSlots?.filter(s => s.total > 0)
+      .map(s => `${oracleTerm.tierLabel(s.level)}=${s.remaining}/${s.total}`).join(', ') || 'none';
+    const concStr = sc.activeConcentrationSpell
+      ? ` | ${oracleTerm.concentratingVerb}: "${sc.activeConcentrationSpell}"`
+      : '';
+    return `${capO(oracleTerm.abilities)}caster (DC=${sc.spellSaveDC}, Atk+${sc.spellAttackBonus}) | Known: ${(sc.knownSpells?.length ?? 0) + (sc.cantrips?.length ?? 0)} (${sc.cantrips?.length ?? 0} ${oracleTerm.cantripsLabel}) | ${capO(oracleTerm.slotsLabel)}: ${slots}${concStr}`;
+  })() : `Not a ${oracleTerm.ability}caster`;
+
   return `# YOU ARE "THE ORACLE" — A TRANSPARENT GAME ANALYST
 
 You are NOT the Dungeon Master. You are a META-LAYER assistant that exists OUTSIDE the game fiction.
@@ -121,7 +135,7 @@ faction attitudes, companion unlock conditions, everything. You break the fourth
 - Active conditions: ${(c.conditions ?? []).length > 0 ? c.conditions.map(co => typeof co === 'string' ? co : co.type).join(', ') : 'None'}
 - Companions recruited: ${companionIds.length} (IDs: ${companionIds.join(', ') || 'none'})
 - Inventory items: ${(c.inventory ?? []).length}
-- Known spells: ${c.spellcasting?.knownSpells?.length ?? 0}
+- Known spells: ${spellStatusStr}
 
 ### WORLD: "${w.worldName ?? 'Unknown'}"
 - Type: ${w.worldType ?? 'Unknown'} | Genre: ${w.primaryGenre ?? 'Unknown'}

@@ -11,6 +11,7 @@ import type { NPC } from '@/lib/types/npc';
 import type { CombatState } from '@/lib/types/combat';
 import type { GameClock, Weather } from '@/lib/types/exploration';
 import { getWeaponsForGenre } from '@/lib/data/weapons';
+import { getSpellTerminology, renameSchool } from '@/lib/utils/spell-terminology';
 
 /** Map world Genre → GenreFamily tags used by the weapon catalog */
 function genreToGenreFamilies(genre: string): string[] {
@@ -301,30 +302,34 @@ function buildSection3_Character(ctx: DMContext): string {
   const spellsStr = c.spellcasting
     ? (() => {
         const sc = c.spellcasting;
+        const term = getSpellTerminology(ctx.world?.primaryGenre, ctx.world?.magicSystem);
+        const cap = (s: string) => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+        const genre = ctx.world?.primaryGenre;
+
         // Slot status per level
         const slotLines = sc.spellSlots.length > 0
           ? sc.spellSlots.map(s => {
               const filled = '🔵'.repeat(s.remaining);
               const empty  = '⬜'.repeat(s.total - s.remaining);
-              return `  ${ordinal(s.level)}: ${filled}${empty} (${s.remaining}/${s.total})`;
+              return `  ${term.tierLabel(s.level)}: ${filled}${empty} (${s.remaining}/${s.total})`;
             }).join('\n')
-          : '  No leveled slots';
+          : `  No leveled ${term.slotsLabel}`;
 
         // Active concentration
-        const concSpell = c.conditions?.find(cond => (cond as unknown as string) === 'concentrating');
         const concLine = sc.activeConcentrationSpell
-          ? `\n**Active Concentration**: ${sc.activeConcentrationSpell} ← break on damage (CON save DC 10 or half damage)`
+          ? `\n**${term.concentratingVerb}**: ${sc.activeConcentrationSpell} ← break on damage (CON save DC 10 or half damage)`
           : '';
 
         // Cantrips
         const cantripLine = (sc.cantrips ?? []).length > 0
-          ? `**Cantrips (unlimited)**: ${sc.cantrips.map(c => c.name).join(', ')}`
+          ? `**${cap(term.cantripsLabel)} (unlimited)**: ${sc.cantrips.map(c => c.name).join(', ')}`
           : '';
 
         // Spells by level
         const spellsByLevel = (sc.knownSpells ?? []).reduce<Record<number, string[]>>((acc, sp) => {
+          const schoolName = renameSchool(sp.school ?? '', genre);
           (acc[sp.level] = acc[sp.level] ?? []).push(
-            `${sp.name} (${sp.castingTime ?? '1 action'}, ${sp.range ?? '-'}, ${sp.duration ?? '-'}${
+            `${sp.name}${schoolName ? ` [${schoolName}]` : ''} (${sp.castingTime ?? '1 action'}, ${sp.range ?? '-'}, ${sp.duration ?? '-'}${
               sp.damage ? `, ${sp.damage}` : ''
             }${
               sp.savingThrow ? `, ${String(sp.savingThrow).toUpperCase()} save` : ''
@@ -334,10 +339,10 @@ function buildSection3_Character(ctx: DMContext): string {
         }, {});
         const spellLines = Object.entries(spellsByLevel)
           .sort(([a], [b]) => Number(a) - Number(b))
-          .map(([lvl, names]) => `  **${ordinal(Number(lvl))} level**: ${names.join(' | ')}`)
+          .map(([lvl, names]) => `  **${term.tierLabel(Number(lvl))}**: ${names.join(' | ')}`)
           .join('\n');
 
-        return `**Spellcasting**: Ability=${String(sc.ability).toUpperCase()}, DC=${sc.spellSaveDC}, Atk+${sc.spellAttackBonus}${concLine}\n**Spell Slots**:\n${slotLines}\n${cantripLine}\n**Known Spells**:\n${spellLines}`;
+        return `**${cap(term.abilities)}**: Ability=${String(sc.ability).toUpperCase()}, DC=${sc.spellSaveDC}, Atk+${sc.spellAttackBonus}${concLine}\n**${cap(term.slotsLabel)}**:\n${slotLines}\n${cantripLine}\n**Known ${cap(term.abilities)}**:\n${spellLines}`;
       })()
     : '';
 
@@ -492,14 +497,14 @@ function buildSection6_Rules(): string {
 - Critical success (nat 20): extraordinary result. Critical fail (nat 1): comical or dangerous failure.
 
 ### Magic
-- Spell slots are tracked. Cantrips are unlimited and scale in damage at levels 5, 11, and 17.
-- ALWAYS emit `spell_cast` in game-data when a leveled spell is cast — include `spell_name` (match exactly to known spell name), `slot_level` (1-9), and `concentration: true` if the spell requires concentration.
-- For cantrips, emit `spell_cast` with `slot_level: 0` (no slot consumed, just for tracking).
+- Ability slots are tracked. At-will abilities (cantrips) are unlimited and scale in damage at levels 5, 11, and 17.
+- ALWAYS emit \`spell_cast\` in game-data when a leveled ability is used — include \`spell_name\` (match exactly to known ability name), \`slot_level\` (1-9), and \`concentration: true\` if the ability requires concentration.
+- For at-will abilities (level 0), emit \`spell_cast\` with \`slot_level: 0\` (no slot consumed, just for tracking).
 - The system will deduct the slot automatically — do NOT say the character has fewer slots unless narrating their own awareness of it.
-- Concentration: only ONE concentration spell can be active at a time. If a new concentration spell is cast, the old one ends. If the character takes damage while concentrating, they must make a CON save (DC = 10 or half damage taken, whichever is higher) or lose concentration. Emit `concentration_end: true` when concentration breaks.
-- When a character learns a new spell (from scroll, mentor, magical event, or level-up), emit `gain_spell` with full spell details. Spell names SHOULD be thematic to the world's magic system flavor when possible.
-- Upcasting: a character can expend a higher-level slot for a lower-level spell for enhanced effects. Use `slot_level` equal to the slot actually used.
-- Spell effects should be described cinematically, not just mechanically.
+- Concentration: only ONE concentration ability can be active at a time. If a new concentration ability is used, the old one ends. If the character takes damage while concentrating, they must make a CON save (DC = 10 or half damage taken, whichever is higher) or lose concentration. Emit \`concentration_end: true\` when concentration breaks.
+- When a character learns a new ability (from scroll, mentor, magical event, or level-up), emit \`gain_spell\` with full ability details. Ability names SHOULD be thematic to the world's magic/ability system flavor when possible.
+- Upcasting/amplifying: a character can expend a higher-level slot for a lower-level ability for enhanced effects. Use \`slot_level\` equal to the slot actually used.
+- Ability effects should be described cinematically, not just mechanically.
 
 ### Exploration & Rest
 - Track rations, water, torches in harsh environments.

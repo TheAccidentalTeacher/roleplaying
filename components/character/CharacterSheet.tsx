@@ -19,9 +19,10 @@ const TABS: { id: SheetTab; label: string; icon: React.ReactNode }[] = [
 
 interface CharacterSheetProps {
   character: Character;
+  genre?: string;
 }
 
-export default function CharacterSheet({ character }: CharacterSheetProps) {
+export default function CharacterSheet({ character, genre }: CharacterSheetProps) {
   const [activeTab, setActiveTab] = useState<SheetTab>('overview');
 
   return (
@@ -49,7 +50,7 @@ export default function CharacterSheet({ character }: CharacterSheetProps) {
       {/* Tab content */}
       <div className="flex-1 overflow-y-auto p-4">
         {activeTab === 'overview' && <OverviewTab character={character} />}
-        {activeTab === 'abilities' && <AbilitiesTab character={character} />}
+        {activeTab === 'abilities' && <AbilitiesTab character={character} genre={genre} />}
         {activeTab === 'inventory' && <InventoryTab character={character} />}
         {activeTab === 'journal' && <JournalTab character={character} />}
       </div>

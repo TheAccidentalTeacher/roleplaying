@@ -70,6 +70,7 @@ Each enemy needs: id, name, type, challengeRating, hp ({current, max}), ac, spee
       mode: 'detailed',
       terrain: [parsed.terrain],
       encounterName: parsed.encounterName,
+      genre: world?.primaryGenre,
     });
 
     combatState = rollInitiative(combatState, character);

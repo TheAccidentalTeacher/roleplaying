@@ -169,4 +169,6 @@ export interface CombatState {
   encounterName: string;
   startedAt: string;
   endedAt?: string;
+  /** World genre for terminology (e.g. 'sci-fi' → 'Use Ability' not 'Cast Spell') */
+  genre?: string;
 }

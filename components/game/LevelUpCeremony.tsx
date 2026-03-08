@@ -3,14 +3,19 @@
 import React from 'react';
 import type { LevelUpGains } from '@/lib/engines/level-engine';
 import type { Character } from '@/lib/types/character';
+import type { WorldRecord } from '@/lib/types/world';
+import { getSpellTerminology } from '@/lib/utils/spell-terminology';
 
 interface LevelUpCeremonyProps {
   character: Character;
   gains: LevelUpGains;
   onAccept: () => void;
+  world?: WorldRecord;
 }
 
-export default function LevelUpCeremony({ character, gains, onAccept }: LevelUpCeremonyProps) {
+export default function LevelUpCeremony({ character, gains, onAccept, world }: LevelUpCeremonyProps) {
+  const term = getSpellTerminology(world?.primaryGenre, world?.magicSystem);
+  const cap = (s: string) => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm animate-in fade-in duration-500" role="dialog" aria-modal="true" aria-label="Level Up">
       <div className="relative w-full max-w-lg mx-4 bg-gradient-to-b from-yellow-900/90 to-slate-900/95 border-2 border-yellow-500/60 rounded-2xl shadow-2xl shadow-yellow-500/20 overflow-hidden">
@@ -68,9 +73,9 @@ export default function LevelUpCeremony({ character, gains, onAccept }: LevelUpC
           {/* New Spell Slots */}
           {gains.newSpellSlots && gains.newSpellSlots.length > 0 && (
             <GainRow
-              icon="✨"
-              label="Spell Slots"
-              value={gains.newSpellSlots.map(s => `Level ${s.level}: ${s.slots} slot${s.slots > 1 ? 's' : ''}`).join(', ')}
+              icon={term.headerIcon}
+              label={cap(term.slotsLabel)}
+              value={gains.newSpellSlots.map(s => `${term.tierLabel(s.level)}: ${s.slots} ${s.slots === 1 ? term.slotLabel : term.slotsLabel}`).join(', ')}
             />
           )}
 

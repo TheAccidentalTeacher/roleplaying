@@ -1644,7 +1644,7 @@ export default function GamePage() {
           {/* Scrollable character data area */}
           <div className="flex-1 overflow-y-auto">
             {fullCharacter ? (
-              <CharacterSheet character={fullCharacter} />
+              <CharacterSheet character={fullCharacter} genre={world?.primaryGenre} />
             ) : (
               <CharacterSidebar
                 name={displayName}
@@ -1783,7 +1783,7 @@ export default function GamePage() {
               </button>
             </div>
             {fullCharacter ? (
-              <CharacterSheet character={fullCharacter} />
+              <CharacterSheet character={fullCharacter} genre={world?.primaryGenre} />
             ) : (
               <CharacterSidebar
                 name={displayName}
@@ -2061,6 +2061,7 @@ export default function GamePage() {
           character={fullCharacter}
           gains={pendingLevelUp}
           onAccept={handleAcceptLevelUp}
+          world={world ?? undefined}
         />
       )}
 

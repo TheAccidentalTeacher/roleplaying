@@ -3,12 +3,14 @@
 import { useState } from 'react';
 import type { Character, ClassFeature, Spell } from '@/lib/types/character';
 import { ChevronDown, ChevronRight, Sparkles, Star } from 'lucide-react';
+import { getSpellTerminology, renameSchool } from '@/lib/utils/spell-terminology';
 
 interface AbilitiesTabProps {
   character: Character;
+  genre?: string;
 }
 
-export default function AbilitiesTab({ character }: AbilitiesTabProps) {
+export default function AbilitiesTab({ character, genre }: AbilitiesTabProps) {
   const [expandedFeature, setExpandedFeature] = useState<string | null>(null);
   const [spellFilter, setSpellFilter] = useState<number | 'all'>('all');
 
@@ -33,6 +35,8 @@ export default function AbilitiesTab({ character }: AbilitiesTabProps) {
   };
 
   // Group spells by level
+  const term = getSpellTerminology(genre);
+  const cap = (s: string) => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
   const spells = character.spellcasting?.knownSpells || [];
   const cantrips = character.spellcasting?.cantrips || [];
   const allSpells = [...cantrips, ...spells];
@@ -83,7 +87,7 @@ export default function AbilitiesTab({ character }: AbilitiesTabProps) {
         <div className="pt-2 border-t border-slate-700/30">
           <div className="flex items-center justify-between mb-3">
             <h4 className="text-xs text-slate-500 font-semibold uppercase tracking-wider flex items-center gap-1">
-              <Sparkles className="w-3 h-3" /> Spellcasting
+              <Sparkles className="w-3 h-3" /> {term.headerIcon} {cap(term.abilities)}
             </h4>
             <div className="text-[10px] text-slate-500">
               DC {character.spellcasting.spellSaveDC} • Atk{' '}
@@ -95,14 +99,14 @@ export default function AbilitiesTab({ character }: AbilitiesTabProps) {
           {/* Spell Slots */}
           {character.spellcasting.spellSlots.length > 0 && (
             <div className="mb-3">
-              <p className="text-[10px] text-slate-600 mb-1.5">Spell Slots</p>
+              <p className="text-[10px] text-slate-600 mb-1.5">{cap(term.slotsLabel)}</p>
               <div className="flex flex-wrap gap-2">
                 {character.spellcasting.spellSlots.map((slot) => (
                   <div
                     key={slot.level}
                     className="bg-slate-800/60 rounded-lg px-2 py-1 border border-slate-700/30 text-center"
                   >
-                    <div className="text-[10px] text-slate-500">Lv {slot.level}</div>
+                    <div className="text-[10px] text-slate-500">{term.tierLabel(slot.level)}</div>
                     <div className="flex gap-0.5 mt-0.5">
                       {Array.from({ length: slot.total }).map((_, i) => (
                         <div
@@ -144,7 +148,7 @@ export default function AbilitiesTab({ character }: AbilitiesTabProps) {
                       : 'text-slate-500 hover:text-slate-300'
                   }`}
                 >
-                  {lvl === 0 ? 'Cantrip' : `Lv ${lvl}`}
+                  {lvl === 0 ? cap(term.cantripLabel) : term.tierLabel(lvl)}
                 </button>
               ))}
             </div>
@@ -153,11 +157,11 @@ export default function AbilitiesTab({ character }: AbilitiesTabProps) {
           {/* Spell List */}
           <div className="space-y-1">
             {filteredSpells.map((spell) => (
-              <SpellCard key={spell.id} spell={spell} />
+              <SpellCard key={spell.id} spell={spell} genre={genre} />
             ))}
             {filteredSpells.length === 0 && (
               <p className="text-xs text-slate-600 italic text-center py-2">
-                No spells known
+                No {term.abilities} known
               </p>
             )}
           </div>
@@ -237,8 +241,11 @@ function FeatureCard({
   );
 }
 
-function SpellCard({ spell }: { spell: Spell }) {
+function SpellCard({ spell, genre }: { spell: Spell; genre?: string }) {
   const [expanded, setExpanded] = useState(false);
+  const term = getSpellTerminology(genre);
+  const cap = (s: string) => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+  const schoolDisplay = renameSchool(spell.school ?? '', genre);
 
   return (
     <div className="bg-slate-800/40 border border-slate-700/30 rounded-lg overflow-hidden">
@@ -253,13 +260,13 @@ function SpellCard({ spell }: { spell: Spell }) {
         />
         <span className="text-sm text-slate-200 flex-1 truncate">{spell.name}</span>
         <span className="text-[10px] text-slate-500 flex-shrink-0">
-          {spell.level === 0 ? 'Cantrip' : `Lv ${spell.level}`}
+          {spell.level === 0 ? cap(term.cantripLabel) : term.tierLabel(spell.level)}
         </span>
       </button>
       {expanded && (
         <div className="px-3 pb-2 text-xs text-slate-400 border-t border-slate-700/20 pt-2 space-y-1">
           <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-slate-500">
-            <span>{spell.school}</span>
+            <span>{schoolDisplay}</span>
             <span>{spell.castingTime}</span>
             <span>{spell.range}</span>
             <span>{spell.duration}</span>

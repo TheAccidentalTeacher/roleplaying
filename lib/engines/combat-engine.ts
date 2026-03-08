@@ -20,6 +20,7 @@ import type { Character, ActiveCondition } from '@/lib/types/character';
 import type { EnemyStatBlock } from '@/lib/types/encounter';
 import { roll, rollMultiple, advantage, disadvantage } from '@/lib/utils/dice';
 import { getAbilityModifier } from '@/lib/utils/calculations';
+import { getSpellTerminology } from '@/lib/utils/spell-terminology';
 
 // ============================================================
 // INITIALIZATION
@@ -37,6 +38,7 @@ export function startCombat(
     hazards?: string[];
     lighting?: 'bright' | 'dim' | 'darkness' | 'magical-darkness';
     encounterName?: string;
+    genre?: string;
   }
 ): CombatState {
   return {
@@ -59,6 +61,7 @@ export function startCombat(
     deathMode: 'story',
     encounterName: options?.encounterName ?? 'Combat',
     startedAt: new Date().toISOString(),
+    genre: options?.genre,
   };
 }
 
@@ -152,10 +155,12 @@ export function getAvailableActions(
 
   // Cast Spell
   if (character.spellcasting && character.spellcasting.knownSpells.length > 0) {
+    const castTerm = getSpellTerminology(state.genre);
+    const cap = (s: string) => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
     actions.push({
       type: 'cast-spell',
-      label: 'Cast Spell',
-      description: 'Cast a spell from your known spells.',
+      label: `${cap(castTerm.verb)} ${cap(castTerm.ability)}`,
+      description: `${cap(castTerm.verb)} a ${castTerm.ability} from your known ${castTerm.abilities}.`,
       targetRequired: true,
       available: !actionUsed,
       unavailableReason: actionUsed ? 'Action already used' : undefined,
