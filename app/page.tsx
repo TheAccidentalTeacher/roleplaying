@@ -293,7 +293,7 @@ export default function Home() {
     </main>
 
     {showCodex && (
-      <WeaponCodex onClose={() => setShowCodex(false)} />
+      <WeaponCodex onClose={() => setShowCodex(false)} showAll />
     )}
   </>
   )

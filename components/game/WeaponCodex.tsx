@@ -67,6 +67,8 @@ interface WeaponCodexProps {
   worldGenre?: string;
   /** Character inventory — strings — used to detect discovered weapons */
   inventory?: string[];
+  /** When true, all weapons are shown as discovered (e.g. home-page reference mode) */
+  showAll?: boolean;
 }
 
 // ── Image generation state per weapon ────────────────────
@@ -79,7 +81,7 @@ interface ImageState {
 
 // ─── Component ───────────────────────────────────────────
 
-export default function WeaponCodex({ onClose, worldGenre, inventory = [] }: WeaponCodexProps) {
+export default function WeaponCodex({ onClose, worldGenre, inventory = [], showAll = false }: WeaponCodexProps) {
   const [search, setSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState<WeaponCategory | 'all'>('all');
   const [activeRarity, setActiveRarity] = useState<string | 'all'>('all');
@@ -93,8 +95,9 @@ export default function WeaponCodex({ onClose, worldGenre, inventory = [] }: Wea
   // Per-weapon image generation state
   const [imageStates, setImageStates] = useState<Record<string, ImageState>>({});
 
-  // Derive discovered weapon IDs from inventory
+  // Derive discovered weapon IDs from inventory (or all IDs when showAll)
   const discoveredIds = useMemo<Set<string>>(() => {
+    if (showAll) return new Set(ALL_WEAPONS.map(w => w.id));
     const invLower = inventory.map(n => n.toLowerCase().trim());
     const ids = new Set<string>();
     for (const w of ALL_WEAPONS) {
@@ -103,7 +106,7 @@ export default function WeaponCodex({ onClose, worldGenre, inventory = [] }: Wea
       }
     }
     return ids;
-  }, [inventory]);
+  }, [inventory, showAll]);
 
   // Available genres in the catalog
   const availableGenres = useMemo(() => {
