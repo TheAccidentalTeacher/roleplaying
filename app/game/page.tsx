@@ -1619,6 +1619,7 @@ export default function GamePage() {
                 duration={tts.duration}
                 error={tts.error}
                 playbackRate={tts.playbackRate}
+                currentVoice={ttsSettings.ttsVoice}
                 onPause={tts.pause}
                 onResume={tts.resume}
                 onStop={() => { tts.stop(); setActiveSpeakingId(null); }}
@@ -1629,6 +1630,10 @@ export default function GamePage() {
                   tts.setPlaybackRate(rate);
                   const { setSettings } = useGameStore.getState();
                   setSettings({ ttsSpeed: rate });
+                }}
+                onVoiceChange={(voice) => {
+                  const { setSettings } = useGameStore.getState();
+                  setSettings({ ttsVoice: voice });
                 }}
               />
               <QuickActions
