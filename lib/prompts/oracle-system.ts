@@ -38,6 +38,35 @@ export function buildOracleSystemPrompt(ctx: DMContext, dmMessages: { role: stri
     `  - ${b.name} (CR ${b.challengeRating}) — ${(b.description ?? '').slice(0, 60)}`
   ).join('\n');
 
+  // ── Legends & history ────────────────────────────────────
+  const legendsList = (w.legends ?? []).map(l =>
+    `  - "${l.title}": ${(l.summary ?? '').slice(0, 100)} (${l.isTrue ? 'TRUE' : 'MYTH'}) — ${l.relevanceToPlayer ?? ''}`
+  ).join('\n');
+
+  const historicalErasList = (w.majorHistoricalEras ?? []).map(e =>
+    `  - ${e.name} (${e.duration ?? '?'}): ${e.legacy ?? (e.description ?? '').slice(0, 80)}`
+  ).join('\n');
+
+  // ── Geography brief ───────────────────────────────────────
+  const geographyList = (w.geography ?? []).map(r =>
+    `  - ${r.name} (${r.terrain ?? '?'}, ${r.climate ?? '?'}) — controlled by: ${r.controlledBy ?? 'unclaimed'}, danger ${r.dangerLevel ?? '?'}/5`
+  ).join('\n');
+
+  // ── Relationship web ──────────────────────────────────────
+  const relationshipWebList = (w.relationshipWeb ?? []).slice(0, 20).map(r =>
+    `  - ${r.entityA} ↔ ${r.entityB}: ${r.relationship}${r.details ? ` (${(r.details as string).slice(0, 60)})` : ''}${r.canChange ? ' [player-mutable]' : ''}`
+  ).join('\n');
+
+  // ── Travel network ────────────────────────────────────────
+  const travelNetworkList = (w.travelNetwork ?? []).map(r =>
+    `  - ${r.from} → ${r.to}: ${r.travelDays}d via ${r.method ?? 'road'}, danger ${r.dangerLevel ?? '?'}/5, controlled by: ${r.controlledBy ?? 'unclaimed'}`
+  ).join('\n');
+
+  // ── Random world events ───────────────────────────────────
+  const randomEventsList = (w.randomEvents ?? []).map(e =>
+    `  - ${e.name} (${e.type}): ${e.triggerCondition} — duration: ${e.duration}, interaction: ${(e.playerInteraction ?? '').slice(0, 80)}`
+  ).join('\n');
+
   // ── Campaign arc breakdown ────────────────────────────────
   let arcSection = 'NO CAMPAIGN ARC DEFINED — the DM is improvising.';
   if (w.storyArc) {
@@ -140,6 +169,16 @@ faction attitudes, companion unlock conditions, everything. You break the fourth
 ### WORLD: "${w.worldName ?? 'Unknown'}"
 - Type: ${w.worldType ?? 'Unknown'} | Genre: ${w.primaryGenre ?? 'Unknown'}
 - Theme: ${w.thematicCore ?? 'Unknown'}
+- Cosmology: ${w.cosmology ?? 'Unknown'} | Afterlife: ${w.afterlife ?? 'Unknown'} | Time: ${w.time ?? 'Unknown'}
+- Technology: ${w.technologyLevel ?? 'Unknown'} | Age: ${w.ageOfWorld ?? 'Unknown'}
+- Magic system: ${w.magicSystem?.name ?? 'Unknown'} — ${(w.magicSystem?.description ?? '').slice(0, 120)}
+  Source: ${w.magicSystem?.source ?? '?'} | Cost: ${w.magicSystem?.cost ?? '?'}
+  Schools: ${(w.magicSystem?.schools ?? []).join(', ') || 'None'}
+  Social attitude: ${w.magicSystem?.socialAttitude ?? 'Unknown'}
+- Currency: ${w.currencyNames?.primary ?? '?'} / ${w.currencyNames?.secondary ?? '?'} / ${w.currencyNames?.tertiary ?? '?'}
+
+### GEOGRAPHY (${(w.geography ?? []).length} regions)
+${geographyList || '  None defined'}
 
 ### VILLAIN
 - Name: ${vc.name ?? 'Unknown'} — ${vc.title ?? ''}
@@ -171,6 +210,55 @@ ${dungeonsList || '  None defined'}
 
 ### BESTIARY (${(w.bestiary ?? []).length} creatures)
 ${bestiaryList || '  None defined'}
+
+### LEGENDS & HISTORY
+**Historical eras (${(w.majorHistoricalEras ?? []).length}):**
+${historicalErasList || '  None defined'}
+**Catastrophes:** ${(w.catastrophes ?? []).join(' | ') || 'None defined'}
+**Secret history:** ${w.secretHistory ?? 'Not defined'}
+**Legends (${(w.legends ?? []).length}):**
+${legendsList || '  None defined'}
+
+### PROPHECY
+${w.prophecy ? `"${w.prophecy.text}"
+- Common belief: ${w.prophecy.interpretation ?? 'Unknown'}
+- TRUE meaning: ${w.prophecy.truth ?? 'Unknown'}
+- Relevance to player: ${w.prophecy.relevanceToPlayer ?? 'Unknown'}` : '  None defined'}
+
+### CENTRAL ARTIFACT
+${w.centralArtifact ? `${w.centralArtifact.name}: ${w.centralArtifact.description ?? ''}
+  Location: ${w.centralArtifact.currentLocation ?? 'Unknown'} | Guarded by: ${w.centralArtifact.guardedBy ?? 'Unknown'}
+  Nature: ${w.centralArtifact.nature ?? 'Unknown'} | Danger of use: ${w.centralArtifact.dangerOfUse ?? 'Unknown'}` : '  None defined'}
+
+### PLAYER'S DESTINED ROLE
+${w.playerRole ?? '  Not defined'}
+
+### POWER VACUUMS (exploitation opportunities)
+${(w.powerVacuums ?? []).map(p => `  - ${p}`).join('\n') || '  None defined'}
+
+### ECONOMY
+${w.economy ? `- Black market: ${w.economy.blackMarket ?? 'Unknown'}
+- Economic tensions: ${(w.economy.economicTensions ?? []).join(' | ') || 'None'}
+- Price regions: ${(w.economy.priceRegions ?? []).map(p => `${p.region} (×${p.priceModifier})`).join(', ') || 'None'}
+- Trade goods: ${(w.economy.tradeGoods ?? []).map(g => `${g.name} (${g.abundance})`).join(', ') || 'None'}
+- Rare materials: ${(w.economy.rareMaterials ?? []).map(m => `${m.name} — ${m.source ?? '?'}`).join(', ') || 'None'}` : '  Not defined'}
+
+### CRAFTING
+${w.crafting ? `${w.crafting.description ?? ''}
+- Disciplines (${(w.crafting.disciplines ?? []).length}): ${(w.crafting.disciplines ?? []).map(d => d.name).join(', ') || 'None'}
+- Recipes (${(w.crafting.recipes ?? []).length} defined)` : '  Not defined'}
+
+### LOOT TABLES (${(w.lootTables ?? []).length} defined)
+${(w.lootTables ?? []).map(t => `  - ${t.name}: ${(t.items ?? []).length} items (context: ${t.context ?? '?'})`).join('\n') || '  None defined'}
+
+### RELATIONSHIP WEB (${(w.relationshipWeb ?? []).length} links)
+${relationshipWebList || '  None defined'}
+
+### TRAVEL NETWORK (${(w.travelNetwork ?? []).length} routes)
+${travelNetworkList || '  None defined'}
+
+### WORLD EVENTS (${(w.randomEvents ?? []).length} triggers)
+${randomEventsList || '  None defined'}
 
 ### ACTIVE QUESTS (${(ctx.activeQuests ?? []).length})
 ${questsList || '  None active'}
