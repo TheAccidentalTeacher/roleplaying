@@ -224,57 +224,30 @@ export default function Home() {
         </div>
 
         {/* ── Reference Tools ── */}
-        <div className="flex flex-col sm:flex-row items-center gap-3 w-full max-w-3xl">
-          <div className="w-full sm:flex-1 flex items-center justify-center">
-            <button
-              onClick={() => setShowCodex(true)}
-              className="group relative w-full rounded-xl border border-orange-800/40 bg-slate-900/60 backdrop-blur-sm
-                         hover:border-orange-500/60 hover:-translate-y-1 hover:shadow-xl hover:shadow-orange-900/20
-                         transition-all duration-300 overflow-hidden cursor-pointer"
-            >
-              <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-orange-400 to-transparent
-                              opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-              <div className="flex items-center gap-3 px-5 py-3.5">
-                <div className="w-9 h-9 rounded-lg bg-orange-900/30 border border-orange-800/40
-                                group-hover:border-orange-600/50 group-hover:bg-orange-900/50
-                                flex items-center justify-center transition-all duration-300 flex-shrink-0">
-                  <ScrollText className="w-5 h-5 text-orange-400 group-hover:text-orange-300 transition-colors" />
-                </div>
-                <div className="text-left">
-                  <div className="text-sm font-cinzel font-bold text-white">Weapon Codex</div>
-                  <div className="text-xs text-slate-500 group-hover:text-slate-400 transition-colors">Browse all weapons &amp; gear</div>
-                </div>
-                <span className="ml-auto text-xs text-orange-400/50 group-hover:text-orange-400 font-cinzel tracking-wider transition-colors">
-                  BROWSE →
-                </span>
+        <div className="w-full max-w-3xl">
+          <button
+            onClick={() => setShowCodex(true)}
+            className="group relative w-full rounded-xl border border-orange-800/40 bg-slate-900/60 backdrop-blur-sm
+                       hover:border-orange-500/60 hover:-translate-y-1 hover:shadow-xl hover:shadow-orange-900/20
+                       transition-all duration-300 overflow-hidden cursor-pointer"
+          >
+            <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-orange-400 to-transparent
+                            opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+            <div className="flex items-center gap-3 px-5 py-3.5">
+              <div className="w-9 h-9 rounded-lg bg-orange-900/30 border border-orange-800/40
+                              group-hover:border-orange-600/50 group-hover:bg-orange-900/50
+                              flex items-center justify-center transition-all duration-300 flex-shrink-0">
+                <ScrollText className="w-5 h-5 text-orange-400 group-hover:text-orange-300 transition-colors" />
               </div>
-            </button>
-          </div>
-          <div className="w-full sm:flex-1 flex items-center justify-center">
-            <Link
-              href="/game/continue"
-              className="group relative w-full rounded-xl border border-purple-800/40 bg-slate-900/60 backdrop-blur-sm
-                         hover:border-purple-500/60 hover:-translate-y-1 hover:shadow-xl hover:shadow-purple-900/20
-                         transition-all duration-300 overflow-hidden cursor-pointer"
-            >
-              <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-purple-400 to-transparent
-                              opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-              <div className="flex items-center gap-3 px-5 py-3.5">
-                <div className="w-9 h-9 rounded-lg bg-purple-900/30 border border-purple-800/40
-                                group-hover:border-purple-600/50 group-hover:bg-purple-900/50
-                                flex items-center justify-center transition-all duration-300 flex-shrink-0">
-                  <Sparkles className="w-5 h-5 text-purple-400 group-hover:text-purple-300 transition-colors" />
-                </div>
-                <div className="text-left">
-                  <div className="text-sm font-cinzel font-bold text-white">Abilities Reference</div>
-                  <div className="text-xs text-slate-500 group-hover:text-slate-400 transition-colors">View spells &amp; abilities in-game</div>
-                </div>
-                <span className="ml-auto text-xs text-purple-400/50 group-hover:text-purple-400 font-cinzel tracking-wider transition-colors">
-                  GO →
-                </span>
+              <div className="text-left">
+                <div className="text-sm font-cinzel font-bold text-white">Weapon Codex</div>
+                <div className="text-xs text-slate-500 group-hover:text-slate-400 transition-colors">Browse all weapons &amp; gear from any genre</div>
               </div>
-            </Link>
-          </div>
+              <span className="ml-auto text-xs text-orange-400/50 group-hover:text-orange-400 font-cinzel tracking-wider transition-colors">
+                BROWSE →
+              </span>
+            </div>
+          </button>
         </div>
 
         {/* ── Footer ── */}
