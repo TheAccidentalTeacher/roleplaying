@@ -41,6 +41,23 @@ export default function ChatArea({
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const [showScrollBtn, setShowScrollBtn] = useState(false);
+  // Track which messages have been spoken at least once (so we can show "Replay" instead of "Listen")
+  const [playedIds, setPlayedIds] = useState<Set<string>>(new Set());
+
+  const triggerSpeak = useCallback((text: string, id: string) => {
+    setPlayedIds(prev => new Set([...prev, id]));
+    onSpeak?.(text, id);
+  }, [onSpeak]);
+
+  // Also catch auto-played messages (started by page.tsx, not through onSpeak)
+  useEffect(() => {
+    if (activeSpeakingId && ttsState?.isSpeaking) {
+      setPlayedIds(prev => {
+        if (prev.has(activeSpeakingId)) return prev;
+        return new Set([...prev, activeSpeakingId]);
+      });
+    }
+  }, [activeSpeakingId, ttsState?.isSpeaking]);
 
   const scrollToBottom = useCallback(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -119,8 +136,10 @@ export default function ChatArea({
             {msg.role === 'assistant' && !msg.id.startsWith('msg-error-') && onSpeak && (() => {
               const isThisMsg = activeSpeakingId === msg.id;
               const isActive = isThisMsg && (ttsState?.isSpeaking || ttsState?.isPaused || ttsState?.isLoading);
+              const wasPlayed = playedIds.has(msg.id);
               return (
                 <div className="flex items-center gap-1.5 mt-1 mb-2 pl-7">
+                  {/* Primary button: Listen / Pause / Resume / Loading */}
                   <button
                     onClick={() => {
                       if (isThisMsg && ttsState?.isSpeaking) {
@@ -130,15 +149,22 @@ export default function ChatArea({
                       } else if (isThisMsg && ttsState?.isLoading) {
                         onStopTTS?.();
                       } else {
-                        onSpeak(msg.content, msg.id);
+                        triggerSpeak(msg.content, msg.id);
                       }
                     }}
                     className={`text-xs flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-all ${
                       isActive
                         ? 'bg-amber-500/10 border-amber-500/30 text-amber-300 hover:bg-amber-500/20'
-                        : 'bg-slate-800/50 border-slate-700/50 text-slate-400 hover:text-slate-200 hover:bg-slate-700/50 hover:border-slate-600'
+                        : wasPlayed && !isActive
+                          ? 'bg-slate-800/50 border-slate-600/50 text-slate-300 hover:text-white hover:bg-slate-700/50 hover:border-slate-500'
+                          : 'bg-slate-800/50 border-slate-700/50 text-slate-400 hover:text-slate-200 hover:bg-slate-700/50 hover:border-slate-600'
                     }`}
-                    title={isThisMsg && ttsState?.isSpeaking ? 'Pause' : isThisMsg && ttsState?.isPaused ? 'Resume' : 'Listen to this passage'}
+                    title={
+                      isThisMsg && ttsState?.isSpeaking ? 'Pause narration' :
+                      isThisMsg && ttsState?.isPaused   ? 'Resume narration' :
+                      wasPlayed ? 'Replay with current voice' :
+                      'Listen to this passage'
+                    }
                   >
                     {isThisMsg && ttsState?.isLoading ? (
                       <><span className="animate-pulse">⏳</span> Loading…</>
@@ -146,10 +172,14 @@ export default function ChatArea({
                       <><span>⏸️</span> Pause</>
                     ) : isThisMsg && ttsState?.isPaused ? (
                       <><span>▶️</span> Resume</>
+                    ) : wasPlayed ? (
+                      <><span>🔁</span> Replay</>
                     ) : (
                       <><span>🔊</span> Listen</>
                     )}
                   </button>
+
+                  {/* Stop button — only while active */}
                   {isActive && (
                     <button
                       onClick={() => onStopTTS?.()}
@@ -157,6 +187,17 @@ export default function ChatArea({
                       title="Stop"
                     >
                       ⏹️
+                    </button>
+                  )}
+
+                  {/* Redo button — shown when active (restart with current voice) or when a different msg is speaking */}
+                  {wasPlayed && !isActive && activeSpeakingId !== msg.id && (
+                    <button
+                      onClick={() => triggerSpeak(msg.content, msg.id)}
+                      className="text-xs px-2 py-1.5 rounded-lg text-slate-600 hover:text-sky-400 hover:bg-slate-800/50 border border-transparent hover:border-slate-700 transition-all"
+                      title="Re-narrate with current voice setting"
+                    >
+                      ↺
                     </button>
                   )}
                 </div>
