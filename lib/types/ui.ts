@@ -127,7 +127,7 @@ export interface UserSettings {
   tooltipsEnabled: boolean;
   compactMode: boolean;
   ttsEnabled: boolean;
-  ttsVoice: 'auto' | 'alloy' | 'echo' | 'fable' | 'onyx' | 'nova' | 'shimmer';
+  ttsVoice: 'auto' | 'alloy' | 'echo' | 'fable' | 'onyx' | 'nova' | 'shimmer' | 'ash' | 'ballad' | 'coral' | 'sage' | 'verse';
   ttsAutoPlay: boolean;
   ttsSpeed: number; // playback rate 0.5–3.0
 }

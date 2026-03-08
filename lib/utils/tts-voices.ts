@@ -2,16 +2,21 @@
 // TTS VOICE MAPPING — Maps world genres to OpenAI TTS voices
 // ============================================================
 
-export type TTSVoice = 'alloy' | 'echo' | 'fable' | 'onyx' | 'nova' | 'shimmer';
+export type TTSVoice = 'alloy' | 'echo' | 'fable' | 'onyx' | 'nova' | 'shimmer' | 'ash' | 'ballad' | 'coral' | 'sage' | 'verse';
 
 /**
  * Voice character profiles:
- *   onyx   — Deep, authoritative, gravelly   → Epic Fantasy, Military
- *   echo   — Warm, resonant, slightly ominous → Dark Fantasy, Horror, Lovecraftian
- *   fable  — Expressive, storytelling energy   → Whimsical, Comedy, Mythological
- *   alloy  — Neutral, clean, synthetic feel   → Sci-fi, Cyberpunk, Post-singularity
- *   nova   — Warm, inviting, emotive          → Romance, Mystery, Political Intrigue
- *   shimmer— Clear, crisp, precise            → Noir, Western, Steampunk, Survival
+ *   onyx   — Male   · American  · Deep, authoritative, gravelly
+ *   echo   — Male   · American  · Warm, resonant, slightly ominous
+ *   fable  — Male   · British   · Expressive storytelling energy
+ *   ballad — Male   · British   · Soft, emotive, lyrical baritone
+ *   verse  — Male   · American  · Versatile, conversational
+ *   ash    — Male   · American  · Clear, direct, slightly dry
+ *   alloy  — Male   · American  · Neutral, clean, synthetic feel
+ *   nova   — Female · American  · Warm, inviting, emotive
+ *   shimmer— Female · American  · Clear, crisp, precise
+ *   coral  — Female · American  · Bright, energetic, engaging
+ *   sage   — Female · American  · Calm, measured, thoughtful
  */
 
 const GENRE_VOICE_MAP: Record<string, TTSVoice> = {
@@ -124,9 +129,14 @@ export function getVoiceDescription(voice: TTSVoice): string {
     onyx:    'Deep & authoritative',
     echo:    'Warm & ominous',
     fable:   'Expressive storyteller',
+    ballad:  'Lyrical baritone',
+    verse:   'Dynamic & versatile',
+    ash:     'Clear & direct',
     alloy:   'Neutral & clean',
     nova:    'Warm & inviting',
     shimmer: 'Clear & precise',
+    coral:   'Bright & engaging',
+    sage:    'Calm & thoughtful',
   };
   return descriptions[voice] ?? voice;
 }

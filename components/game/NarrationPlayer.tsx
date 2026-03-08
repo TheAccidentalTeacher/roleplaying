@@ -10,17 +10,32 @@ import { useRef, useCallback, useState } from 'react';
 
 const SPEED_OPTIONS = [1, 1.5, 2, 2.5, 3] as const;
 
-const VOICE_OPTIONS = [
-  { value: 'auto',    label: '🎲 Auto' },
-  { value: 'onyx',    label: '🗡️ Onyx' },
-  { value: 'echo',    label: '🌑 Echo' },
-  { value: 'fable',   label: '📖 Fable' },
-  { value: 'alloy',   label: '⚡ Alloy' },
-  { value: 'nova',    label: '✨ Nova' },
-  { value: 'shimmer', label: '💎 Shimmer' },
-] as const;
+interface VoiceOption {
+  value: string;
+  label: string;
+  gender: 'Male' | 'Female' | 'Auto';
+  accent: string;
+  desc: string;
+}
 
-export type TTSVoiceSetting = 'auto' | 'alloy' | 'echo' | 'fable' | 'onyx' | 'nova' | 'shimmer';
+const VOICE_OPTIONS: VoiceOption[] = [
+  { value: 'auto',    label: 'Auto',    gender: 'Auto',   accent: 'By genre',  desc: 'Matched to world genre' },
+  // Male voices
+  { value: 'onyx',    label: 'Onyx',    gender: 'Male',   accent: 'American',  desc: 'Deep & authoritative' },
+  { value: 'echo',    label: 'Echo',    gender: 'Male',   accent: 'American',  desc: 'Warm & ominous' },
+  { value: 'fable',   label: 'Fable',   gender: 'Male',   accent: 'British',   desc: 'Expressive storyteller' },
+  { value: 'ballad',  label: 'Ballad',  gender: 'Male',   accent: 'British',   desc: 'Lyrical baritone' },
+  { value: 'verse',   label: 'Verse',   gender: 'Male',   accent: 'American',  desc: 'Versatile & conversational' },
+  { value: 'ash',     label: 'Ash',     gender: 'Male',   accent: 'American',  desc: 'Clear & direct' },
+  { value: 'alloy',   label: 'Alloy',   gender: 'Male',   accent: 'American',  desc: 'Neutral & synthetic' },
+  // Female voices
+  { value: 'nova',    label: 'Nova',    gender: 'Female', accent: 'American',  desc: 'Warm & emotive' },
+  { value: 'shimmer', label: 'Shimmer', gender: 'Female', accent: 'American',  desc: 'Crisp & precise' },
+  { value: 'coral',   label: 'Coral',   gender: 'Female', accent: 'American',  desc: 'Bright & engaging' },
+  { value: 'sage',    label: 'Sage',    gender: 'Female', accent: 'American',  desc: 'Calm & thoughtful' },
+];
+
+export type TTSVoiceSetting = 'auto' | 'alloy' | 'echo' | 'fable' | 'onyx' | 'nova' | 'shimmer' | 'ash' | 'ballad' | 'coral' | 'sage' | 'verse';
 
 interface NarrationPlayerProps {
   isSpeaking: boolean;
@@ -91,7 +106,8 @@ export default function NarrationPlayer({
   const visible = isSpeaking || isPaused || isLoading || !!error;
   if (!visible) return null;
 
-  const voiceLabel = VOICE_OPTIONS.find(v => v.value === currentVoice)?.label ?? '🎲 Auto';
+  const activeVoice = VOICE_OPTIONS.find(v => v.value === currentVoice) ?? VOICE_OPTIONS[0];
+  const genderIcon = activeVoice.gender === 'Female' ? '♀️' : activeVoice.gender === 'Male' ? '♂️' : '🎲';
 
   return (
     // Fixed floating bar, centered above the bottom action bar
@@ -189,26 +205,49 @@ export default function NarrationPlayer({
                   title="Change narrator voice"
                 >
                   <span>🎙️</span>
-                  <span>{voiceLabel}</span>
+                  <span>{genderIcon} {activeVoice.label}</span>
                 </button>
                 {showVoicePicker && (
-                  <div className="absolute bottom-8 right-0 bg-slate-800 border border-slate-600 rounded-xl shadow-xl p-2 grid grid-cols-2 gap-1 min-w-[200px] z-50">
-                    {VOICE_OPTIONS.map(opt => (
-                      <button
-                        key={opt.value}
-                        onClick={() => {
-                          onVoiceChange?.(opt.value as TTSVoiceSetting);
-                          setShowVoicePicker(false);
-                        }}
-                        className={`px-2 py-1.5 text-xs rounded-md text-left transition ${
-                          currentVoice === opt.value
-                            ? 'bg-sky-500/30 text-sky-300 border border-sky-500/40'
-                            : 'bg-slate-700/50 text-slate-400 hover:text-slate-200 hover:bg-slate-700 border border-transparent'
-                        }`}
-                      >
-                        {opt.label}
-                      </button>
-                    ))}
+                  <div className="absolute bottom-8 right-0 bg-slate-900 border border-slate-600 rounded-xl shadow-2xl p-2.5 z-50 w-[280px]">
+                    <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 px-1">Narrator Voice</p>
+                    {/* Auto */}
+                    <div className="mb-2">
+                      {VOICE_OPTIONS.filter(o => o.gender === 'Auto').map(opt => (
+                        <button key={opt.value} onClick={() => { onVoiceChange?.(opt.value as TTSVoiceSetting); setShowVoicePicker(false); }}
+                          className={`w-full px-2.5 py-2 text-xs rounded-lg text-left transition flex items-center justify-between gap-2 ${
+                            currentVoice === opt.value ? 'bg-sky-500/30 text-sky-300 border border-sky-500/40' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800 border border-transparent'
+                          }`}>
+                          <span className="font-medium">🎲 {opt.label}</span>
+                          <span className="text-[10px] text-slate-500">{opt.desc}</span>
+                        </button>
+                      ))}
+                    </div>
+                    {/* Male voices */}
+                    <p className="text-[10px] text-slate-600 px-1 mb-1">♂️ Male</p>
+                    <div className="grid grid-cols-2 gap-1 mb-2">
+                      {VOICE_OPTIONS.filter(o => o.gender === 'Male').map(opt => (
+                        <button key={opt.value} onClick={() => { onVoiceChange?.(opt.value as TTSVoiceSetting); setShowVoicePicker(false); }}
+                          className={`px-2 py-1.5 text-xs rounded-lg text-left transition ${
+                            currentVoice === opt.value ? 'bg-sky-500/30 text-sky-300 border border-sky-500/40' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800 border border-transparent'
+                          }`}>
+                          <span className="block font-medium">{opt.label}</span>
+                          <span className="block text-[10px] text-slate-500">{opt.accent} · {opt.desc}</span>
+                        </button>
+                      ))}
+                    </div>
+                    {/* Female voices */}
+                    <p className="text-[10px] text-slate-600 px-1 mb-1">♀️ Female</p>
+                    <div className="grid grid-cols-2 gap-1">
+                      {VOICE_OPTIONS.filter(o => o.gender === 'Female').map(opt => (
+                        <button key={opt.value} onClick={() => { onVoiceChange?.(opt.value as TTSVoiceSetting); setShowVoicePicker(false); }}
+                          className={`px-2 py-1.5 text-xs rounded-lg text-left transition ${
+                            currentVoice === opt.value ? 'bg-sky-500/30 text-sky-300 border border-sky-500/40' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800 border border-transparent'
+                          }`}>
+                          <span className="block font-medium">{opt.label}</span>
+                          <span className="block text-[10px] text-slate-500">{opt.accent} · {opt.desc}</span>
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>

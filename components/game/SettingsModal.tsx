@@ -132,27 +132,58 @@ export default function SettingsModal({ onClose }: SettingsModalProps) {
 
             {/* Narrator voice picker — always visible */}
             <SettingGroup label="Narrator Voice">
-              <div className="grid grid-cols-2 gap-1.5">
+              {/* Auto */}
+              <button
+                onClick={() => setSettings({ ttsVoice: 'auto' })}
+                className={`w-full mb-2 px-3 py-2 text-xs rounded-lg text-left transition flex items-center justify-between ${
+                  settings.ttsVoice === 'auto'
+                    ? 'bg-sky-500/30 text-sky-300 border border-sky-500/40'
+                    : 'bg-slate-800 text-slate-400 hover:text-slate-300 border border-transparent'
+                }`}
+              >
+                <span className="font-medium">🎲 Auto (by genre)</span>
+                <span className="text-[10px] text-slate-500">Matched to world genre</span>
+              </button>
+              {/* Male */}
+              <p className="text-[10px] text-slate-500 mb-1">♂️ Male voices</p>
+              <div className="grid grid-cols-2 gap-1 mb-3">
                 {([
-                  { value: 'auto',    label: '🎲 Auto',    desc: 'Chosen by world genre' },
-                  { value: 'onyx',    label: '🗡️ Onyx',    desc: 'Deep & authoritative' },
-                  { value: 'echo',    label: '🌑 Echo',    desc: 'Warm & ominous' },
-                  { value: 'fable',   label: '📖 Fable',   desc: 'Expressive storyteller' },
-                  { value: 'alloy',   label: '⚡ Alloy',   desc: 'Clean & synthetic' },
-                  { value: 'nova',    label: '✨ Nova',    desc: 'Warm & emotive' },
-                  { value: 'shimmer', label: '💎 Shimmer', desc: 'Crisp & precise' },
-                ] as { value: typeof settings.ttsVoice; label: string; desc: string }[]).map((opt) => (
-                  <button
-                    key={opt.value}
-                    onClick={() => setSettings({ ttsVoice: opt.value })}
-                    className={`px-2 py-2 text-xs rounded-md transition text-left ${
+                  { value: 'onyx',   label: 'Onyx',   accent: 'American', desc: 'Deep & authoritative' },
+                  { value: 'echo',   label: 'Echo',   accent: 'American', desc: 'Warm & ominous' },
+                  { value: 'fable',  label: 'Fable',  accent: 'British',  desc: 'Expressive storyteller' },
+                  { value: 'ballad', label: 'Ballad', accent: 'British',  desc: 'Lyrical baritone' },
+                  { value: 'verse',  label: 'Verse',  accent: 'American', desc: 'Conversational' },
+                  { value: 'ash',    label: 'Ash',    accent: 'American', desc: 'Clear & direct' },
+                  { value: 'alloy',  label: 'Alloy',  accent: 'American', desc: 'Neutral & synthetic' },
+                ] as { value: typeof settings.ttsVoice; label: string; accent: string; desc: string }[]).map((opt) => (
+                  <button key={opt.value} onClick={() => setSettings({ ttsVoice: opt.value })}
+                    className={`px-2 py-2 text-xs rounded-lg text-left transition ${
                       settings.ttsVoice === opt.value
                         ? 'bg-sky-500/30 text-sky-300 border border-sky-500/40'
                         : 'bg-slate-800 text-slate-400 hover:text-slate-300 border border-transparent'
-                    }`}
-                  >
+                    }`}>
                     <span className="block font-medium">{opt.label}</span>
-                    <span className="block text-[10px] text-slate-500 mt-0.5">{opt.desc}</span>
+                    <span className="block text-[10px] text-slate-500 mt-0.5">{opt.accent} · {opt.desc}</span>
+                  </button>
+                ))}
+              </div>
+              {/* Female */}
+              <p className="text-[10px] text-slate-500 mb-1">♀️ Female voices</p>
+              <div className="grid grid-cols-2 gap-1">
+                {([
+                  { value: 'nova',    label: 'Nova',    accent: 'American', desc: 'Warm & emotive' },
+                  { value: 'shimmer', label: 'Shimmer', accent: 'American', desc: 'Crisp & precise' },
+                  { value: 'coral',   label: 'Coral',   accent: 'American', desc: 'Bright & engaging' },
+                  { value: 'sage',    label: 'Sage',    accent: 'American', desc: 'Calm & thoughtful' },
+                ] as { value: typeof settings.ttsVoice; label: string; accent: string; desc: string }[]).map((opt) => (
+                  <button key={opt.value} onClick={() => setSettings({ ttsVoice: opt.value })}
+                    className={`px-2 py-2 text-xs rounded-lg text-left transition ${
+                      settings.ttsVoice === opt.value
+                        ? 'bg-sky-500/30 text-sky-300 border border-sky-500/40'
+                        : 'bg-slate-800 text-slate-400 hover:text-slate-300 border border-transparent'
+                    }`}>
+                    <span className="block font-medium">{opt.label}</span>
+                    <span className="block text-[10px] text-slate-500 mt-0.5">{opt.accent} · {opt.desc}</span>
                   </button>
                 ))}
               </div>

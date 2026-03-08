@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
   try {
     const { text, voice = 'onyx' } = (await req.json()) as {
       text: string;
-      voice?: 'alloy' | 'echo' | 'fable' | 'onyx' | 'nova' | 'shimmer';
+      voice?: 'alloy' | 'echo' | 'fable' | 'onyx' | 'nova' | 'shimmer' | 'ash' | 'ballad' | 'coral' | 'sage' | 'verse';
     };
 
     if (!text || text.trim().length === 0) {
