@@ -13,29 +13,31 @@ const SPEED_OPTIONS = [1, 1.5, 2, 2.5, 3] as const;
 interface VoiceOption {
   value: string;
   label: string;
-  gender: 'Male' | 'Female' | 'Auto';
+  gender: 'Male' | 'Female' | 'Auto' | 'Custom';
   accent: string;
   desc: string;
 }
 
 const VOICE_OPTIONS: VoiceOption[] = [
-  { value: 'auto',    label: 'Auto',    gender: 'Auto',   accent: 'By genre',  desc: 'Matched to world genre' },
+  { value: 'auto',       label: 'Auto',       gender: 'Auto',   accent: 'By genre',    desc: 'Matched to world genre' },
   // Male voices
-  { value: 'onyx',    label: 'Onyx',    gender: 'Male',   accent: 'American',  desc: 'Deep & authoritative' },
-  { value: 'echo',    label: 'Echo',    gender: 'Male',   accent: 'American',  desc: 'Warm & ominous' },
-  { value: 'fable',   label: 'Fable',   gender: 'Male',   accent: 'British',   desc: 'Expressive storyteller' },
-  { value: 'ballad',  label: 'Ballad',  gender: 'Male',   accent: 'British',   desc: 'Lyrical baritone' },
-  { value: 'verse',   label: 'Verse',   gender: 'Male',   accent: 'American',  desc: 'Versatile & conversational' },
-  { value: 'ash',     label: 'Ash',     gender: 'Male',   accent: 'American',  desc: 'Clear & direct' },
-  { value: 'alloy',   label: 'Alloy',   gender: 'Male',   accent: 'American',  desc: 'Neutral & synthetic' },
+  { value: 'onyx',       label: 'Onyx',       gender: 'Male',   accent: 'American',    desc: 'Deep & authoritative' },
+  { value: 'echo',       label: 'Echo',       gender: 'Male',   accent: 'American',    desc: 'Warm & ominous' },
+  { value: 'fable',      label: 'Fable',      gender: 'Male',   accent: 'British',     desc: 'Expressive storyteller' },
+  { value: 'ballad',     label: 'Ballad',     gender: 'Male',   accent: 'British',     desc: 'Lyrical baritone' },
+  { value: 'verse',      label: 'Verse',      gender: 'Male',   accent: 'American',    desc: 'Versatile & conversational' },
+  { value: 'ash',        label: 'Ash',        gender: 'Male',   accent: 'American',    desc: 'Clear & direct' },
+  { value: 'alloy',      label: 'Alloy',      gender: 'Male',   accent: 'American',    desc: 'Neutral & synthetic' },
   // Female voices
-  { value: 'nova',    label: 'Nova',    gender: 'Female', accent: 'American',  desc: 'Warm & emotive' },
-  { value: 'shimmer', label: 'Shimmer', gender: 'Female', accent: 'American',  desc: 'Crisp & precise' },
-  { value: 'coral',   label: 'Coral',   gender: 'Female', accent: 'American',  desc: 'Bright & engaging' },
-  { value: 'sage',    label: 'Sage',    gender: 'Female', accent: 'American',  desc: 'Calm & thoughtful' },
+  { value: 'nova',       label: 'Nova',       gender: 'Female', accent: 'American',    desc: 'Warm & emotive' },
+  { value: 'shimmer',    label: 'Shimmer',    gender: 'Female', accent: 'American',    desc: 'Crisp & precise' },
+  { value: 'coral',      label: 'Coral',      gender: 'Female', accent: 'American',    desc: 'Bright & engaging' },
+  { value: 'sage',       label: 'Sage',       gender: 'Female', accent: 'American',    desc: 'Calm & thoughtful' },
+  // ElevenLabs character voice
+  { value: 'elevenlabs', label: 'Character',  gender: 'Custom', accent: 'ElevenLabs',  desc: 'Any creature / character voice' },
 ];
 
-export type TTSVoiceSetting = 'auto' | 'alloy' | 'echo' | 'fable' | 'onyx' | 'nova' | 'shimmer' | 'ash' | 'ballad' | 'coral' | 'sage' | 'verse';
+export type TTSVoiceSetting = 'auto' | 'alloy' | 'echo' | 'fable' | 'onyx' | 'nova' | 'shimmer' | 'ash' | 'ballad' | 'coral' | 'sage' | 'verse' | 'elevenlabs';
 
 interface NarrationPlayerProps {
   isSpeaking: boolean;
@@ -47,6 +49,8 @@ interface NarrationPlayerProps {
   error: string | null;
   playbackRate: number;
   currentVoice?: TTSVoiceSetting;
+  /** Current ElevenLabs voice ID (used when currentVoice === 'elevenlabs') */
+  elVoiceId?: string;
   onPause: () => void;
   onResume: () => void;
   onStop: () => void;
@@ -55,6 +59,7 @@ interface NarrationPlayerProps {
   onSkipBack: (seconds?: number) => void;
   onSetSpeed: (rate: number) => void;
   onVoiceChange?: (voice: TTSVoiceSetting) => void;
+  onElVoiceIdChange?: (id: string) => void;
 }
 
 function formatTime(seconds: number): string {
@@ -74,6 +79,7 @@ export default function NarrationPlayer({
   error,
   playbackRate,
   currentVoice = 'auto',
+  elVoiceId = '',
   onPause,
   onResume,
   onStop,
@@ -82,9 +88,11 @@ export default function NarrationPlayer({
   onSkipBack,
   onSetSpeed,
   onVoiceChange,
+  onElVoiceIdChange,
 }: NarrationPlayerProps) {
   const progressBarRef = useRef<HTMLDivElement>(null);
   const [showVoicePicker, setShowVoicePicker] = useState(false);
+  const [elInputValue, setElInputValue] = useState(elVoiceId);
 
   const handleProgressClick = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
@@ -107,7 +115,7 @@ export default function NarrationPlayer({
   if (!visible) return null;
 
   const activeVoice = VOICE_OPTIONS.find(v => v.value === currentVoice) ?? VOICE_OPTIONS[0];
-  const genderIcon = activeVoice.gender === 'Female' ? '♀️' : activeVoice.gender === 'Male' ? '♂️' : '🎲';
+  const genderIcon = activeVoice.gender === 'Female' ? '♀️' : activeVoice.gender === 'Male' ? '♂️' : activeVoice.gender === 'Custom' ? '🎭' : '🎲';
 
   return (
     // Fixed floating bar, centered above the bottom action bar
@@ -247,6 +255,49 @@ export default function NarrationPlayer({
                           <span className="block text-[10px] text-slate-500">{opt.accent} · {opt.desc}</span>
                         </button>
                       ))}
+                    </div>
+                    {/* ElevenLabs Character Voices */}
+                    <div className="mt-3 pt-2.5 border-t border-slate-700">
+                      <p className="text-[10px] text-slate-500 px-1 mb-1.5">🎭 ElevenLabs Character Voices</p>
+                      <button
+                        onClick={() => { onVoiceChange?.('elevenlabs'); }}
+                        className={`w-full px-2.5 py-2 text-xs rounded-lg text-left transition mb-2 ${
+                          currentVoice === 'elevenlabs' ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800 border border-transparent'
+                        }`}
+                      >
+                        <span className="font-medium">Use Character Voice</span>
+                        <span className="block text-[10px] text-slate-500 mt-0.5">Monster, villain, creature, Gollum-style…</span>
+                      </button>
+                      {/* Voice ID input — always shown so it's easy to paste */}
+                      <div className="flex gap-1.5">
+                        <input
+                          type="text"
+                          value={elInputValue}
+                          onChange={e => setElInputValue(e.target.value)}
+                          placeholder="Paste ElevenLabs Voice ID…"
+                          className="flex-1 px-2 py-1.5 text-[11px] rounded-lg bg-slate-800 border border-slate-600 text-slate-300 placeholder-slate-600 focus:outline-none focus:border-purple-500/60"
+                        />
+                        <button
+                          onClick={() => {
+                            if (elInputValue.trim()) {
+                              onElVoiceIdChange?.(elInputValue.trim());
+                              onVoiceChange?.('elevenlabs');
+                              setShowVoicePicker(false);
+                            }
+                          }}
+                          disabled={!elInputValue.trim()}
+                          className="px-2.5 py-1.5 text-[11px] rounded-lg bg-purple-600 text-white hover:bg-purple-500 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                        >
+                          Use
+                        </button>
+                      </div>
+                      <p className="text-[10px] text-slate-600 mt-1.5 px-0.5">
+                        Find voices at{' '}
+                        <a href="https://elevenlabs.io/voice-library" target="_blank" rel="noreferrer" className="text-purple-400 hover:text-purple-300"
+                          onClick={e => e.stopPropagation()}
+                        >elevenlabs.io/voice-library</a>
+                        {' '}— filter by Creature, Fantasy, Villain
+                      </p>
                     </div>
                   </div>
                 )}

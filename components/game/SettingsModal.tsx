@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useGameStore } from '@/lib/store';
 
 interface SettingsModalProps {
@@ -10,6 +10,7 @@ interface SettingsModalProps {
 export default function SettingsModal({ onClose }: SettingsModalProps) {
   const { uiState, setSettings } = useGameStore();
   const settings = uiState.settings;
+  const [elInputValue, setElInputValue] = useState(settings.ttsElVoiceId ?? '');
 
   // Close on Escape key
   useEffect(() => {
@@ -187,6 +188,54 @@ export default function SettingsModal({ onClose }: SettingsModalProps) {
                   </button>
                 ))}
               </div>
+            </SettingGroup>
+
+            {/* ElevenLabs Character Voices */}
+            <SettingGroup label="🎭 Character Voices">
+              <p className="text-[11px] text-slate-400 mb-2 leading-relaxed">
+                Use any ElevenLabs voice — monsters, villains, creatures, Gollum-style…
+                Find voice IDs at{' '}
+                <a href="https://elevenlabs.io/voice-library" target="_blank" rel="noreferrer"
+                  className="text-purple-400 hover:text-purple-300 underline"
+                >elevenlabs.io/voice-library</a>.
+              </p>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={elInputValue}
+                  onChange={e => setElInputValue(e.target.value)}
+                  placeholder="Paste ElevenLabs Voice ID…"
+                  className="flex-1 px-3 py-2 text-xs rounded-lg bg-slate-800 border border-slate-600 text-slate-300 placeholder-slate-600 focus:outline-none focus:border-purple-500/60"
+                />
+                <button
+                  onClick={() => {
+                    if (elInputValue.trim()) {
+                      setSettings({ ttsElVoiceId: elInputValue.trim(), ttsVoice: 'elevenlabs' });
+                    }
+                  }}
+                  disabled={!elInputValue.trim()}
+                  className="px-3 py-2 text-xs rounded-lg bg-purple-600 text-white hover:bg-purple-500 disabled:opacity-40 disabled:cursor-not-allowed transition whitespace-nowrap"
+                >
+                  Set Voice
+                </button>
+              </div>
+              {settings.ttsElVoiceId && (
+                <p className="text-[10px] text-purple-400/80 mt-1.5">
+                  Active ID: <span className="font-mono">{settings.ttsElVoiceId}</span>
+                  {settings.ttsVoice === 'elevenlabs' ? ' ✔ In use' : ' (select above to use)'}
+                </p>
+              )}
+              <button
+                onClick={() => setSettings({ ttsVoice: 'elevenlabs' })}
+                disabled={!settings.ttsElVoiceId}
+                className={`w-full mt-2 px-3 py-2 text-xs rounded-lg text-left transition ${
+                  settings.ttsVoice === 'elevenlabs'
+                    ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40'
+                    : 'bg-slate-800 text-slate-400 hover:text-slate-300 border border-transparent disabled:opacity-40'
+                }`}
+              >
+                {settings.ttsVoice === 'elevenlabs' ? '🎭 Character voice active' : 'Use character voice for narration'}
+              </button>
             </SettingGroup>
 
             {settings.ttsEnabled && (

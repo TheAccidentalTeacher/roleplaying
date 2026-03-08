@@ -930,12 +930,19 @@ export default function GamePage() {
         if (ttsSettings.ttsEnabled && ttsSettings.ttsAutoPlay && cleanContent) {
           console.log(`[TTS] Auto-play triggered for message ${dmMsg.id}, content length=${cleanContent.length}`);
           setActiveSpeakingId(dmMsg.id);
-          const voice = getVoiceForWorld(
-            world?.primaryGenre,
-            world?.worldType,
-            ttsSettings.ttsVoice,
-          );
-          tts.speak(cleanContent, voice);
+          if (ttsSettings.ttsVoice === 'elevenlabs' && ttsSettings.ttsElVoiceId) {
+            tts.speak(cleanContent, 'elevenlabs', {
+              endpoint: '/api/tts-el',
+              extraBody: { voiceId: ttsSettings.ttsElVoiceId },
+            });
+          } else {
+            const voice = getVoiceForWorld(
+              world?.primaryGenre,
+              world?.worldType,
+              ttsSettings.ttsVoice,
+            );
+            tts.speak(cleanContent, voice);
+          }
         }
       } catch (error) {
         console.error('DM Error:', error);
@@ -1596,12 +1603,19 @@ export default function GamePage() {
                 onSpeak={ttsSettings.ttsEnabled ? (text: string, messageId: string) => {
                   console.log(`[TTS] Manual speak triggered for message ${messageId}, text length=${text.length}`);
                   setActiveSpeakingId(messageId);
-                  const voice = getVoiceForWorld(
-                    world?.primaryGenre,
-                    world?.worldType,
-                    ttsSettings.ttsVoice,
-                  );
-                  tts.speak(text, voice);
+                  if (ttsSettings.ttsVoice === 'elevenlabs' && ttsSettings.ttsElVoiceId) {
+                    tts.speak(text, 'elevenlabs', {
+                      endpoint: '/api/tts-el',
+                      extraBody: { voiceId: ttsSettings.ttsElVoiceId },
+                    });
+                  } else {
+                    const voice = getVoiceForWorld(
+                      world?.primaryGenre,
+                      world?.worldType,
+                      ttsSettings.ttsVoice,
+                    );
+                    tts.speak(text, voice);
+                  }
                 } : undefined}
                 ttsState={ttsSettings.ttsEnabled ? { isSpeaking: tts.isSpeaking, isPaused: tts.isPaused, isLoading: tts.isLoading } : undefined}
                 activeSpeakingId={activeSpeakingId}
@@ -1620,6 +1634,7 @@ export default function GamePage() {
                 error={tts.error}
                 playbackRate={tts.playbackRate}
                 currentVoice={ttsSettings.ttsVoice}
+                elVoiceId={ttsSettings.ttsElVoiceId}
                 onPause={tts.pause}
                 onResume={tts.resume}
                 onStop={() => { tts.stop(); setActiveSpeakingId(null); }}
@@ -1634,6 +1649,10 @@ export default function GamePage() {
                 onVoiceChange={(voice) => {
                   const { setSettings } = useGameStore.getState();
                   setSettings({ ttsVoice: voice });
+                }}
+                onElVoiceIdChange={(id) => {
+                  const { setSettings } = useGameStore.getState();
+                  setSettings({ ttsElVoiceId: id });
                 }}
               />
               <QuickActions

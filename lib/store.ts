@@ -60,6 +60,7 @@ const defaultSettings: UserSettings = {
   compactMode: false,
   ttsEnabled: false,
   ttsVoice: 'auto',
+  ttsElVoiceId: '',
   ttsAutoPlay: true,
   ttsSpeed: 1.0,
 }

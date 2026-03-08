@@ -6,6 +6,13 @@ import type { TTSVoice } from '@/lib/utils/tts-voices';
 // ── Chunk size for splitting long texts ──
 const CHUNK_CHAR_LIMIT = 2400; // Stay under API's 2500-char limit with margin
 
+export interface SpeakOptions {
+  /** Override the API endpoint (default: '/api/tts'). */
+  endpoint?: string;
+  /** Extra body fields — merged in, overriding the default `voice` field. */
+  extraBody?: Record<string, unknown>;
+}
+
 interface UseTTSReturn {
   /** Currently speaking (playing audio) */
   isSpeaking: boolean;
@@ -14,7 +21,7 @@ interface UseTTSReturn {
   /** Loading audio from API */
   isLoading: boolean;
   /** Speak the given text. Stops any current playback first. */
-  speak: (text: string, voice: TTSVoice) => Promise<void>;
+  speak: (text: string, voice: TTSVoice | 'elevenlabs', options?: SpeakOptions) => Promise<void>;
   /** Pause playback (can resume) */
   pause: () => void;
   /** Resume paused playback */
@@ -222,18 +229,19 @@ export function useTTS(): UseTTSReturn {
    */
   const fetchChunkAudio = useCallback(async (
     chunkText: string,
-    voice: TTSVoice,
     signal: AbortSignal,
     chunkIdx: number,
     totalChunks: number,
+    endpoint: string,
+    bodyBuilder: (text: string) => Record<string, unknown>,
   ): Promise<Blob> => {
-    console.log(`[TTS] Fetching chunk ${chunkIdx + 1}/${totalChunks} (${chunkText.length} chars)`);
+    console.log(`[TTS] Fetching chunk ${chunkIdx + 1}/${totalChunks} (${chunkText.length} chars) → ${endpoint}`);
     const t0 = performance.now();
 
-    const response = await fetch('/api/tts', {
+    const response = await fetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: chunkText, voice }),
+      body: JSON.stringify(bodyBuilder(chunkText)),
       signal,
     });
 
@@ -253,7 +261,11 @@ export function useTTS(): UseTTSReturn {
     return blob;
   }, []);
 
-  const speak = useCallback(async (text: string, voice: TTSVoice) => {
+  const speak = useCallback(async (text: string, voice: TTSVoice | 'elevenlabs', options?: SpeakOptions) => {
+    const endpoint = options?.endpoint ?? '/api/tts';
+    const bodyBuilder: (t: string) => Record<string, unknown> = options?.extraBody !== undefined
+      ? (t) => ({ text: t, ...options.extraBody })
+      : (t) => ({ text: t, voice });
     // Stop previous playback
     stop();
 
@@ -287,7 +299,7 @@ export function useTTS(): UseTTSReturn {
           console.warn('[TTS] Aborted before fetching chunk', i + 1);
           throw new DOMException('Aborted', 'AbortError');
         }
-        const blob = await fetchChunkAudio(chunks[i], voice, controller.signal, i, chunks.length);
+        const blob = await fetchChunkAudio(chunks[i], controller.signal, i, chunks.length, endpoint, bodyBuilder);
         blobs.push(blob);
       }
 
