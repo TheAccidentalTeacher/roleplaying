@@ -2,8 +2,6 @@
 
 import { useEffect } from 'react';
 import { useGameStore } from '@/lib/store';
-import { getVoiceDescription } from '@/lib/utils/tts-voices';
-import type { TTSVoice } from '@/lib/utils/tts-voices';
 
 interface SettingsModalProps {
   onClose: () => void;
@@ -124,64 +122,63 @@ export default function SettingsModal({ onClose }: SettingsModalProps) {
               onChange={(v) => setSettings({ ttsEnabled: v })}
             />
             {settings.ttsEnabled && (
-              <>
-                <ToggleSetting
-                  label="Auto-Play"
-                  description="Automatically read new DM messages"
-                  checked={settings.ttsAutoPlay}
-                  onChange={(v) => setSettings({ ttsAutoPlay: v })}
-                />
-                <SettingGroup label="Voice">
-                  <div className="grid grid-cols-2 gap-1.5">
-                    {([
-                      { value: 'auto', label: '🎲 Auto (by genre)' },
-                      { value: 'onyx', label: '🗡️ Onyx' },
-                      { value: 'echo', label: '🌑 Echo' },
-                      { value: 'fable', label: '📖 Fable' },
-                      { value: 'alloy', label: '⚡ Alloy' },
-                      { value: 'nova', label: '✨ Nova' },
-                      { value: 'shimmer', label: '💎 Shimmer' },
-                    ] as { value: typeof settings.ttsVoice; label: string }[]).map((opt) => (
-                      <button
-                        key={opt.value}
-                        onClick={() => setSettings({ ttsVoice: opt.value })}
-                        className={`px-2 py-1.5 text-xs rounded-md transition text-left ${
-                          settings.ttsVoice === opt.value
-                            ? 'bg-sky-500/30 text-sky-300 border border-sky-500/40'
-                            : 'bg-slate-800 text-slate-400 hover:text-slate-300 border border-transparent'
-                        }`}
-                      >
-                        <span className="block">{opt.label}</span>
-                        {opt.value !== 'auto' && (
-                          <span className="block text-[10px] text-slate-500">
-                            {getVoiceDescription(opt.value as TTSVoice)}
-                          </span>
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                </SettingGroup>
-                <SettingGroup label="Playback Speed">
-                  <div className="flex items-center gap-1.5">
-                    {([1, 1.5, 2, 2.5, 3] as const).map((speed) => (
-                      <button
-                        key={speed}
-                        onClick={() => setSettings({ ttsSpeed: speed })}
-                        className={`flex-1 px-2 py-1.5 text-xs font-bold rounded-md transition tabular-nums ${
-                          (settings.ttsSpeed ?? 1) === speed
-                            ? 'bg-amber-500/30 text-amber-300 border border-amber-500/40'
-                            : 'bg-slate-800 text-slate-400 hover:text-slate-300 border border-transparent'
-                        }`}
-                      >
-                        {speed}x
-                      </button>
-                    ))}
-                  </div>
-                  <p className="text-[10px] text-slate-500 mt-1">
-                    {(settings.ttsSpeed ?? 1) >= 2 ? 'Audiobook speed' : (settings.ttsSpeed ?? 1) >= 1.5 ? 'Faster narration' : 'Normal pace'}
-                  </p>
-                </SettingGroup>
-              </>
+              <ToggleSetting
+                label="Auto-Play"
+                description="Automatically read new DM messages"
+                checked={settings.ttsAutoPlay}
+                onChange={(v) => setSettings({ ttsAutoPlay: v })}
+              />
+            )}
+
+            {/* Narrator voice picker — always visible */}
+            <SettingGroup label="Narrator Voice">
+              <div className="grid grid-cols-2 gap-1.5">
+                {([
+                  { value: 'auto',    label: '🎲 Auto',    desc: 'Chosen by world genre' },
+                  { value: 'onyx',    label: '🗡️ Onyx',    desc: 'Deep & authoritative' },
+                  { value: 'echo',    label: '🌑 Echo',    desc: 'Warm & ominous' },
+                  { value: 'fable',   label: '📖 Fable',   desc: 'Expressive storyteller' },
+                  { value: 'alloy',   label: '⚡ Alloy',   desc: 'Clean & synthetic' },
+                  { value: 'nova',    label: '✨ Nova',    desc: 'Warm & emotive' },
+                  { value: 'shimmer', label: '💎 Shimmer', desc: 'Crisp & precise' },
+                ] as { value: typeof settings.ttsVoice; label: string; desc: string }[]).map((opt) => (
+                  <button
+                    key={opt.value}
+                    onClick={() => setSettings({ ttsVoice: opt.value })}
+                    className={`px-2 py-2 text-xs rounded-md transition text-left ${
+                      settings.ttsVoice === opt.value
+                        ? 'bg-sky-500/30 text-sky-300 border border-sky-500/40'
+                        : 'bg-slate-800 text-slate-400 hover:text-slate-300 border border-transparent'
+                    }`}
+                  >
+                    <span className="block font-medium">{opt.label}</span>
+                    <span className="block text-[10px] text-slate-500 mt-0.5">{opt.desc}</span>
+                  </button>
+                ))}
+              </div>
+            </SettingGroup>
+
+            {settings.ttsEnabled && (
+              <SettingGroup label="Playback Speed">
+                <div className="flex items-center gap-1.5">
+                  {([1, 1.5, 2, 2.5, 3] as const).map((speed) => (
+                    <button
+                      key={speed}
+                      onClick={() => setSettings({ ttsSpeed: speed })}
+                      className={`flex-1 px-2 py-1.5 text-xs font-bold rounded-md transition tabular-nums ${
+                        (settings.ttsSpeed ?? 1) === speed
+                          ? 'bg-amber-500/30 text-amber-300 border border-amber-500/40'
+                          : 'bg-slate-800 text-slate-400 hover:text-slate-300 border border-transparent'
+                      }`}
+                    >
+                      {speed}x
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[10px] text-slate-500 mt-1">
+                  {(settings.ttsSpeed ?? 1) >= 2 ? 'Audiobook speed' : (settings.ttsSpeed ?? 1) >= 1.5 ? 'Faster narration' : 'Normal pace'}
+                </p>
+              </SettingGroup>
             )}
           </div>
         </div>
