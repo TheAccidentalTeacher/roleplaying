@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { roll } from '@/lib/utils/dice';
+import DiceBoxCanvas, { DiceBoxHandle, DiceResult } from '@/components/shared/DiceBoxCanvas';
 
 interface MessageBubbleProps {
   role: 'user' | 'assistant' | 'system';
@@ -153,13 +153,29 @@ function DiceRollButtons({
   onRollResult: (result: string) => void;
 }) {
   const [results, setResults] = useState<Record<number, { dieRoll: number; total: number } | null>>({});
+  const [rolling, setRolling] = useState(false);
+  const diceBoxRef = useRef<DiceBoxHandle>(null);
+  const pendingRef = useRef<{ idx: number; req: DiceRequest } | null>(null);
 
   const handleRoll = (idx: number, req: DiceRequest) => {
-    if (results[idx]) return; // Already rolled
-    const dieRoll = roll(req.sides);
+    if (results[idx] || rolling) return; // Already rolled or mid-roll
+    pendingRef.current = { idx, req };
+    setRolling(true);
+    diceBoxRef.current?.roll(`1d${req.sides}`);
+  };
+
+  const handleResult = (diceResults: DiceResult[]) => {
+    const pending = pendingRef.current;
+    if (!pending || diceResults.length === 0) return;
+    const { idx, req } = pending;
+    const dieRoll = diceResults[0].value;
     const total = dieRoll + req.modifier;
     setResults((prev) => ({ ...prev, [idx]: { dieRoll, total } }));
-    // Send the result as a message to the DM
+    setRolling(false);
+    pendingRef.current = null;
+    // Clear the 3D dice after a brief moment so they don't stay on screen
+    setTimeout(() => diceBoxRef.current?.clear(), 2500);
+    // Send result to DM
     const modStr = req.modifier > 0 ? ` + ${req.modifier}` : '';
     onRollResult(
       `I rolled a d${req.sides}${modStr} for ${req.label}: 🎲 ${dieRoll}${modStr} = **${total}**`
@@ -168,6 +184,9 @@ function DiceRollButtons({
 
   return (
     <div className="flex flex-wrap gap-2 pl-2">
+      {/* Hidden-until-active singleton 3D canvas */}
+      <DiceBoxCanvas ref={diceBoxRef} onResult={handleResult} />
+
       {requests.map((req, i) => {
         const result = results[i];
         const modStr = req.modifier > 0 ? `+${req.modifier}` : '';
@@ -175,14 +194,16 @@ function DiceRollButtons({
           <button
             key={`dice-${req.label}-${req.sides}`}
             onClick={() => handleRoll(i, req)}
-            disabled={!!result}
+            disabled={!!result || rolling}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${
               result
                 ? 'bg-amber-900/30 border border-amber-500/30 text-amber-300 cursor-default'
+                : rolling
+                ? 'bg-amber-600/20 border border-amber-500/40 text-amber-300 opacity-60 cursor-wait'
                 : 'bg-amber-600/20 border border-amber-500/40 text-amber-300 hover:bg-amber-500/30 hover:border-amber-400 animate-pulse'
             }`}
           >
-            <span className="text-lg">🎲</span>
+            <span className="text-lg">{rolling && !result ? '⏳' : '🎲'}</span>
             {result ? (
               <span>
                 d{req.sides}{modStr} for {req.label}: {result.dieRoll}
