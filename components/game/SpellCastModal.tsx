@@ -22,6 +22,8 @@ interface SpellCastModalProps {
   genre?: string;
   /** Full magic system record — may contain abilityTerminology overrides */
   magicSystem?: MagicSystem;
+  /** When true: browse/reference mode — no casting, just inspect all abilities */
+  browseOnly?: boolean;
 }
 
 // ── School color mapping ─────────────────────────────────────
@@ -98,6 +100,7 @@ export default function SpellCastModal({
   onClose,
   genre,
   magicSystem,
+  browseOnly = false,
 }: SpellCastModalProps) {
   const term = useMemo(() => getSpellTerminology(genre, magicSystem), [genre, magicSystem]);
 
@@ -134,7 +137,7 @@ export default function SpellCastModal({
     }
   };
 
-  // Filtered spells
+  // Filtered spells — in browse mode, show all regardless of slot availability
   const filteredSpells = useMemo(() => {
     return allSpells.filter(sp => {
       if (filterTab === 'cantrip' && sp.level !== 0) return false;
@@ -178,8 +181,9 @@ export default function SpellCastModal({
           </div>
           <div>
             <h2 className={`font-cinzel font-bold text-base leading-none ${term.accentColor}`}>
-              {term.headerIcon} {term.verb.charAt(0).toUpperCase() + term.verb.slice(1)}{' '}
-              {term.ability.charAt(0).toUpperCase() + term.ability.slice(1)}
+              {term.headerIcon} {browseOnly
+                ? `${term.abilities.charAt(0).toUpperCase()}${term.abilities.slice(1)} Reference`
+                : `${term.verb.charAt(0).toUpperCase()}${term.verb.slice(1)} ${term.ability.charAt(0).toUpperCase()}${term.ability.slice(1)}`}
             </h2>
             {slotSummary && (
               <p className="text-[10px] text-slate-500 mt-0.5">{slotSummary}</p>
@@ -243,16 +247,18 @@ export default function SpellCastModal({
               const isSelected = selected?.id === spell.id;
               const slotForSpell = spellcasting.spellSlots.find(s => s.level === spell.level);
               const hasSlot = spell.level === 0 || spellcasting.spellSlots.some(s => s.level >= spell.level && s.remaining > 0);
+              // In browse mode all spells are selectable for inspection
+              const isClickable = browseOnly || hasSlot || spell.level === 0;
 
               return (
                 <button
                   key={spell.id}
                   onClick={() => handleSelectSpell(spell)}
-                  disabled={!hasSlot && spell.level !== 0}
+                  disabled={!isClickable}
                   className={`w-full text-left rounded-xl border px-3 py-2.5 transition-all ${
                     isSelected
                       ? `${sch.bg} ${sch.border} ring-1 ring-purple-500/40`
-                      : hasSlot || spell.level === 0
+                      : isClickable
                       ? `bg-slate-800/40 border-slate-700/30 hover:${sch.bg} hover:${sch.border}`
                       : 'bg-slate-800/20 border-slate-800/30 opacity-40 cursor-not-allowed'
                   }`}
@@ -295,7 +301,9 @@ export default function SpellCastModal({
                           : term.tierLabel(spell.level)}
                       </div>
                       {spell.level > 0 && slotForSpell && (
-                        <div className="text-[9px] text-slate-600 mt-0.5">
+                        <div className={`text-[9px] mt-0.5 ${
+                          slotForSpell.remaining > 0 ? 'text-slate-600' : 'text-red-500/60'
+                        }`}>
                           {slotForSpell.remaining}/{slotForSpell.total} {term.slotsLabel}
                         </div>
                       )}
@@ -345,25 +353,36 @@ export default function SpellCastModal({
                   </p>
                 )}
               </div>
-              <button
-                onClick={handleConfirmCast}
-                disabled={!canCast}
-                className={`flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-xl border font-medium text-sm transition-all ${
-                  canCast
-                    ? 'border-purple-500/60 bg-purple-900/20 text-purple-300 hover:bg-purple-900/30 hover:border-purple-500/80'
-                    : 'border-slate-700 bg-slate-800/40 text-slate-600 cursor-not-allowed'
-                }`}
-              >
-                <Sparkles className={`w-4 h-4 ${canCast ? 'text-purple-400' : 'text-slate-600'}`} />
-                {selected.level === 0
-                  ? `${term.verb.charAt(0).toUpperCase()}${term.verb.slice(1)} ${term.cantripLabel}`
-                  : `${term.verb.charAt(0).toUpperCase()}${term.verb.slice(1)} (${term.tierLabel(chosenSlotLevel ?? selected.level)} ${term.slotLabel})`
-                }
-              </button>
+              {browseOnly ? (
+                <button
+                  onClick={onClose}
+                  className="flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-600/50 bg-slate-800/50 text-slate-300 hover:bg-slate-700/50 font-medium text-sm transition-all"
+                >
+                  <X className="w-4 h-4" /> Close
+                </button>
+              ) : (
+                <button
+                  onClick={handleConfirmCast}
+                  disabled={!canCast}
+                  className={`flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-xl border font-medium text-sm transition-all ${
+                    canCast
+                      ? 'border-purple-500/60 bg-purple-900/20 text-purple-300 hover:bg-purple-900/30 hover:border-purple-500/80'
+                      : 'border-slate-700 bg-slate-800/40 text-slate-600 cursor-not-allowed'
+                  }`}
+                >
+                  <Sparkles className={`w-4 h-4 ${canCast ? 'text-purple-400' : 'text-slate-600'}`} />
+                  {selected.level === 0
+                    ? `${term.verb.charAt(0).toUpperCase()}${term.verb.slice(1)} ${term.cantripLabel}`
+                    : `${term.verb.charAt(0).toUpperCase()}${term.verb.slice(1)} (${term.tierLabel(chosenSlotLevel ?? selected.level)} ${term.slotLabel})`
+                  }
+                </button>
+              )}
             </div>
           ) : (
             <p className="text-xs text-slate-600 italic text-center">
-              Select {/^[aeiou]/i.test(term.ability) ? 'an' : 'a'} {term.ability} to {term.verb}.
+              {browseOnly
+                ? `Select ${/^[aeiou]/i.test(term.ability) ? 'an' : 'a'} ${term.ability} to inspect its details.`
+                : `Select ${/^[aeiou]/i.test(term.ability) ? 'an' : 'a'} ${term.ability} to ${term.verb}.`}
             </p>
           )}
         </div>

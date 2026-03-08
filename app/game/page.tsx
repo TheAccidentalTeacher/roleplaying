@@ -70,6 +70,7 @@ import type { MerchantItem } from '@/lib/types/economy';
 import type { CharacterLegacy, Achievement } from '@/lib/types/session';
 import type { NPC } from '@/lib/types/npc';
 import { User } from 'lucide-react';
+import { getSpellTerminology } from '@/lib/utils/spell-terminology';
 
 interface ChatMsg {
   id: string;
@@ -150,6 +151,7 @@ export default function GamePage() {
   const [oracleOpen, setOracleOpen] = useState(false);
   const [showCodex, setShowCodex] = useState(false);
   const [showSpellCastModal, setShowSpellCastModal] = useState(false);
+  const [showSpellBrowseModal, setShowSpellBrowseModal] = useState(false);
   const achievementStatsRef = useRef({ totalEnemiesDefeated: 0, totalQuestsCompleted: 0, totalGoldEarned: 0, totalItemsCollected: 0, totalSecretsDiscovered: 0, events: [] as string[] });
   const sessionSummaryRef = useRef<string | undefined>(undefined);
   const { toasts, addToast, removeToast } = useToast();
@@ -1740,10 +1742,26 @@ export default function GamePage() {
                 >
                   🎨 Portrait Gallery
                 </button>
+                {/* Weapon Codex */}
+                <button
+                  onClick={() => setShowCodex(true)}
+                  className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-orange-900/30 hover:bg-orange-800/40 border border-orange-700/40 rounded-lg text-sm text-orange-300 transition-colors"
+                >
+                  ⚔️ {(() => { const wt = getSpellTerminology(world?.primaryGenre, world?.magicSystem); return wt.ability === 'spell' ? 'Weapon Codex' : 'Arsenal Codex'; })()}
+                </button>
+                {/* Abilities Reference — only when character has spellcasting */}
+                {fullCharacter.spellcasting && (
+                  <button
+                    onClick={() => setShowSpellBrowseModal(true)}
+                    className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-purple-900/30 hover:bg-purple-800/40 border border-purple-700/40 rounded-lg text-sm text-purple-300 transition-colors"
+                  >
+                    {(() => { const t = getSpellTerminology(world?.primaryGenre, world?.magicSystem); return `${t.headerIcon} ${t.abilities.charAt(0).toUpperCase()}${t.abilities.slice(1)} Reference`; })()}
+                  </button>
+                )}
                 {!inCombat && (
                   <button
                     onClick={() => setShowRestMenu(true)}
-                    className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-purple-900/30 hover:bg-purple-800/40 border border-purple-700/40 rounded-lg text-sm text-purple-300 transition-colors"
+                    className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-teal-900/30 hover:bg-teal-800/40 border border-teal-700/40 rounded-lg text-sm text-teal-300 transition-colors"
                   >
                     🌙 Rest & Recovery
                   </button>
@@ -1815,6 +1833,30 @@ export default function GamePage() {
                   className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-indigo-900/30 hover:bg-indigo-800/40 border border-indigo-700/40 rounded-lg text-sm text-indigo-300 transition-colors"
                 >
                   🎨 Portrait Gallery
+                </button>
+              </div>
+            )}
+
+            {/* Weapon Codex Button — Mobile */}
+            {fullCharacter && (
+              <div className="px-3 py-2 border-t border-slate-700/30">
+                <button
+                  onClick={() => { setShowSidebar(false); setShowCodex(true); }}
+                  className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-orange-900/30 hover:bg-orange-800/40 border border-orange-700/40 rounded-lg text-sm text-orange-300 transition-colors"
+                >
+                  ⚔️ {(() => { const wt = getSpellTerminology(world?.primaryGenre, world?.magicSystem); return wt.ability === 'spell' ? 'Weapon Codex' : 'Arsenal Codex'; })()}
+                </button>
+              </div>
+            )}
+
+            {/* Abilities Reference Button — Mobile */}
+            {fullCharacter?.spellcasting && (
+              <div className="px-3 py-2 border-t border-slate-700/30">
+                <button
+                  onClick={() => { setShowSidebar(false); setShowSpellBrowseModal(true); }}
+                  className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-purple-900/30 hover:bg-purple-800/40 border border-purple-700/40 rounded-lg text-sm text-purple-300 transition-colors"
+                >
+                  {(() => { const t = getSpellTerminology(world?.primaryGenre, world?.magicSystem); return `${t.headerIcon} ${t.abilities.charAt(0).toUpperCase()}${t.abilities.slice(1)} Reference`; })()}
                 </button>
               </div>
             )}
@@ -2104,6 +2146,19 @@ export default function GamePage() {
           onClose={() => setShowSpellCastModal(false)}
           genre={world?.primaryGenre}
           magicSystem={world?.magicSystem}
+        />
+      )}
+
+      {/* Abilities Reference — browse-only, accessible any time */}
+      {showSpellBrowseModal && fullCharacter?.spellcasting && (
+        <SpellCastModal
+          spellcasting={fullCharacter.spellcasting}
+          characterLevel={fullCharacter.level}
+          onCast={() => setShowSpellBrowseModal(false)}
+          onClose={() => setShowSpellBrowseModal(false)}
+          genre={world?.primaryGenre}
+          magicSystem={world?.magicSystem}
+          browseOnly
         />
       )}
 
