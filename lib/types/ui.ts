@@ -130,6 +130,8 @@ export interface UserSettings {
   ttsVoice: 'auto' | 'alloy' | 'echo' | 'fable' | 'onyx' | 'nova' | 'shimmer' | 'ash' | 'ballad' | 'coral' | 'sage' | 'verse' | 'elevenlabs';
   /** ElevenLabs voice ID — used when ttsVoice is 'elevenlabs' */
   ttsElVoiceId: string;
+  /** Named ElevenLabs voice presets the user has saved */
+  ttsElPresets: Array<{ name: string; voiceId: string }>;
   ttsAutoPlay: boolean;
   ttsSpeed: number; // playback rate 0.5–3.0
 }

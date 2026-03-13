@@ -51,6 +51,8 @@ interface NarrationPlayerProps {
   currentVoice?: TTSVoiceSetting;
   /** Current ElevenLabs voice ID (used when currentVoice === 'elevenlabs') */
   elVoiceId?: string;
+  /** Saved ElevenLabs character voice presets */
+  elPresets?: Array<{ name: string; voiceId: string }>;
   onPause: () => void;
   onResume: () => void;
   onStop: () => void;
@@ -60,6 +62,8 @@ interface NarrationPlayerProps {
   onSetSpeed: (rate: number) => void;
   onVoiceChange?: (voice: TTSVoiceSetting) => void;
   onElVoiceIdChange?: (id: string) => void;
+  onSavePreset?: (name: string, voiceId: string) => void;
+  onDeletePreset?: (voiceId: string) => void;
 }
 
 function formatTime(seconds: number): string {
@@ -80,6 +84,7 @@ export default function NarrationPlayer({
   playbackRate,
   currentVoice = 'auto',
   elVoiceId = '',
+  elPresets = [],
   onPause,
   onResume,
   onStop,
@@ -89,10 +94,13 @@ export default function NarrationPlayer({
   onSetSpeed,
   onVoiceChange,
   onElVoiceIdChange,
+  onSavePreset,
+  onDeletePreset,
 }: NarrationPlayerProps) {
   const progressBarRef = useRef<HTMLDivElement>(null);
   const [showVoicePicker, setShowVoicePicker] = useState(false);
   const [elInputValue, setElInputValue] = useState(elVoiceId);
+  const [savePresetName, setSavePresetName] = useState('');
 
   const handleProgressClick = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
@@ -259,17 +267,42 @@ export default function NarrationPlayer({
                     {/* ElevenLabs Character Voices */}
                     <div className="mt-3 pt-2.5 border-t border-slate-700">
                       <p className="text-[10px] text-slate-500 px-1 mb-1.5">🎭 ElevenLabs Character Voices</p>
-                      <button
-                        onClick={() => { onVoiceChange?.('elevenlabs'); }}
-                        className={`w-full px-2.5 py-2 text-xs rounded-lg text-left transition mb-2 ${
-                          currentVoice === 'elevenlabs' ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800 border border-transparent'
-                        }`}
-                      >
-                        <span className="font-medium">Use Character Voice</span>
-                        <span className="block text-[10px] text-slate-500 mt-0.5">Monster, villain, creature, Gollum-style…</span>
-                      </button>
-                      {/* Voice ID input — always shown so it's easy to paste */}
-                      <div className="flex gap-1.5">
+
+                      {/* Saved presets */}
+                      {elPresets.length > 0 && (
+                        <div className="flex flex-col gap-1 mb-2">
+                          {elPresets.map(p => (
+                            <div key={p.voiceId} className="flex items-center gap-1">
+                              <button
+                                onClick={() => {
+                                  setElInputValue(p.voiceId);
+                                  onElVoiceIdChange?.(p.voiceId);
+                                  onVoiceChange?.('elevenlabs');
+                                  setShowVoicePicker(false);
+                                }}
+                                className={`flex-1 px-2.5 py-1.5 text-xs rounded-lg text-left transition ${
+                                  currentVoice === 'elevenlabs' && elVoiceId === p.voiceId
+                                    ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40'
+                                    : 'text-slate-300 hover:text-white hover:bg-slate-800 border border-transparent'
+                                }`}
+                              >
+                                <span className="font-medium">{p.name}</span>
+                                <span className="block text-[10px] text-slate-600 font-mono truncate">{p.voiceId}</span>
+                              </button>
+                              <button
+                                onClick={() => onDeletePreset?.(p.voiceId)}
+                                className="w-5 h-5 flex items-center justify-center text-slate-600 hover:text-red-400 transition-colors flex-shrink-0"
+                                title="Remove preset"
+                              >
+                                ×
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Custom voice ID input */}
+                      <div className="flex gap-1.5 mb-1.5">
                         <input
                           type="text"
                           value={elInputValue}
@@ -291,12 +324,38 @@ export default function NarrationPlayer({
                           Use
                         </button>
                       </div>
-                      <p className="text-[10px] text-slate-600 mt-1.5 px-0.5">
-                        Find voices at{' '}
-                        <a href="https://elevenlabs.io/voice-library" target="_blank" rel="noreferrer" className="text-purple-400 hover:text-purple-300"
+
+                      {/* Save current ID as a named preset */}
+                      {elInputValue.trim() && (
+                        <div className="flex gap-1.5 mb-1.5">
+                          <input
+                            type="text"
+                            value={savePresetName}
+                            onChange={e => setSavePresetName(e.target.value)}
+                            placeholder="Name this preset…"
+                            className="flex-1 px-2 py-1.5 text-[11px] rounded-lg bg-slate-800 border border-slate-600 text-slate-300 placeholder-slate-600 focus:outline-none focus:border-purple-500/60"
+                          />
+                          <button
+                            onClick={() => {
+                              if (savePresetName.trim() && elInputValue.trim()) {
+                                onSavePreset?.(savePresetName.trim(), elInputValue.trim());
+                                setSavePresetName('');
+                              }
+                            }}
+                            disabled={!savePresetName.trim()}
+                            className="px-2.5 py-1.5 text-[11px] rounded-lg bg-slate-700 text-slate-300 hover:bg-slate-600 disabled:opacity-40 disabled:cursor-not-allowed transition whitespace-nowrap"
+                          >
+                            Save
+                          </button>
+                        </div>
+                      )}
+
+                      <p className="text-[10px] text-slate-600 mt-1 px-0.5">
+                        <a href="https://elevenlabs.io/voice-library" target="_blank" rel="noreferrer"
+                          className="text-purple-400/70 hover:text-purple-300"
                           onClick={e => e.stopPropagation()}
                         >elevenlabs.io/voice-library</a>
-                        {' '}— filter by Creature, Fantasy, Villain
+                        {' '}— filter Creature, Fantasy, Villain
                       </p>
                     </div>
                   </div>

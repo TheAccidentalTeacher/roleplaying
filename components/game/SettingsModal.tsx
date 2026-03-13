@@ -11,6 +11,7 @@ export default function SettingsModal({ onClose }: SettingsModalProps) {
   const { uiState, setSettings } = useGameStore();
   const settings = uiState.settings;
   const [elInputValue, setElInputValue] = useState(settings.ttsElVoiceId ?? '');
+  const [savePresetName, setSavePresetName] = useState('');
 
   // Close on Escape key
   useEffect(() => {
@@ -193,13 +194,46 @@ export default function SettingsModal({ onClose }: SettingsModalProps) {
             {/* ElevenLabs Character Voices */}
             <SettingGroup label="🎭 Character Voices">
               <p className="text-[11px] text-slate-400 mb-2 leading-relaxed">
-                Use any ElevenLabs voice — monsters, villains, creatures, Gollum-style…
-                Find voice IDs at{' '}
+                Use any{' '}
                 <a href="https://elevenlabs.io/voice-library" target="_blank" rel="noreferrer"
                   className="text-purple-400 hover:text-purple-300 underline"
-                >elevenlabs.io/voice-library</a>.
+                >ElevenLabs</a>{' '}
+                voice — monsters, villains, creatures, Gollum…
               </p>
-              <div className="flex gap-2">
+
+              {/* Saved presets */}
+              {(settings.ttsElPresets ?? []).length > 0 && (
+                <div className="flex flex-col gap-1 mb-3">
+                  {(settings.ttsElPresets ?? []).map(p => (
+                    <div key={p.voiceId} className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => setSettings({ ttsElVoiceId: p.voiceId, ttsVoice: 'elevenlabs' })}
+                        className={`flex-1 px-2.5 py-2 text-xs rounded-lg text-left transition ${
+                          settings.ttsVoice === 'elevenlabs' && settings.ttsElVoiceId === p.voiceId
+                            ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40'
+                            : 'bg-slate-800 text-slate-300 hover:text-white border border-transparent'
+                        }`}
+                      >
+                        <span className="font-medium">{p.name}</span>
+                        <span className="block text-[10px] text-slate-600 font-mono truncate mt-0.5">{p.voiceId}</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          const updated = (settings.ttsElPresets ?? []).filter(x => x.voiceId !== p.voiceId);
+                          setSettings({ ttsElPresets: updated });
+                        }}
+                        className="w-6 h-6 flex items-center justify-center rounded text-slate-600 hover:text-red-400 hover:bg-slate-800 transition flex-shrink-0"
+                        title="Remove preset"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Custom Voice ID input */}
+              <div className="flex gap-2 mb-1.5">
                 <input
                   type="text"
                   value={elInputValue}
@@ -216,26 +250,43 @@ export default function SettingsModal({ onClose }: SettingsModalProps) {
                   disabled={!elInputValue.trim()}
                   className="px-3 py-2 text-xs rounded-lg bg-purple-600 text-white hover:bg-purple-500 disabled:opacity-40 disabled:cursor-not-allowed transition whitespace-nowrap"
                 >
-                  Set Voice
+                  Use
                 </button>
               </div>
+
+              {/* Save as named preset */}
+              {elInputValue.trim() && (
+                <div className="flex gap-2 mb-1.5">
+                  <input
+                    type="text"
+                    value={savePresetName}
+                    onChange={e => setSavePresetName(e.target.value)}
+                    placeholder="Name this preset…"
+                    className="flex-1 px-3 py-2 text-xs rounded-lg bg-slate-800 border border-slate-600 text-slate-300 placeholder-slate-600 focus:outline-none focus:border-purple-500/60"
+                  />
+                  <button
+                    onClick={() => {
+                      if (savePresetName.trim() && elInputValue.trim()) {
+                        const existing = settings.ttsElPresets ?? [];
+                        const deduped = existing.filter(p => p.voiceId !== elInputValue.trim());
+                        setSettings({ ttsElPresets: [...deduped, { name: savePresetName.trim(), voiceId: elInputValue.trim() }] });
+                        setSavePresetName('');
+                      }
+                    }}
+                    disabled={!savePresetName.trim()}
+                    className="px-3 py-2 text-xs rounded-lg bg-slate-700 text-slate-300 hover:bg-slate-600 disabled:opacity-40 disabled:cursor-not-allowed transition whitespace-nowrap"
+                  >
+                    Save
+                  </button>
+                </div>
+              )}
+
               {settings.ttsElVoiceId && (
-                <p className="text-[10px] text-purple-400/80 mt-1.5">
-                  Active ID: <span className="font-mono">{settings.ttsElVoiceId}</span>
-                  {settings.ttsVoice === 'elevenlabs' ? ' ✔ In use' : ' (select above to use)'}
+                <p className="text-[10px] text-purple-400/70 mt-1">
+                  Active:{' '}<span className="font-mono">{settings.ttsElVoiceId}</span>
+                  {settings.ttsVoice === 'elevenlabs' && ' ✔'}
                 </p>
               )}
-              <button
-                onClick={() => setSettings({ ttsVoice: 'elevenlabs' })}
-                disabled={!settings.ttsElVoiceId}
-                className={`w-full mt-2 px-3 py-2 text-xs rounded-lg text-left transition ${
-                  settings.ttsVoice === 'elevenlabs'
-                    ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40'
-                    : 'bg-slate-800 text-slate-400 hover:text-slate-300 border border-transparent disabled:opacity-40'
-                }`}
-              >
-                {settings.ttsVoice === 'elevenlabs' ? '🎭 Character voice active' : 'Use character voice for narration'}
-              </button>
             </SettingGroup>
 
             {settings.ttsEnabled && (

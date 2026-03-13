@@ -61,6 +61,10 @@ const defaultSettings: UserSettings = {
   ttsEnabled: false,
   ttsVoice: 'auto',
   ttsElVoiceId: '',
+  ttsElPresets: [
+    { name: 'Gollum',      voiceId: '1zvnni6XluAvqQJWPf1M' },
+    { name: 'Sage Wizard', voiceId: '6sFKzaJr574YWVu4UuJF' },
+  ],
   ttsAutoPlay: true,
   ttsSpeed: 1.0,
 }

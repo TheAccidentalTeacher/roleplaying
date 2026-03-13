@@ -1635,6 +1635,7 @@ export default function GamePage() {
                 playbackRate={tts.playbackRate}
                 currentVoice={ttsSettings.ttsVoice}
                 elVoiceId={ttsSettings.ttsElVoiceId}
+                elPresets={ttsSettings.ttsElPresets ?? []}
                 onPause={tts.pause}
                 onResume={tts.resume}
                 onStop={() => { tts.stop(); setActiveSpeakingId(null); }}
@@ -1653,6 +1654,17 @@ export default function GamePage() {
                 onElVoiceIdChange={(id) => {
                   const { setSettings } = useGameStore.getState();
                   setSettings({ ttsElVoiceId: id });
+                }}
+                onSavePreset={(name, voiceId) => {
+                  const state = useGameStore.getState();
+                  const existing = state.uiState.settings.ttsElPresets ?? [];
+                  const deduped = existing.filter((p: { voiceId: string }) => p.voiceId !== voiceId);
+                  state.setSettings({ ttsElPresets: [...deduped, { name, voiceId }] });
+                }}
+                onDeletePreset={(voiceId) => {
+                  const state = useGameStore.getState();
+                  const existing = state.uiState.settings.ttsElPresets ?? [];
+                  state.setSettings({ ttsElPresets: existing.filter((p: { voiceId: string }) => p.voiceId !== voiceId) });
                 }}
               />
               <QuickActions
