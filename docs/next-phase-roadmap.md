@@ -391,22 +391,22 @@ No new database, no new auth layer, no new infrastructure required until Tier 3.
 
 ## Ordered Implementation Checklist
 
-### This Week
-- [ ] **T1-A** Strip markdown from TTS text (`lib/utils/strip-markdown.ts` + wire in `page.tsx`)
-- [ ] **T1-D** Add Langfuse to DM route handler (1 npm install, 3 env vars)
-- [ ] **T1-C** Per-message thumbs 👍 👎 (Zustand field + ChatArea UI)
-- [ ] **T1-B** Freesound ambient audio (scene-type → API query → looping background audio)
-- [ ] **T1-E** Session export button (Settings modal → JSON download)
+### ✅ Tier 1 — Shipped (commit `f5e777b`)
+- [x] **T1-A** Strip markdown from TTS text (`lib/utils/strip-markdown.ts` + wire in `page.tsx`)
+- [x] **T1-D** Add Langfuse to DM route handler (1 npm install, 3 env vars)
+- [x] **T1-C** Per-message thumbs 👍 👎 (Zustand field + ChatArea UI)
+- [x] **T1-B** Freesound ambient audio (scene-type → API query → looping background audio)
+- [x] **T1-E** Session export button (Settings modal → JSON download)
 
-### Next Sprint
-- [ ] **T2-A** Azure Speech as 3rd TTS provider (`/api/tts-az`, add `'azure'` to voice picker)
-- [ ] **T2-C** Move Oracle route to Groq (speed, cost)
-- [ ] **T2-D** System prompt versioning (hash on game start, include in export)
-- [ ] **T2-G** Cloudinary for scene images (replace base64 with CDN URL)
-- [ ] **T2-B** Stability AI scene images with style presets (optional alt to DALL-E)
-- [ ] **T2-E** Eval endpoint (Groq-powered, trigger on 👎)
-- [ ] **T2-H** Engagement heuristics (tag player messages, log in export)
-- [ ] **T2-F** Prompt improvement wizard (Settings panel, 3 steps)
+### ✅ Tier 2 — Shipped (commits `97c9d6d` + `a3498c5`)
+- [x] **T2-A** Azure Speech as 3rd TTS provider (`/api/tts-az`, `NarrationPlayer.tsx` Azure section, `useTTS.ts` wiring)
+- [x] **T2-C** Move Oracle route to Groq (`llama-3.3-70b-versatile`, SSE → streaming text)
+- [x] **T2-D** System prompt versioning (FNV-1a hash, `X-Prompt-Version` header, Langfuse metadata)
+- [x] **T2-G** Cloudinary for scene images (`lib/utils/cloudinary.ts`, updated `/api/generate-image`)
+- [x] **T2-B** Stability AI scene images with style presets (`/api/scene-image-stability`, genre → `style_preset` map)
+- [x] **T2-E** Eval endpoint (`/api/eval-message`, Groq-powered, 5 rubrics, triggers on 👎 in `page.tsx`)
+- [x] **T2-H** Engagement heuristics (`lib/utils/engagement-heuristics.ts`, tags in session export)
+- [x] **T2-F** Prompt improvement wizard (`/api/prompt-wizard`, Settings panel 3-step UI, `promptOverrides` injected into DM system prompt)
 
 ### Pre-Commercial (when ready)
 - [ ] **T3-F** Sentry (`npx @sentry/wizard` — do before first external user)
