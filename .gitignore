@@ -28,6 +28,10 @@ yarn-error.log*
 .env*.local
 .env
 
+# API keys and secrets — NEVER COMMIT
+docs/api-guide-master.md
+*.env.master
+
 # vercel
 .vercel
 
