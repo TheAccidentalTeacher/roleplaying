@@ -61,6 +61,7 @@ const defaultSettings: UserSettings = {
   ttsEnabled: false,
   ttsVoice: 'auto',
   ttsElVoiceId: '',
+  ttsAzVoiceId: 'en-US-AriaNeural',
   ttsElPresets: [
     { name: 'Gollum',      voiceId: '1zvnni6XluAvqQJWPf1M' },
     { name: 'Sage Wizard', voiceId: '6sFKzaJr574YWVu4UuJF' },
@@ -84,6 +85,8 @@ const defaultUIState: UIState = {
   diceHistory: [],
   settings: defaultSettings,
   messageFeedback: {},
+  messageEvalScores: {},
+  dmPromptVersion: '',
 }
 
 // ---- State interface ----
@@ -161,6 +164,8 @@ export interface GameState {
   // UI
   setSettings: (updates: Partial<UserSettings>) => void
   setMessageFeedback: (messageId: string, rating: 'up' | 'down') => void
+  setMessageEvalScores: (messageId: string, scores: UIState['messageEvalScores'][string]) => void
+  setDmPromptVersion: (version: string) => void
 }
 
 // ---- Store ----
@@ -369,6 +374,19 @@ export const useGameStore = create<GameState>()(
             ...state.uiState,
             messageFeedback: { ...state.uiState.messageFeedback, [messageId]: rating },
           },
+        })),
+
+      setMessageEvalScores: (messageId, scores) =>
+        set((state) => ({
+          uiState: {
+            ...state.uiState,
+            messageEvalScores: { ...state.uiState.messageEvalScores, [messageId]: scores },
+          },
+        })),
+
+      setDmPromptVersion: (version) =>
+        set((state) => ({
+          uiState: { ...state.uiState, dmPromptVersion: version },
         })),
     }),
     {

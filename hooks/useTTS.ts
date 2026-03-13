@@ -21,7 +21,7 @@ interface UseTTSReturn {
   /** Loading audio from API */
   isLoading: boolean;
   /** Speak the given text. Stops any current playback first. */
-  speak: (text: string, voice: TTSVoice | 'elevenlabs', options?: SpeakOptions) => Promise<void>;
+  speak: (text: string, voice: TTSVoice | 'elevenlabs' | 'azure', options?: SpeakOptions) => Promise<void>;
   /** Pause playback (can resume) */
   pause: () => void;
   /** Resume paused playback */
@@ -261,7 +261,7 @@ export function useTTS(): UseTTSReturn {
     return blob;
   }, []);
 
-  const speak = useCallback(async (text: string, voice: TTSVoice | 'elevenlabs', options?: SpeakOptions) => {
+  const speak = useCallback(async (text: string, voice: TTSVoice | 'elevenlabs' | 'azure', options?: SpeakOptions) => {
     const endpoint = options?.endpoint ?? '/api/tts';
     const bodyBuilder: (t: string) => Record<string, unknown> = options?.extraBody !== undefined
       ? (t) => ({ text: t, ...options.extraBody })

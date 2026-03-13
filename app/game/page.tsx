@@ -44,6 +44,7 @@ import NarrationPlayer from '@/components/game/NarrationPlayer';
 import { useTTS } from '@/hooks/useTTS';
 import { useAmbient } from '@/lib/hooks/useAmbient';
 import type { AmbientScene } from '@/lib/hooks/useAmbient';
+import { annotateMessages } from '@/lib/utils/engagement-heuristics';
 import { getVoiceForWorld } from '@/lib/utils/tts-voices';
 import { stringsToItems } from '@/lib/utils/item-converter';
 import { retireCharacter } from '@/lib/engines/legacy-engine';
@@ -934,6 +935,11 @@ export default function GamePage() {
 
         // Finalize message — strip game-data block before storing
         setStreamingContent('');
+
+        // Capture prompt version from DM response header
+        const promptVer = response.headers.get('X-Prompt-Version');
+        if (promptVer) useGameStore.getState().setDmPromptVersion(promptVer);
+
         const cleanContent = stripGameDataBlock(fullResponse);
         const dmMsg: ChatMsg = {
           id: `msg-${Date.now()}`,
@@ -964,6 +970,11 @@ export default function GamePage() {
             tts.speak(ttsContent, 'elevenlabs', {
               endpoint: '/api/tts-el',
               extraBody: { voiceId: ttsSettings.ttsElVoiceId },
+            });
+          } else if (ttsSettings.ttsVoice === 'azure' && ttsSettings.ttsAzVoiceId) {
+            tts.speak(ttsContent, 'azure', {
+              endpoint: '/api/tts-az',
+              extraBody: { voice: ttsSettings.ttsAzVoiceId, speed: ttsSettings.ttsSpeed },
             });
           } else {
             const voice = getVoiceForWorld(
@@ -1202,8 +1213,10 @@ export default function GamePage() {
   // Export current session as a JSON file download
   const handleExportSession = useCallback(() => {
     const state = useGameStore.getState();
+    const engagementTags = annotateMessages(chatMessages);
     const exportData = {
       exportedAt: new Date().toISOString(),
+      dmPromptVersion: state.uiState.dmPromptVersion,
       world: {
         name: activeWorld?.worldName ?? 'Unknown World',
         genre: activeWorld?.primaryGenre ?? '',
@@ -1221,8 +1234,11 @@ export default function GamePage() {
         content: m.content,
         timestamp: m.timestamp,
         feedback: state.uiState.messageFeedback[m.id] ?? null,
+        evalScores: state.uiState.messageEvalScores[m.id] ?? null,
+        engagement: engagementTags[m.id] ?? null,
       })),
       messageFeedback: state.uiState.messageFeedback,
+      messageEvalScores: state.uiState.messageEvalScores,
     };
 
     const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
@@ -1686,6 +1702,11 @@ export default function GamePage() {
                       endpoint: '/api/tts-el',
                       extraBody: { voiceId: ttsSettings.ttsElVoiceId },
                     });
+                  } else if (ttsSettings.ttsVoice === 'azure' && ttsSettings.ttsAzVoiceId) {
+                    tts.speak(ttsText, 'azure', {
+                      endpoint: '/api/tts-az',
+                      extraBody: { voice: ttsSettings.ttsAzVoiceId, speed: ttsSettings.ttsSpeed },
+                    });
                   } else {
                     const voice = getVoiceForWorld(
                       world?.primaryGenre,
@@ -1701,7 +1722,37 @@ export default function GamePage() {
                 onResumeTTS={tts.resume}
                 onStopTTS={() => { tts.stop(); setActiveSpeakingId(null); }}
                 feedbackState={messageFeedback}
-                onFeedback={(messageId, rating) => useGameStore.getState().setMessageFeedback(messageId, rating)}
+                onFeedback={(messageId, rating) => {
+                  const { setMessageFeedback, setMessageEvalScores } = useGameStore.getState();
+                  setMessageFeedback(messageId, rating);
+                  // On thumbs-down: fire background eval call
+                  if (rating === 'down') {
+                    const dmMsgFull = chatMessages.find((m) => m.id === messageId);
+                    const dmIdx = chatMessages.findIndex((m) => m.id === messageId);
+                    const precedingPlayer = dmIdx > 0 ? chatMessages[dmIdx - 1]?.content : '';
+                    if (dmMsgFull) {
+                      const pv = useGameStore.getState().uiState.dmPromptVersion;
+                      fetch('/api/eval-message', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          dmResponse: dmMsgFull.content,
+                          playerAction: precedingPlayer ?? '',
+                          worldType: world?.worldType ?? '',
+                          genre: world?.primaryGenre ?? '',
+                          promptVersion: pv,
+                        }),
+                      })
+                        .then((r) => r.ok ? r.json() : null)
+                        .then((result) => {
+                          if (result && result.scores) {
+                            setMessageEvalScores(messageId, result);
+                          }
+                        })
+                        .catch(() => {});
+                    }
+                  }
+                }}
               />
               {/* Floating narration player */}
               <NarrationPlayer
@@ -1716,6 +1767,7 @@ export default function GamePage() {
                 currentVoice={ttsSettings.ttsVoice}
                 elVoiceId={ttsSettings.ttsElVoiceId}
                 elPresets={ttsSettings.ttsElPresets ?? []}
+                azVoiceId={ttsSettings.ttsAzVoiceId}
                 onPause={tts.pause}
                 onResume={tts.resume}
                 onStop={() => { tts.stop(); setActiveSpeakingId(null); }}
@@ -1734,6 +1786,10 @@ export default function GamePage() {
                 onElVoiceIdChange={(id) => {
                   const { setSettings } = useGameStore.getState();
                   setSettings({ ttsElVoiceId: id });
+                }}
+                onAzVoiceIdChange={(id) => {
+                  const { setSettings } = useGameStore.getState();
+                  setSettings({ ttsAzVoiceId: id });
                 }}
                 onSavePreset={(name, voiceId) => {
                   const state = useGameStore.getState();

@@ -4,6 +4,7 @@ import { buildDMSystemPrompt } from '@/lib/prompts/dm-system';
 import { buildContextFromDB, getMessageHistory } from '@/lib/services/context-builder';
 import { saveMessage } from '@/lib/services/database';
 import { getLangfuse } from '@/lib/utils/langfuse';
+import { hashPrompt } from '@/lib/utils/prompt-version';
 import type { WorldRecord } from '@/lib/types/world';
 import type { Character } from '@/lib/types/character';
 import type { Quest } from '@/lib/types/quest';
@@ -72,6 +73,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Failed to build DM prompt: ' + (promptError instanceof Error ? promptError.message : 'Unknown') }, { status: 500 });
     }
 
+    // Hash the prompt for version tracking (included in Langfuse + response header)
+    const promptVersion = hashPrompt(systemPrompt);
+
     // Get message history from Supabase (or use client-provided messages)
     let messageHistory = messages;
     if (characterId && characterId !== 'local') {
@@ -123,6 +127,7 @@ export async function POST(req: NextRequest) {
           worldType: fallbackWorld?.worldType,
           genre: fallbackWorld?.primaryGenre,
           promptLength: systemPrompt.length,
+          promptVersion,
           messageCount: claudeMessages.length,
         },
       });
@@ -175,6 +180,7 @@ export async function POST(req: NextRequest) {
       headers: {
         'Content-Type': 'text/plain; charset=utf-8',
         'Transfer-Encoding': 'chunked',
+        'X-Prompt-Version': promptVersion,
       },
     });
   } catch (error: unknown) {

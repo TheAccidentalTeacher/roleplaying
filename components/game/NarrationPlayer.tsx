@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useCallback, useState } from 'react';
+import { AZURE_VOICES } from '@/lib/utils/azure-voices';
 
 /**
  * NarrationPlayer — fixed floating audio playback bar for TTS narration.
@@ -13,7 +14,7 @@ const SPEED_OPTIONS = [1, 1.5, 2, 2.5, 3] as const;
 interface VoiceOption {
   value: string;
   label: string;
-  gender: 'Male' | 'Female' | 'Auto' | 'Custom';
+  gender: 'Male' | 'Female' | 'Auto' | 'Custom' | 'Azure';
   accent: string;
   desc: string;
 }
@@ -35,9 +36,11 @@ const VOICE_OPTIONS: VoiceOption[] = [
   { value: 'sage',       label: 'Sage',       gender: 'Female', accent: 'American',    desc: 'Calm & thoughtful' },
   // ElevenLabs character voice
   { value: 'elevenlabs', label: 'Character',  gender: 'Custom', accent: 'ElevenLabs',  desc: 'Any creature / character voice' },
+  // Azure neural voice
+  { value: 'azure',      label: 'Azure',      gender: 'Azure',  accent: 'Microsoft',   desc: 'Neural voice (Azure)' },
 ];
 
-export type TTSVoiceSetting = 'auto' | 'alloy' | 'echo' | 'fable' | 'onyx' | 'nova' | 'shimmer' | 'ash' | 'ballad' | 'coral' | 'sage' | 'verse' | 'elevenlabs';
+export type TTSVoiceSetting = 'auto' | 'alloy' | 'echo' | 'fable' | 'onyx' | 'nova' | 'shimmer' | 'ash' | 'ballad' | 'coral' | 'sage' | 'verse' | 'elevenlabs' | 'azure';
 
 interface NarrationPlayerProps {
   isSpeaking: boolean;
@@ -53,6 +56,8 @@ interface NarrationPlayerProps {
   elVoiceId?: string;
   /** Saved ElevenLabs character voice presets */
   elPresets?: Array<{ name: string; voiceId: string }>;
+  /** Current Azure voice name (used when currentVoice === 'azure') */
+  azVoiceId?: string;
   onPause: () => void;
   onResume: () => void;
   onStop: () => void;
@@ -62,6 +67,7 @@ interface NarrationPlayerProps {
   onSetSpeed: (rate: number) => void;
   onVoiceChange?: (voice: TTSVoiceSetting) => void;
   onElVoiceIdChange?: (id: string) => void;
+  onAzVoiceIdChange?: (id: string) => void;
   onSavePreset?: (name: string, voiceId: string) => void;
   onDeletePreset?: (voiceId: string) => void;
 }
@@ -85,6 +91,7 @@ export default function NarrationPlayer({
   currentVoice = 'auto',
   elVoiceId = '',
   elPresets = [],
+  azVoiceId = 'en-US-AriaNeural',
   onPause,
   onResume,
   onStop,
@@ -94,12 +101,14 @@ export default function NarrationPlayer({
   onSetSpeed,
   onVoiceChange,
   onElVoiceIdChange,
+  onAzVoiceIdChange,
   onSavePreset,
   onDeletePreset,
 }: NarrationPlayerProps) {
   const progressBarRef = useRef<HTMLDivElement>(null);
   const [showVoicePicker, setShowVoicePicker] = useState(false);
   const [elInputValue, setElInputValue] = useState(elVoiceId);
+  const [azInputValue, setAzInputValue] = useState(azVoiceId);
   const [savePresetName, setSavePresetName] = useState('');
 
   const handleProgressClick = useCallback(
@@ -123,7 +132,7 @@ export default function NarrationPlayer({
   if (!visible) return null;
 
   const activeVoice = VOICE_OPTIONS.find(v => v.value === currentVoice) ?? VOICE_OPTIONS[0];
-  const genderIcon = activeVoice.gender === 'Female' ? '♀️' : activeVoice.gender === 'Male' ? '♂️' : activeVoice.gender === 'Custom' ? '🎭' : '🎲';
+  const genderIcon = activeVoice.gender === 'Female' ? '♀️' : activeVoice.gender === 'Male' ? '♂️' : activeVoice.gender === 'Custom' ? '🎭' : activeVoice.gender === 'Azure' ? '🔷' : '🎲';
 
   return (
     // Fixed floating bar, centered above the bottom action bar
@@ -357,6 +366,29 @@ export default function NarrationPlayer({
                         >elevenlabs.io/voice-library</a>
                         {' '}— filter Creature, Fantasy, Villain
                       </p>
+                    </div>
+                    {/* Azure Neural Voices */}
+                    <div className="mt-3 pt-2.5 border-t border-slate-700">
+                      <p className="text-[10px] text-slate-500 px-1 mb-1.5">🔷 Azure Neural Voices</p>
+                      <div className="grid grid-cols-2 gap-1 mb-2">
+                        {AZURE_VOICES.map(v => (
+                          <button key={v.id}
+                            onClick={() => {
+                              setAzInputValue(v.id);
+                              onAzVoiceIdChange?.(v.id);
+                              onVoiceChange?.('azure');
+                              setShowVoicePicker(false);
+                            }}
+                            className={`px-2 py-1.5 text-xs rounded-lg text-left transition ${
+                              currentVoice === 'azure' && azVoiceId === v.id
+                                ? 'bg-blue-500/20 text-blue-300 border border-blue-500/40'
+                                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800 border border-transparent'
+                            }`}>
+                            <span className="block font-medium">{v.gender === 'F' ? '♀️' : '♂️'} {v.label}</span>
+                            <span className="block text-[10px] text-slate-500">{v.accent}</span>
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 )}

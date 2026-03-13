@@ -127,7 +127,9 @@ export interface UserSettings {
   tooltipsEnabled: boolean;
   compactMode: boolean;
   ttsEnabled: boolean;
-  ttsVoice: 'auto' | 'alloy' | 'echo' | 'fable' | 'onyx' | 'nova' | 'shimmer' | 'ash' | 'ballad' | 'coral' | 'sage' | 'verse' | 'elevenlabs';
+  ttsVoice: 'auto' | 'alloy' | 'echo' | 'fable' | 'onyx' | 'nova' | 'shimmer' | 'ash' | 'ballad' | 'coral' | 'sage' | 'verse' | 'elevenlabs' | 'azure';
+  /** Azure Speech neural voice name — used when ttsVoice is 'azure' */
+  ttsAzVoiceId: string;
   /** ElevenLabs voice ID — used when ttsVoice is 'elevenlabs' */
   ttsElVoiceId: string;
   /** Named ElevenLabs voice presets the user has saved */
@@ -153,4 +155,8 @@ export interface UIState {
   diceHistory: DiceRollDisplay[];
   settings: UserSettings;
   messageFeedback: Record<string, 'up' | 'down'>;
+  /** Eval scores from /api/eval-message — keyed by message id */
+  messageEvalScores: Record<string, { brevity: number; playerAgency: number; storyFlow: number; gameMechanics: number; immersion: number; overall: number; notes: string }>;
+  /** FNV hash of the active DM system prompt — for prompt versioning */
+  dmPromptVersion: string;
 }

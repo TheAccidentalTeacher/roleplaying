@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { streamClaude } from '@/lib/ai-orchestrator';
 import { buildOracleSystemPrompt } from '@/lib/prompts/oracle-system';
 import { buildContextFromDB } from '@/lib/services/context-builder';
 import type { WorldRecord } from '@/lib/types/world';
@@ -89,13 +88,70 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Use Sonnet for Oracle — needs reasoning quality for analysis
-    const stream = await streamClaude(
-      'dm_narration',
-      systemPrompt,
-      claudeMessages,
-      { maxTokens: 1500, temperature: 0.3 }
-    );
+    // Use Groq Llama 3.3 70B — ~500 tokens/sec, near-instant Oracle responses
+    const groqApiKey = process.env.GROQ_API_KEY;
+    if (!groqApiKey) {
+      // Fallback: let caller know Groq isn't configured
+      return NextResponse.json({ error: 'GROQ_API_KEY not configured' }, { status: 500 });
+    }
+
+    const groqBody = {
+      model: 'llama-3.3-70b-versatile',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        ...claudeMessages,
+      ],
+      max_tokens: 1500,
+      temperature: 0.3,
+      stream: true,
+    };
+
+    const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${groqApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(groqBody),
+    });
+
+    if (!groqRes.ok) {
+      const errText = await groqRes.text();
+      console.error('[Oracle] Groq error:', groqRes.status, errText);
+      return NextResponse.json({ error: `Groq returned ${groqRes.status}` }, { status: 502 });
+    }
+
+    // Convert Groq SSE stream → plain text stream (same format as streamClaude)
+    const encoder = new TextEncoder();
+    const groqStream = new ReadableStream({
+      async start(controller) {
+        const reader = groqRes.body?.getReader();
+        if (!reader) { controller.close(); return; }
+        const dec = new TextDecoder();
+        let buf = '';
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buf += dec.decode(value, { stream: true });
+          const lines = buf.split('\n');
+          buf = lines.pop() ?? '';
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed.startsWith('data:')) continue;
+            const payload = trimmed.slice(5).trim();
+            if (payload === '[DONE]') continue;
+            try {
+              const parsed = JSON.parse(payload) as { choices: { delta: { content?: string } }[] };
+              const text = parsed.choices?.[0]?.delta?.content;
+              if (text) controller.enqueue(encoder.encode(text));
+            } catch { /* skip malformed chunks */ }
+          }
+        }
+        controller.close();
+      },
+    });
+
+    const stream = groqStream;
 
     return new NextResponse(stream, {
       headers: {
