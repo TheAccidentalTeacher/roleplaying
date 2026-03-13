@@ -7,6 +7,7 @@ import type { Character as FullCharacter, Spell } from '@/lib/types/character';
 import type { WorldRecord } from '@/lib/types/world';
 import type { CombatState } from '@/lib/types/combat';
 import { parseGameData, parseTimeAdvance, stripGameDataBlock, type GameDataUpdate } from '@/lib/utils/game-data-parser';
+import { stripMarkdown } from '@/lib/utils/strip-markdown';
 import { compressMessages } from '@/lib/utils/message-summarizer';
 import { advanceTime as advanceClockTime } from '@/lib/engines/clock-engine';
 import { generateWeather } from '@/lib/engines/weather-engine';
@@ -41,6 +42,8 @@ import WeaponCodex from '@/components/game/WeaponCodex';
 import SpellCastModal from '@/components/game/SpellCastModal';
 import NarrationPlayer from '@/components/game/NarrationPlayer';
 import { useTTS } from '@/hooks/useTTS';
+import { useAmbient } from '@/lib/hooks/useAmbient';
+import type { AmbientScene } from '@/lib/hooks/useAmbient';
 import { getVoiceForWorld } from '@/lib/utils/tts-voices';
 import { stringsToItems } from '@/lib/utils/item-converter';
 import { retireCharacter } from '@/lib/engines/legacy-engine';
@@ -77,6 +80,20 @@ interface ChatMsg {
   role: 'user' | 'assistant' | 'system';
   content: string;
   timestamp?: number;
+}
+
+/** Infer ambient scene type from current location string */
+function getSceneFromLocation(location: string): AmbientScene {
+  const loc = location.toLowerCase();
+  if (/tavern|inn|bar|alehouse/.test(loc)) return 'tavern';
+  if (/dungeon|crypt|tomb|undead|sewer/.test(loc)) return 'dungeon';
+  if (/cave|cavern|grotto|underground/.test(loc)) return 'cave';
+  if (/forest|wilderness|woods|jungle|swamp|marsh/.test(loc)) return 'wilderness';
+  if (/combat|battle|fight|arena/.test(loc)) return 'combat';
+  if (/town|city|village|market|bazaar|settlement/.test(loc)) return 'town';
+  if (/ocean|sea|ship|dock|coast|beach/.test(loc)) return 'ocean';
+  if (/storm|rain|thunder/.test(loc)) return 'storm';
+  return 'default';
 }
 
 export default function GamePage() {
@@ -156,7 +173,9 @@ export default function GamePage() {
   const sessionSummaryRef = useRef<string | undefined>(undefined);
   const { toasts, addToast, removeToast } = useToast();
   const tts = useTTS();
+  const ambient = useAmbient();
   const ttsSettings = useGameStore((s) => s.uiState.settings);
+  const messageFeedback = useGameStore((s) => s.uiState.messageFeedback);
   const [activeSpeakingId, setActiveSpeakingId] = useState<string | null>(null);
 
   // Sync stored playback speed with TTS hook
@@ -166,6 +185,16 @@ export default function GamePage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ttsSettings.ttsSpeed]);
+
+  // Auto-update ambient scene when location changes (only while ambient is on)
+  useEffect(() => {
+    if (!ambient.isPlaying && !ambient.isLoading) return;
+    const scene = getSceneFromLocation(fullCharacter?.currentLocation ?? '');
+    if (scene !== ambient.currentScene) {
+      ambient.play(scene);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fullCharacter?.currentLocation]);
 
   // Track whether this is a brand-new game (set by WorldGenLoading)
   const isNewGameRef = useRef(false);
@@ -928,10 +957,11 @@ export default function GamePage() {
 
         // ── Auto-play TTS if enabled ──
         if (ttsSettings.ttsEnabled && ttsSettings.ttsAutoPlay && cleanContent) {
-          console.log(`[TTS] Auto-play triggered for message ${dmMsg.id}, content length=${cleanContent.length}`);
+          const ttsContent = stripMarkdown(cleanContent);
+          console.log(`[TTS] Auto-play triggered for message ${dmMsg.id}, content length=${ttsContent.length}`);
           setActiveSpeakingId(dmMsg.id);
           if (ttsSettings.ttsVoice === 'elevenlabs' && ttsSettings.ttsElVoiceId) {
-            tts.speak(cleanContent, 'elevenlabs', {
+            tts.speak(ttsContent, 'elevenlabs', {
               endpoint: '/api/tts-el',
               extraBody: { voiceId: ttsSettings.ttsElVoiceId },
             });
@@ -941,7 +971,7 @@ export default function GamePage() {
               world?.worldType,
               ttsSettings.ttsVoice,
             );
-            tts.speak(cleanContent, voice);
+            tts.speak(ttsContent, voice);
           }
         }
       } catch (error) {
@@ -1168,6 +1198,43 @@ export default function GamePage() {
     // Check for level-based achievements
     setTimeout(() => runAchievementCheck(), 100);
   }, [fullCharacter, pendingLevelUp, updateActiveCharacter, addMessage, runAchievementCheck, addToast]);
+
+  // Export current session as a JSON file download
+  const handleExportSession = useCallback(() => {
+    const state = useGameStore.getState();
+    const exportData = {
+      exportedAt: new Date().toISOString(),
+      world: {
+        name: activeWorld?.worldName ?? 'Unknown World',
+        genre: activeWorld?.primaryGenre ?? '',
+        worldType: activeWorld?.worldType ?? '',
+      },
+      character: fullCharacter ? {
+        name: fullCharacter.name,
+        class: fullCharacter.class,
+        level: fullCharacter.level,
+        race: fullCharacter.race,
+      } : null,
+      chatMessages: chatMessages.map((m) => ({
+        id: m.id,
+        role: m.role,
+        content: m.content,
+        timestamp: m.timestamp,
+        feedback: state.uiState.messageFeedback[m.id] ?? null,
+      })),
+      messageFeedback: state.uiState.messageFeedback,
+    };
+
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `session-${(activeWorld?.worldName ?? 'rpg').replace(/\s+/g, '-').toLowerCase()}-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, [activeWorld, fullCharacter, chatMessages]);
 
   // Handle combat ending — inject combat summary into chat, handle defeat
   const handleCombatEnd = useCallback(
@@ -1564,6 +1631,16 @@ export default function GamePage() {
           if (ttsSettings.ttsEnabled) { tts.stop(); setActiveSpeakingId(null); } // turning off → stop playback
         }}
         onStopTTS={() => { tts.stop(); setActiveSpeakingId(null); }}
+        ambientPlaying={ambient.isPlaying}
+        ambientLoading={ambient.isLoading}
+        onToggleAmbient={() => {
+          if (ambient.isPlaying || ambient.isLoading) {
+            ambient.stop();
+          } else {
+            ambient.play(getSceneFromLocation(fullCharacter?.currentLocation ?? ''));
+          }
+        }}
+        onExportSession={handleExportSession}
       />
 
       {/* Main Content Area */}
@@ -1601,10 +1678,11 @@ export default function GamePage() {
                   sendMessage(lastFailedMessage);
                 } : undefined}
                 onSpeak={ttsSettings.ttsEnabled ? (text: string, messageId: string) => {
-                  console.log(`[TTS] Manual speak triggered for message ${messageId}, text length=${text.length}`);
+                  const ttsText = stripMarkdown(text);
+                  console.log(`[TTS] Manual speak triggered for message ${messageId}, text length=${ttsText.length}`);
                   setActiveSpeakingId(messageId);
                   if (ttsSettings.ttsVoice === 'elevenlabs' && ttsSettings.ttsElVoiceId) {
-                    tts.speak(text, 'elevenlabs', {
+                    tts.speak(ttsText, 'elevenlabs', {
                       endpoint: '/api/tts-el',
                       extraBody: { voiceId: ttsSettings.ttsElVoiceId },
                     });
@@ -1614,7 +1692,7 @@ export default function GamePage() {
                       world?.worldType,
                       ttsSettings.ttsVoice,
                     );
-                    tts.speak(text, voice);
+                    tts.speak(ttsText, voice);
                   }
                 } : undefined}
                 ttsState={ttsSettings.ttsEnabled ? { isSpeaking: tts.isSpeaking, isPaused: tts.isPaused, isLoading: tts.isLoading } : undefined}
@@ -1622,6 +1700,8 @@ export default function GamePage() {
                 onPauseTTS={tts.pause}
                 onResumeTTS={tts.resume}
                 onStopTTS={() => { tts.stop(); setActiveSpeakingId(null); }}
+                feedbackState={messageFeedback}
+                onFeedback={(messageId, rating) => useGameStore.getState().setMessageFeedback(messageId, rating)}
               />
               {/* Floating narration player */}
               <NarrationPlayer

@@ -15,9 +15,13 @@ interface TopBarProps {
   ttsSpeaking?: boolean;
   onToggleTTS?: () => void;
   onStopTTS?: () => void;
+  ambientPlaying?: boolean;
+  ambientLoading?: boolean;
+  onToggleAmbient?: () => void;
+  onExportSession?: () => void;
 }
 
-export default function TopBar({ onOpenOracle, ttsEnabled, ttsSpeaking, onToggleTTS, onStopTTS }: TopBarProps) {
+export default function TopBar({ onOpenOracle, ttsEnabled, ttsSpeaking, onToggleTTS, onStopTTS, ambientPlaying, ambientLoading, onToggleAmbient, onExportSession }: TopBarProps) {
   const router = useRouter();
   const {
     characters,
@@ -190,6 +194,23 @@ export default function TopBar({ onOpenOracle, ttsEnabled, ttsSpeaking, onToggle
             {ttsSpeaking ? '🔊' : ttsEnabled ? '🔈' : '🔇'}
           </button>
         )}
+        {/* Ambient audio toggle */}
+        {onToggleAmbient && (
+          <button
+            onClick={onToggleAmbient}
+            className={`px-2 py-1 rounded transition-colors text-sm ${
+              ambientLoading
+                ? 'text-amber-400 animate-pulse'
+                : ambientPlaying
+                  ? 'text-emerald-400 hover:text-emerald-300'
+                  : 'text-slate-600 hover:text-slate-400'
+            }`}
+            aria-label={ambientPlaying ? 'Stop ambient audio' : 'Play ambient audio'}
+            title={ambientLoading ? 'Loading ambient…' : ambientPlaying ? 'Ambient ON — click to stop' : 'Ambient audio OFF'}
+          >
+            {ambientLoading ? '🎵' : ambientPlaying ? '🎶' : '🎵'}
+          </button>
+        )}
         <button
           onClick={() => setMenuOpen(!menuOpen)}
           className="text-slate-400 hover:text-white px-2 py-1 rounded transition-colors text-sm"
@@ -239,6 +260,14 @@ export default function TopBar({ onOpenOracle, ttsEnabled, ttsSpeaking, onToggle
             >
               ⚙️ Settings
             </button>
+            {onExportSession && (
+              <button
+                onClick={() => { setMenuOpen(false); onExportSession(); }}
+                className="w-full text-left px-4 py-2.5 text-sm text-sky-300 hover:bg-slate-700 flex items-center gap-2"
+              >
+                📋 Export Session
+              </button>
+            )}
             <button
               onClick={() => { setMenuOpen(false); if (onOpenOracle) onOpenOracle(); }}
               className="w-full text-left px-4 py-2.5 text-sm text-purple-300 hover:bg-slate-700 flex items-center gap-2"

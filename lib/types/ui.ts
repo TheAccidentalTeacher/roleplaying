@@ -152,4 +152,5 @@ export interface UIState {
   chatMessages: ChatMessage[];
   diceHistory: DiceRollDisplay[];
   settings: UserSettings;
+  messageFeedback: Record<string, 'up' | 'down'>;
 }

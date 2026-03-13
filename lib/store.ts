@@ -83,6 +83,7 @@ const defaultUIState: UIState = {
   chatMessages: [],
   diceHistory: [],
   settings: defaultSettings,
+  messageFeedback: {},
 }
 
 // ---- State interface ----
@@ -159,6 +160,7 @@ export interface GameState {
 
   // UI
   setSettings: (updates: Partial<UserSettings>) => void
+  setMessageFeedback: (messageId: string, rating: 'up' | 'down') => void
 }
 
 // ---- Store ----
@@ -358,6 +360,14 @@ export const useGameStore = create<GameState>()(
           uiState: {
             ...state.uiState,
             settings: { ...state.uiState.settings, ...updates },
+          },
+        })),
+
+      setMessageFeedback: (messageId, rating) =>
+        set((state) => ({
+          uiState: {
+            ...state.uiState,
+            messageFeedback: { ...state.uiState.messageFeedback, [messageId]: rating },
           },
         })),
     }),

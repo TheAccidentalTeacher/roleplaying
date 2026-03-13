@@ -3,6 +3,7 @@ import { streamClaude } from '@/lib/ai-orchestrator';
 import { buildDMSystemPrompt } from '@/lib/prompts/dm-system';
 import { buildContextFromDB, getMessageHistory } from '@/lib/services/context-builder';
 import { saveMessage } from '@/lib/services/database';
+import { getLangfuse } from '@/lib/utils/langfuse';
 import type { WorldRecord } from '@/lib/types/world';
 import type { Character } from '@/lib/types/character';
 import type { Quest } from '@/lib/types/quest';
@@ -110,6 +111,28 @@ export async function POST(req: NextRequest) {
     }
 
     // Stream the DM response
+    const lf = getLangfuse();
+    const traceId = `dm-${Date.now()}`;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let lfGeneration: any = null;
+    if (lf) {
+      const trace = lf.trace({
+        id: traceId,
+        name: 'dm-response',
+        metadata: {
+          worldType: fallbackWorld?.worldType,
+          genre: fallbackWorld?.primaryGenre,
+          promptLength: systemPrompt.length,
+          messageCount: claudeMessages.length,
+        },
+      });
+      lfGeneration = trace.generation({
+        name: 'claude-dm',
+        model: 'claude-sonnet-4-6',
+        input: claudeMessages,
+      });
+    }
+
     const stream = await streamClaude(
       'dm_narration',
       systemPrompt,
@@ -140,6 +163,10 @@ export async function POST(req: NextRequest) {
         // Save the complete DM response to Supabase
         if (characterId && characterId !== 'local' && fullResponse) {
           saveMessage(characterId, 'assistant', fullResponse).catch(() => {});
+        }
+        // Log completed generation to Langfuse
+        if (lfGeneration) {
+          lfGeneration.end({ output: fullResponse });
         }
       }
     })();

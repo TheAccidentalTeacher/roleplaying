@@ -23,6 +23,8 @@ interface ChatAreaProps {
   onPauseTTS?: () => void;
   onResumeTTS?: () => void;
   onStopTTS?: () => void;
+  feedbackState?: Record<string, 'up' | 'down'>;
+  onFeedback?: (messageId: string, rating: 'up' | 'down') => void;
 }
 
 export default function ChatArea({
@@ -37,6 +39,8 @@ export default function ChatArea({
   onPauseTTS,
   onResumeTTS,
   onStopTTS,
+  feedbackState,
+  onFeedback,
 }: ChatAreaProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -200,6 +204,36 @@ export default function ChatArea({
                       ↺
                     </button>
                   )}
+                </div>
+              );
+            })()}
+            {/* Thumbs feedback — DM messages only */}
+            {msg.role === 'assistant' && !msg.id.startsWith('msg-error-') && onFeedback && (() => {
+              const current = feedbackState?.[msg.id];
+              return (
+                <div className="flex items-center gap-1 mb-2 pl-7">
+                  <button
+                    onClick={() => onFeedback(msg.id, 'up')}
+                    className={`text-xs px-1.5 py-1 rounded transition-all ${
+                      current === 'up'
+                        ? 'text-emerald-400 bg-emerald-500/10 border border-emerald-500/30'
+                        : 'text-slate-600 hover:text-emerald-400 border border-transparent hover:border-slate-700 hover:bg-slate-800/50'
+                    }`}
+                    title="Good response"
+                  >
+                    👍
+                  </button>
+                  <button
+                    onClick={() => onFeedback(msg.id, 'down')}
+                    className={`text-xs px-1.5 py-1 rounded transition-all ${
+                      current === 'down'
+                        ? 'text-rose-400 bg-rose-500/10 border border-rose-500/30'
+                        : 'text-slate-600 hover:text-rose-400 border border-transparent hover:border-slate-700 hover:bg-slate-800/50'
+                    }`}
+                    title="Bad response"
+                  >
+                    👎
+                  </button>
                 </div>
               );
             })()}
