@@ -30,6 +30,7 @@ export async function POST(req: NextRequest) {
       combatState = null,
       gameClock,
       weather,
+      promptOverrides = {},
     } = body as {
       messages: { role: 'user' | 'assistant' | 'system'; content: string }[];
       characterId?: string;
@@ -41,6 +42,7 @@ export async function POST(req: NextRequest) {
       combatState?: CombatState | null;
       gameClock?: GameClock;
       weather?: Weather;
+      promptOverrides?: Record<string, string>;
     };
 
     // Build the full DM context
@@ -74,6 +76,15 @@ export async function POST(req: NextRequest) {
     }
 
     // Hash the prompt for version tracking (included in Langfuse + response header)
+    // Append any user-configured prompt overrides before hashing
+    const activeOverrides = Object.entries(promptOverrides).filter(([, v]) => v?.trim());
+    if (activeOverrides.length > 0) {
+      const overrideBlock = activeOverrides
+        .map(([title, instruction]) => `- **${title}**: ${instruction}`)
+        .join('\n');
+      systemPrompt += `\n\n## Custom DM Instructions (User-Configured)\n${overrideBlock}`;
+      console.log(`[DM] Applied ${activeOverrides.length} prompt override(s)`);
+    }
     const promptVersion = hashPrompt(systemPrompt);
 
     // Get message history from Supabase (or use client-provided messages)

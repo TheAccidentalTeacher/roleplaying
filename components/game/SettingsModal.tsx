@@ -13,6 +13,13 @@ export default function SettingsModal({ onClose }: SettingsModalProps) {
   const [elInputValue, setElInputValue] = useState(settings.ttsElVoiceId ?? '');
   const [savePresetName, setSavePresetName] = useState('');
 
+  // Prompt Wizard state
+  const [wizardOpen, setWizardOpen] = useState(false);
+  const [wizardLoading, setWizardLoading] = useState(false);
+  const [wizardError, setWizardError] = useState<string | null>(null);
+  const [wizardSuggestions, setWizardSuggestions] = useState<{title: string; description: string; instruction: string}[]>([]);
+  const [pendingToggles, setPendingToggles] = useState<Record<string, boolean>>({});
+
   // Close on Escape key
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
@@ -312,6 +319,157 @@ export default function SettingsModal({ onClose }: SettingsModalProps) {
               </SettingGroup>
             )}
           </div>
+        </div>
+
+        {/* ── Prompt Improvement Wizard ── */}
+        <div className="border-t border-slate-700/50">
+          <button
+            onClick={() => setWizardOpen(p => !p)}
+            className="w-full px-5 py-3 flex items-center justify-between text-left hover:bg-slate-800/40 transition"
+          >
+            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">🧙 DM Prompt Wizard</span>
+            <span className="text-slate-500 text-xs">{wizardOpen ? '▲' : '▼'}</span>
+          </button>
+
+          {wizardOpen && (
+            <div className="px-5 pb-4 space-y-4">
+              {/* Step 1 — Insights */}
+              {(() => {
+                const feedback = uiState.messageFeedback ?? {};
+                const scores = uiState.messageEvalScores ?? {};
+                const thumbsDown = Object.values(feedback).filter(v => v === 'down').length;
+                const thumbsUp = Object.values(feedback).filter(v => v === 'up').length;
+                const totalRated = thumbsDown + thumbsUp;
+                const evalEntries = Object.values(scores);
+                const avgOverall = evalEntries.length > 0
+                  ? (evalEntries.reduce((sum, e) => sum + (e.overall ?? 3), 0) / evalEntries.length).toFixed(1)
+                  : null;
+                return (
+                  <div className="bg-slate-800/60 rounded-lg p-3 space-y-1.5">
+                    <p className="text-[11px] font-semibold text-slate-300">📊 Session Insights</p>
+                    <div className="grid grid-cols-3 gap-2 text-center">
+                      <div><p className="text-lg font-bold text-red-400">{thumbsDown}</p><p className="text-[10px] text-slate-500">👎 Down</p></div>
+                      <div><p className="text-lg font-bold text-green-400">{thumbsUp}</p><p className="text-[10px] text-slate-500">👍 Up</p></div>
+                      <div><p className="text-lg font-bold text-amber-400">{avgOverall ?? '—'}</p><p className="text-[10px] text-slate-500">Avg Score</p></div>
+                    </div>
+                    {totalRated === 0 && <p className="text-[10px] text-slate-600 text-center">No feedback yet — use 👍👎 buttons in chat</p>}
+                  </div>
+                );
+              })()}
+
+              {/* Step 2 — Generate */}
+              <div>
+                <button
+                  disabled={wizardLoading}
+                  onClick={async () => {
+                    setWizardLoading(true);
+                    setWizardError(null);
+                    setWizardSuggestions([]);
+                    try {
+                      const feedback = uiState.messageFeedback ?? {};
+                      const scores = uiState.messageEvalScores ?? {};
+                      const chatMessages = uiState.chatMessages ?? [];
+                      // Collect last 3 thumbs-down message data
+                      const thumbsDownMsgs = Object.entries(feedback)
+                        .filter(([, v]) => v === 'down')
+                        .slice(-3)
+                        .map(([msgId]) => {
+                          const idx = chatMessages.findIndex(m => m.id === msgId);
+                          const dm = chatMessages[idx];
+                          const player = idx > 0 ? chatMessages[idx - 1] : null;
+                          const evalData = scores[msgId];
+                          return {
+                            dmResponse: dm?.content ?? '',
+                            playerAction: player?.content ?? '',
+                            evalNotes: evalData?.notes,
+                            scores: evalData,
+                          };
+                        });
+                      const res = await fetch('/api/prompt-wizard', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          thumbsDownMessages: thumbsDownMsgs,
+                          genre: 'epic-fantasy',
+                        }),
+                      });
+                      const data = await res.json();
+                      if (!res.ok) throw new Error(data.error ?? 'Failed');
+                      const suggs = data.suggestions ?? [];
+                      setWizardSuggestions(suggs);
+                      // Initialize toggles: active if already in overrides, else off
+                      const init: Record<string, boolean> = {};
+                      suggs.forEach((s: {title: string}) => {
+                        init[s.title] = !!settings.promptOverrides?.[s.title];
+                      });
+                      setPendingToggles(init);
+                    } catch (e) {
+                      setWizardError(e instanceof Error ? e.message : 'Failed to generate');
+                    } finally {
+                      setWizardLoading(false);
+                    }
+                  }}
+                  className="w-full px-3 py-2 text-xs rounded-lg bg-violet-600/20 border border-violet-500/30 text-violet-300 hover:bg-violet-600/30 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center justify-center gap-2"
+                >
+                  {wizardLoading ? <><span className="animate-spin">⟳</span> Analyzing…</> : '✨ Generate Improvements'}
+                </button>
+                {wizardError && <p className="text-[10px] text-red-400 mt-1">{wizardError}</p>}
+                {!wizardLoading && wizardSuggestions.length === 0 && (
+                  <p className="text-[10px] text-slate-600 mt-1 text-center">Click to analyze 👎 feedback and suggest prompt improvements</p>
+                )}
+              </div>
+
+              {/* Step 3 — Apply */}
+              {wizardSuggestions.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-[11px] font-semibold text-slate-300">💡 Suggested Improvements</p>
+                  {wizardSuggestions.map((s) => (
+                    <div key={s.title} className={`rounded-lg border p-3 transition ${
+                      pendingToggles[s.title] ? 'border-violet-500/40 bg-violet-500/10' : 'border-slate-700 bg-slate-800/40'
+                    }`}>
+                      <div className="flex items-start gap-2">
+                        <button
+                          onClick={() => setPendingToggles(p => ({ ...p, [s.title]: !p[s.title] }))}
+                          className={`mt-0.5 w-4 h-4 rounded flex-shrink-0 border transition ${
+                            pendingToggles[s.title] ? 'bg-violet-500 border-violet-500' : 'bg-transparent border-slate-600'
+                          }`}
+                        >
+                          {pendingToggles[s.title] && <span className="text-white text-[10px] leading-none flex items-center justify-center w-full h-full">✓</span>}
+                        </button>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-semibold text-slate-200">{s.title}</p>
+                          <p className="text-[10px] text-slate-400 mt-0.5">{s.description}</p>
+                          <p className="text-[10px] text-slate-500 mt-1 italic">{s.instruction}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  <button
+                    onClick={() => {
+                      // Apply selected overrides, remove deselected
+                      const current = { ...(settings.promptOverrides ?? {}) };
+                      wizardSuggestions.forEach(s => {
+                        if (pendingToggles[s.title]) {
+                          current[s.title] = s.instruction;
+                        } else {
+                          delete current[s.title];
+                        }
+                      });
+                      setSettings({ promptOverrides: current });
+                    }}
+                    className="w-full px-3 py-2 text-xs rounded-lg bg-violet-600 text-white hover:bg-violet-500 font-semibold transition"
+                  >
+                    Apply Selected
+                  </button>
+                  {Object.keys(settings.promptOverrides ?? {}).length > 0 && (
+                    <p className="text-[10px] text-violet-400/70 text-center">
+                      {Object.keys(settings.promptOverrides ?? {}).length} override(s) active — injected into every DM response
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Footer */}

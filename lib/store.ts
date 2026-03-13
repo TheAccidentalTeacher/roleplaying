@@ -68,6 +68,7 @@ const defaultSettings: UserSettings = {
   ],
   ttsAutoPlay: true,
   ttsSpeed: 1.0,
+  promptOverrides: {},
 }
 
 const defaultUIState: UIState = {

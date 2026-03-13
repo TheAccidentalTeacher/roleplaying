@@ -16,6 +16,7 @@
     "@supabase/supabase-js": "^2.97.0",
     "@types/three": "^0.183.1",
     "@vercel/analytics": "^1.1.2",
+    "cloudinary": "^2.9.0",
     "jsonrepair": "^3.13.2",
     "langfuse": "^3.38.6",
     "lucide-react": "^0.316.0",

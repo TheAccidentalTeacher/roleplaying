@@ -910,6 +910,7 @@ export default function GamePage() {
             combatState,
             gameClock,
             weather,
+            promptOverrides: useGameStore.getState().uiState.settings.promptOverrides ?? {},
           }),
         });
 

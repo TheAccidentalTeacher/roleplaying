@@ -136,6 +136,8 @@ export interface UserSettings {
   ttsElPresets: Array<{ name: string; voiceId: string }>;
   ttsAutoPlay: boolean;
   ttsSpeed: number; // playback rate 0.5–3.0
+  /** Prompt Wizard overrides — key = suggestion title, value = instruction text to append to system prompt */
+  promptOverrides: Record<string, string>;
 }
 
 // ---- UI State (for store) ----
