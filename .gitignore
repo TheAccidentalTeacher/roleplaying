@@ -38,3 +38,6 @@ docs/api-guide-master.md
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Test fixtures (large world snapshots)
+scripts/fixtures/world-snapshot.json

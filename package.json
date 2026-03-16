@@ -6,7 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test:game": "node scripts/test-game.mjs",
+    "test:game:quick": "node scripts/test-game.mjs --skip-genesis",
+    "test:game:save": "node scripts/test-game.mjs --save-fixture"
   },
   "dependencies": {
     "@3d-dice/dice-box": "^1.1.4",
