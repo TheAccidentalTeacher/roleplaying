@@ -20,6 +20,11 @@ interface UseTTSReturn {
   isPaused: boolean;
   /** Loading audio from API */
   isLoading: boolean;
+  /**
+   * Pre-fetch the first chunk of audio in the background (call during DM streaming).
+   * When speak() is called later with matching text it will skip the first API round-trip.
+   */
+  prefetch: (text: string, voice: TTSVoice | 'elevenlabs' | 'azure', options?: SpeakOptions) => void;
   /** Speak the given text. Stops any current playback first. */
   speak: (text: string, voice: TTSVoice | 'elevenlabs' | 'azure', options?: SpeakOptions) => Promise<void>;
   /** Pause playback (can resume) */
@@ -105,6 +110,8 @@ export function useTTS(): UseTTSReturn {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const rafRef = useRef<number | null>(null);
+  // Prefetch cache: first-chunk text → Blob (or in-flight Promise)
+  const prefetchCache = useRef<Map<string, Blob | Promise<Blob>>>(new Map());
 
   // Animation frame loop for smooth progress updates
   const startProgressLoop = useCallback(() => {
@@ -261,6 +268,35 @@ export function useTTS(): UseTTSReturn {
     return blob;
   }, []);
 
+  /**
+   * Pre-fetch the first chunk of audio while the DM is still streaming.
+   * speak() will use the cached blob and skip the first API round-trip.
+   */
+  const prefetch = useCallback((text: string, voice: TTSVoice | 'elevenlabs' | 'azure', options?: SpeakOptions) => {
+    const chunks = splitTextIntoChunks(text, CHUNK_CHAR_LIMIT);
+    if (chunks.length === 0) return;
+    const firstChunk = chunks[0];
+    if (prefetchCache.current.has(firstChunk)) return; // already fetching/done
+
+    const endpoint = options?.endpoint ?? '/api/tts';
+    const bodyBuilder: (t: string) => Record<string, unknown> = options?.extraBody !== undefined
+      ? (t) => ({ text: t, ...options.extraBody })
+      : (t) => ({ text: t, voice });
+
+    const ctrl = new AbortController();
+    const promise = fetchChunkAudio(firstChunk, ctrl.signal, 0, 1, endpoint, bodyBuilder)
+      .then(blob => {
+        prefetchCache.current.set(firstChunk, blob);
+        return blob;
+      })
+      .catch(() => {
+        prefetchCache.current.delete(firstChunk);
+        return null as unknown as Blob;
+      });
+    prefetchCache.current.set(firstChunk, promise);
+    console.log(`[TTS] Prefetching first chunk (${firstChunk.length} chars)`);
+  }, [fetchChunkAudio]);
+
   const speak = useCallback(async (text: string, voice: TTSVoice | 'elevenlabs' | 'azure', options?: SpeakOptions) => {
     const endpoint = options?.endpoint ?? '/api/tts';
     const bodyBuilder: (t: string) => Record<string, unknown> = options?.extraBody !== undefined
@@ -281,7 +317,7 @@ export function useTTS(): UseTTSReturn {
     const controller = new AbortController();
     abortRef.current = controller;
 
-    // Safety timeout — abort if all fetches take > 90s total
+    // Safety timeout — abort if first chunk takes > 90s
     const timeout = setTimeout(() => {
       console.error('[TTS] Global timeout reached (90s), aborting');
       controller.abort();
@@ -292,108 +328,131 @@ export function useTTS(): UseTTSReturn {
       const chunks = splitTextIntoChunks(text, CHUNK_CHAR_LIMIT);
       console.log(`[TTS] Text split into ${chunks.length} chunk(s):`, chunks.map((c, i) => `[${i + 1}] ${c.length} chars`));
 
-      // ── Fetch audio for all chunks ──
-      const blobs: Blob[] = [];
-      for (let i = 0; i < chunks.length; i++) {
-        if (controller.signal.aborted) {
-          console.warn('[TTS] Aborted before fetching chunk', i + 1);
-          throw new DOMException('Aborted', 'AbortError');
-        }
-        const blob = await fetchChunkAudio(chunks[i], controller.signal, i, chunks.length, endpoint, bodyBuilder);
-        blobs.push(blob);
-      }
+      // ── Fire ALL chunk fetches in parallel — reuse prefetch cache for chunk 0 ──
+      const firstChunk = chunks[0];
+      const cached = prefetchCache.current.get(firstChunk);
+      const chunk0Promise: Promise<Blob> = cached instanceof Blob
+        ? Promise.resolve(cached)
+        : cached instanceof Promise
+          ? cached
+          : fetchChunkAudio(firstChunk, controller.signal, 0, chunks.length, endpoint, bodyBuilder);
 
-      // ── Combine blobs into a single audio blob ──
-      const combinedBlob = new Blob(blobs, { type: 'audio/mpeg' });
-      console.log(`[TTS] Combined audio: ${(combinedBlob.size / 1024).toFixed(0)}KB from ${blobs.length} chunk(s)`);
-      const url = URL.createObjectURL(combinedBlob);
+      const blobPromises = [
+        chunk0Promise,
+        ...chunks.slice(1).map((chunk, i) =>
+          fetchChunkAudio(chunk, controller.signal, i + 1, chunks.length, endpoint, bodyBuilder)
+        ),
+      ];
 
+      // ── Wait only for the first chunk, then start playing ──
+      const firstBlob = await blobPromises[0];
+      // Clean up cache entry
+      prefetchCache.current.delete(firstChunk);
       clearTimeout(timeout);
 
-      const audio = new Audio(url);
-      audio.playbackRate = playbackRate;
-      audioRef.current = audio;
-
-      audio.onloadedmetadata = () => {
-        console.log(`[TTS] Audio metadata loaded: duration=${audio.duration.toFixed(1)}s`);
-      };
-
-      audio.onplay = () => {
-        console.log('[TTS] ▶ Playback started');
-        setIsSpeaking(true);
-        setIsPaused(false);
-        setIsLoading(false);
-        startProgressLoop();
-      };
-
-      audio.onended = () => {
-        console.log('[TTS] ■ Playback ended naturally (finished)');
-        stopProgressLoop();
-        setIsSpeaking(false);
-        setIsPaused(false);
-        setProgress(1);
-        setTimeout(() => {
-          setProgress(0);
-          setCurrentTime(0);
-          setDuration(0);
-        }, 1500);
-        URL.revokeObjectURL(url);
-        audioRef.current = null;
-      };
-
-      audio.onerror = (e) => {
-        const mediaErr = audio.error;
-        console.error('[TTS] ✖ Audio playback error:', {
-          event: e,
-          code: mediaErr?.code,
-          message: mediaErr?.message,
-          networkState: audio.networkState,
-          readyState: audio.readyState,
-          currentTime: audio.currentTime,
-          duration: audio.duration,
-          src: audio.src?.slice(0, 60),
-        });
-        stopProgressLoop();
-        setIsSpeaking(false);
-        setIsPaused(false);
-        setIsLoading(false);
-        setError(`Audio playback failed${mediaErr?.message ? ': ' + mediaErr.message : ''}`);
-        URL.revokeObjectURL(url);
-        audioRef.current = null;
-      };
-
-      audio.onstalled = () => {
-        console.warn('[TTS] ⚠ Audio stalled (buffering):', {
-          currentTime: audio.currentTime,
-          duration: audio.duration,
-          readyState: audio.readyState,
-          networkState: audio.networkState,
-        });
-      };
-
-      audio.onwaiting = () => {
-        console.warn('[TTS] ⏳ Audio waiting for data:', {
-          currentTime: audio.currentTime,
-          readyState: audio.readyState,
-        });
-      };
-
-      // play() can reject due to browser autoplay policies
-      try {
-        await audio.play();
-      } catch (playErr) {
-        // If onplay didn't fire, ensure loading flag is cleared
-        setIsLoading(false);
-        // Browser blocked autoplay — not a real error, audio may still be ready
-        console.warn('[TTS] Autoplay blocked, user interaction may be needed:', playErr);
-        setError('Tap play to start narration');
-        // Keep audio loaded so user can manually trigger via resume
-        setIsPaused(true);
+      // Resolve remaining blobs in background into a pre-fetched queue
+      const blobQueue: Blob[] = [firstBlob];
+      for (let i = 1; i < blobPromises.length; i++) {
+        blobPromises[i]
+          .then(b => { blobQueue[i] = b; })
+          .catch(err => {
+            if (!(err instanceof Error && err.name === 'AbortError')) {
+              console.error(`[TTS] Background chunk ${i + 1} failed:`, err);
+            }
+          });
       }
+
+      // ── Chain playback: play each chunk as soon as it's available ──
+      const playChunkAt = (idx: number) => {
+        const blob = blobQueue[idx];
+        if (!blob) return;
+
+        const url = URL.createObjectURL(new Blob([blob], { type: 'audio/mpeg' }));
+        const audio = new Audio(url);
+        audio.playbackRate = playbackRate;
+        audioRef.current = audio;
+
+        audio.onloadedmetadata = () => {
+          console.log(`[TTS] Chunk ${idx + 1}/${chunks.length} metadata: ${audio.duration.toFixed(1)}s`);
+        };
+
+        audio.onplay = () => {
+          if (idx === 0) {
+            console.log('[TTS] ▶ Playback started (chunk 1)');
+          } else {
+            console.log(`[TTS] ▶ Continuing chunk ${idx + 1}/${chunks.length}`);
+          }
+          setIsSpeaking(true);
+          setIsPaused(false);
+          setIsLoading(false);
+          startProgressLoop();
+        };
+
+        audio.onended = () => {
+          URL.revokeObjectURL(url);
+          const next = idx + 1;
+          if (next < chunks.length) {
+            // Poll until next blob arrives (usually already done since fetched in parallel)
+            const tryNext = () => {
+              if (controller.signal.aborted) return;
+              if (blobQueue[next]) {
+                playChunkAt(next);
+              } else {
+                setTimeout(tryNext, 30);
+              }
+            };
+            tryNext();
+          } else {
+            console.log('[TTS] ■ Playback ended naturally (all chunks done)');
+            stopProgressLoop();
+            setIsSpeaking(false);
+            setIsPaused(false);
+            setProgress(1);
+            setTimeout(() => {
+              setProgress(0);
+              setCurrentTime(0);
+              setDuration(0);
+            }, 1500);
+            audioRef.current = null;
+          }
+        };
+
+        audio.onerror = (e) => {
+          const mediaErr = audio.error;
+          console.error('[TTS] ✖ Audio playback error:', {
+            event: e,
+            code: mediaErr?.code,
+            message: mediaErr?.message,
+            networkState: audio.networkState,
+            readyState: audio.readyState,
+          });
+          stopProgressLoop();
+          setIsSpeaking(false);
+          setIsPaused(false);
+          setIsLoading(false);
+          setError(`Audio playback failed${mediaErr?.message ? ': ' + mediaErr.message : ''}`);
+          URL.revokeObjectURL(url);
+          audioRef.current = null;
+        };
+
+        audio.onstalled = () => {
+          console.warn('[TTS] ⚠ Audio stalled (buffering chunk ' + (idx + 1) + ')');
+        };
+
+        // play() can reject due to browser autoplay policies
+        audio.play().catch((playErr) => {
+          setIsLoading(false);
+          console.warn('[TTS] Autoplay blocked, user interaction may be needed:', playErr);
+          setError('Tap play to start narration');
+          setIsPaused(true);
+        });
+      };
+
+      playChunkAt(0);
+
     } catch (err) {
       clearTimeout(timeout);
       if (err instanceof Error && err.name === 'AbortError') {
-        // Aborted — could be user cancel or timeout
         console.warn('[TTS] Request aborted (user cancel or timeout)');
         setIsLoading(false);
         setError('Narration timed out — try a shorter passage');
@@ -405,5 +464,5 @@ export function useTTS(): UseTTSReturn {
     }
   }, [stop, fetchChunkAudio, startProgressLoop, stopProgressLoop, playbackRate]);
 
-  return { isSpeaking, isPaused, isLoading, speak, pause, resume, stop, seek, skipForward, skipBack, setPlaybackRate, playbackRate, error, progress, currentTime, duration };
+  return { isSpeaking, isPaused, isLoading, prefetch, speak, pause, resume, stop, seek, skipForward, skipBack, setPlaybackRate, playbackRate, error, progress, currentTime, duration };
 }

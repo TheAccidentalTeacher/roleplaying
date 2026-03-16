@@ -923,6 +923,7 @@ export default function GamePage() {
         const reader = response.body?.getReader();
         const decoder = new TextDecoder();
         let fullResponse = '';
+        let ttsPrefired = false; // fire TTS prefetch once during the stream
 
         if (reader) {
           while (true) {
@@ -931,6 +932,26 @@ export default function GamePage() {
             const chunk = decoder.decode(value);
             fullResponse += chunk;
             setStreamingContent(fullResponse);
+
+            // ── TTS Prefetch: kick off audio generation once we have a complete sentence ──
+            // This runs ~2-5s before the stream ends, hiding most of the TTS API latency.
+            if (!ttsPrefired && ttsSettings.ttsEnabled && ttsSettings.ttsAutoPlay) {
+              // Wait for at least 200 chars with a sentence-ending boundary
+              const cleanSoFar = stripMarkdown(stripGameDataBlock(fullResponse));
+              const sentenceEnd = cleanSoFar.search(/[.!?]\s/);
+              if (cleanSoFar.length >= 200 && sentenceEnd > 100) {
+                ttsPrefired = true;
+                const prefetchText = cleanSoFar.slice(0, Math.min(cleanSoFar.length, 2400));
+                if (ttsSettings.ttsVoice === 'elevenlabs' && ttsSettings.ttsElVoiceId) {
+                  tts.prefetch(prefetchText, 'elevenlabs', { endpoint: '/api/tts-el', extraBody: { voiceId: ttsSettings.ttsElVoiceId } });
+                } else if (ttsSettings.ttsVoice === 'azure' && ttsSettings.ttsAzVoiceId) {
+                  tts.prefetch(prefetchText, 'azure', { endpoint: '/api/tts-az', extraBody: { voice: ttsSettings.ttsAzVoiceId, speed: ttsSettings.ttsSpeed } });
+                } else {
+                  const voice = getVoiceForWorld(world?.primaryGenre, world?.worldType, ttsSettings.ttsVoice);
+                  tts.prefetch(prefetchText, voice);
+                }
+              }
+            }
           }
         }
 
