@@ -4,7 +4,8 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import type { TTSVoice } from '@/lib/utils/tts-voices';
 
 // ── Chunk size for splitting long texts ──
-const CHUNK_CHAR_LIMIT = 2400; // Stay under API's 2500-char limit with margin
+const CHUNK_CHAR_LIMIT = 2400;       // Stay under API's 2500-char limit with margin
+const FIRST_CHUNK_CHAR_LIMIT = 500;  // Small first chunk → audio starts in ~2s instead of 8-15s
 
 export interface SpeakOptions {
   /** Override the API endpoint (default: '/api/tts'). */
@@ -288,12 +289,16 @@ export function useTTS(): UseTTSReturn {
     const existing = prefetchSlot.current;
     if (existing && existing.voice === voice && existing.endpoint === endpoint) return;
 
+    // Only prefetch the short first chunk — generates in ~2s and starts playback fast
+    const firstChunk = splitTextIntoChunks(text, FIRST_CHUNK_CHAR_LIMIT)[0];
+    if (!firstChunk) return;
+
     const ctrl = new AbortController();
-    const promise = fetchChunkAudio(text, ctrl.signal, 0, 1, endpoint, bodyBuilder)
+    const promise = fetchChunkAudio(firstChunk, ctrl.signal, 0, 1, endpoint, bodyBuilder)
       .catch(() => null as unknown as Blob);
 
-    prefetchSlot.current = { prefetchedText: text, blob: promise, voice, endpoint };
-    console.log(`[TTS] Prefetching ${text.length} chars, voice=${voice}`);
+    prefetchSlot.current = { prefetchedText: firstChunk, blob: promise, voice, endpoint };
+    console.log(`[TTS] Prefetching first chunk: ${firstChunk.length} chars, voice=${voice}`);
   }, [fetchChunkAudio]);
 
   const speak = useCallback(async (text: string, voice: TTSVoice | 'elevenlabs' | 'azure', options?: SpeakOptions) => {
@@ -349,11 +354,15 @@ export function useTTS(): UseTTSReturn {
           ),
         ];
       } else {
-        // Normal path: split full text and fire all fetches in parallel
-        const chunks = splitTextIntoChunks(text, CHUNK_CHAR_LIMIT);
-        totalChunks = chunks.length;
-        console.log(`[TTS] No prefetch slot — splitting into ${chunks.length} chunk(s):`, chunks.map((c, i) => `[${i + 1}] ${c.length} chars`));
-        blobPromises = chunks.map((chunk, i) =>
+        // Normal path: small first chunk for fast start, full-size remaining chunks
+        const firstChunkArr = splitTextIntoChunks(text, FIRST_CHUNK_CHAR_LIMIT);
+        const firstChunk = firstChunkArr[0];
+        const afterFirst = text.slice(firstChunk.length).trim();
+        const remainingChunks = afterFirst ? splitTextIntoChunks(afterFirst, CHUNK_CHAR_LIMIT) : [];
+        const allChunks = [firstChunk, ...remainingChunks];
+        totalChunks = allChunks.length;
+        console.log(`[TTS] No prefetch slot — ${totalChunks} chunk(s): [${firstChunk.length}c first] + [${remainingChunks.map(c => c.length + 'c').join(', ')}]`);
+        blobPromises = allChunks.map((chunk, i) =>
           fetchChunkAudio(chunk, controller.signal, i, totalChunks, endpoint, bodyBuilder)
         );
       }

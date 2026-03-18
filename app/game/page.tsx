@@ -934,14 +934,15 @@ export default function GamePage() {
             setStreamingContent(fullResponse);
 
             // ── TTS Prefetch: kick off audio generation once we have a complete sentence ──
-            // This runs ~2-5s before the stream ends, hiding most of the TTS API latency.
+            // Fires as early as possible — as soon as the first sentence lands (~1-2s into stream).
             if (!ttsPrefired && ttsSettings.ttsEnabled && ttsSettings.ttsAutoPlay) {
-              // Wait for at least 200 chars with a sentence-ending boundary
+              // Fire as soon as we have one complete sentence (no minimum length)
               const cleanSoFar = stripMarkdown(stripGameDataBlock(fullResponse));
-              const sentenceEnd = cleanSoFar.search(/[.!?]\s/);
-              if (cleanSoFar.length >= 200 && sentenceEnd > 100) {
+              const sentenceEnd = cleanSoFar.search(/[.!?][\s"\u201D]/);
+              if (sentenceEnd >= 40) {
                 ttsPrefired = true;
-                const prefetchText = cleanSoFar.slice(0, Math.min(cleanSoFar.length, 2400));
+                // Pass up to 500 chars — useTTS.prefetch() will trim to first sentence chunk
+                const prefetchText = cleanSoFar.slice(0, Math.min(cleanSoFar.length, 500));
                 if (ttsSettings.ttsVoice === 'elevenlabs' && ttsSettings.ttsElVoiceId) {
                   tts.prefetch(prefetchText, 'elevenlabs', { endpoint: '/api/tts-el', extraBody: { voiceId: ttsSettings.ttsElVoiceId } });
                 } else if (ttsSettings.ttsVoice === 'azure' && ttsSettings.ttsAzVoiceId) {
