@@ -110,8 +110,14 @@ export function useTTS(): UseTTSReturn {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const rafRef = useRef<number | null>(null);
-  // Prefetch cache: first-chunk text → Blob (or in-flight Promise)
-  const prefetchCache = useRef<Map<string, Blob | Promise<Blob>>>(new Map());
+  // Prefetch slot — stores audio for the first N chars of the in-flight DM response.
+  // Keyed by voice+endpoint so speak() can consume it without an exact text match.
+  const prefetchSlot = useRef<{
+    prefetchedText: string;
+    blob: Promise<Blob>;
+    voice: string;
+    endpoint: string;
+  } | null>(null);
 
   // Animation frame loop for smooth progress updates
   const startProgressLoop = useCallback(() => {
@@ -269,32 +275,25 @@ export function useTTS(): UseTTSReturn {
   }, []);
 
   /**
-   * Pre-fetch the first chunk of audio while the DM is still streaming.
-   * speak() will use the cached blob and skip the first API round-trip.
+   * Pre-fetch audio for the first N chars while the DM is still streaming.
+   * speak() will consume it as chunk 0 — eliminating the first API round-trip wait.
    */
   const prefetch = useCallback((text: string, voice: TTSVoice | 'elevenlabs' | 'azure', options?: SpeakOptions) => {
-    const chunks = splitTextIntoChunks(text, CHUNK_CHAR_LIMIT);
-    if (chunks.length === 0) return;
-    const firstChunk = chunks[0];
-    if (prefetchCache.current.has(firstChunk)) return; // already fetching/done
-
     const endpoint = options?.endpoint ?? '/api/tts';
     const bodyBuilder: (t: string) => Record<string, unknown> = options?.extraBody !== undefined
       ? (t) => ({ text: t, ...options.extraBody })
       : (t) => ({ text: t, voice });
 
+    // If we already have a slot for the same voice/endpoint, skip (already fetching)
+    const existing = prefetchSlot.current;
+    if (existing && existing.voice === voice && existing.endpoint === endpoint) return;
+
     const ctrl = new AbortController();
-    const promise = fetchChunkAudio(firstChunk, ctrl.signal, 0, 1, endpoint, bodyBuilder)
-      .then(blob => {
-        prefetchCache.current.set(firstChunk, blob);
-        return blob;
-      })
-      .catch(() => {
-        prefetchCache.current.delete(firstChunk);
-        return null as unknown as Blob;
-      });
-    prefetchCache.current.set(firstChunk, promise);
-    console.log(`[TTS] Prefetching first chunk (${firstChunk.length} chars)`);
+    const promise = fetchChunkAudio(text, ctrl.signal, 0, 1, endpoint, bodyBuilder)
+      .catch(() => null as unknown as Blob);
+
+    prefetchSlot.current = { prefetchedText: text, blob: promise, voice, endpoint };
+    console.log(`[TTS] Prefetching ${text.length} chars, voice=${voice}`);
   }, [fetchChunkAudio]);
 
   const speak = useCallback(async (text: string, voice: TTSVoice | 'elevenlabs' | 'azure', options?: SpeakOptions) => {
@@ -324,30 +323,43 @@ export function useTTS(): UseTTSReturn {
     }, 90_000);
 
     try {
-      // ── Split text into chunks ──
-      const chunks = splitTextIntoChunks(text, CHUNK_CHAR_LIMIT);
-      console.log(`[TTS] Text split into ${chunks.length} chunk(s):`, chunks.map((c, i) => `[${i + 1}] ${c.length} chars`));
+      // ── Check prefetch slot — text must start with prefetchedText, same voice+endpoint ──
+      const slot = prefetchSlot.current;
+      const useSlot = !!(
+        slot &&
+        slot.voice === String(voice) &&
+        slot.endpoint === endpoint &&
+        text.startsWith(slot.prefetchedText)
+      );
+      prefetchSlot.current = null; // always consume
 
-      // ── Fire ALL chunk fetches in parallel — reuse prefetch cache for chunk 0 ──
-      const firstChunk = chunks[0];
-      const cached = prefetchCache.current.get(firstChunk);
-      const chunk0Promise: Promise<Blob> = cached instanceof Blob
-        ? Promise.resolve(cached)
-        : cached instanceof Promise
-          ? cached
-          : fetchChunkAudio(firstChunk, controller.signal, 0, chunks.length, endpoint, bodyBuilder);
+      let blobPromises: Promise<Blob>[];
+      let totalChunks: number;
 
-      const blobPromises = [
-        chunk0Promise,
-        ...chunks.slice(1).map((chunk, i) =>
-          fetchChunkAudio(chunk, controller.signal, i + 1, chunks.length, endpoint, bodyBuilder)
-        ),
-      ];
+      if (useSlot) {
+        // chunk 0 audio is already in-flight (or done). Split only the remaining text.
+        const remainingText = text.slice(slot!.prefetchedText.length).trim();
+        const remainingChunks = remainingText ? splitTextIntoChunks(remainingText, CHUNK_CHAR_LIMIT) : [];
+        totalChunks = 1 + remainingChunks.length;
+        console.log(`[TTS] ✓ Prefetch slot hit — pre-fetched ${slot!.prefetchedText.length} chars, ${remainingChunks.length} remaining chunk(s)`);
+        blobPromises = [
+          slot!.blob,
+          ...remainingChunks.map((chunk, i) =>
+            fetchChunkAudio(chunk, controller.signal, i + 1, totalChunks, endpoint, bodyBuilder)
+          ),
+        ];
+      } else {
+        // Normal path: split full text and fire all fetches in parallel
+        const chunks = splitTextIntoChunks(text, CHUNK_CHAR_LIMIT);
+        totalChunks = chunks.length;
+        console.log(`[TTS] No prefetch slot — splitting into ${chunks.length} chunk(s):`, chunks.map((c, i) => `[${i + 1}] ${c.length} chars`));
+        blobPromises = chunks.map((chunk, i) =>
+          fetchChunkAudio(chunk, controller.signal, i, totalChunks, endpoint, bodyBuilder)
+        );
+      }
 
       // ── Wait only for the first chunk, then start playing ──
       const firstBlob = await blobPromises[0];
-      // Clean up cache entry
-      prefetchCache.current.delete(firstChunk);
       clearTimeout(timeout);
 
       // Resolve remaining blobs in background into a pre-fetched queue
@@ -373,14 +385,14 @@ export function useTTS(): UseTTSReturn {
         audioRef.current = audio;
 
         audio.onloadedmetadata = () => {
-          console.log(`[TTS] Chunk ${idx + 1}/${chunks.length} metadata: ${audio.duration.toFixed(1)}s`);
+          console.log(`[TTS] Chunk ${idx + 1}/${totalChunks} metadata: ${audio.duration.toFixed(1)}s`);
         };
 
         audio.onplay = () => {
           if (idx === 0) {
             console.log('[TTS] ▶ Playback started (chunk 1)');
           } else {
-            console.log(`[TTS] ▶ Continuing chunk ${idx + 1}/${chunks.length}`);
+            console.log(`[TTS] ▶ Continuing chunk ${idx + 1}/${totalChunks}`);
           }
           setIsSpeaking(true);
           setIsPaused(false);
@@ -391,7 +403,7 @@ export function useTTS(): UseTTSReturn {
         audio.onended = () => {
           URL.revokeObjectURL(url);
           const next = idx + 1;
-          if (next < chunks.length) {
+          if (next < totalChunks) {
             // Poll until next blob arrives (usually already done since fetched in parallel)
             const tryNext = () => {
               if (controller.signal.aborted) return;
