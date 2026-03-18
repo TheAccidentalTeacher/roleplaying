@@ -164,7 +164,7 @@ Add a "📋 Export Session" button to the Settings modal.
 
 ### T2-A · Azure Speech as 3rd TTS Provider (Free 500K chars/month)
 **Time:** ~3 hours  
-**APIs needed:** `AZURE_SPEECH_KEY` (already live — `REDACTED_AZURE_SPEECH_KEY`)  
+**APIs needed:** `AZURE_SPEECH_KEY` (already live — see `.env.local`)  
 **Why:** ElevenLabs burns credits fast on long sessions. OpenAI TTS costs $15/1M chars. Azure Speech gives you 500K chars/month free, then $16/1M. 120+ neural voices, streams MP3 just like your existing routes. Perfect for minor NPC voices and system messages so ElevenLabs credits stay reserved for Gollum and the Sage Wizard.
 
 ```ts
@@ -179,7 +179,7 @@ Add `'azure'` to `TTSVoiceSetting` type, add a voice picker section showing neur
 
 Env vars to add to `.env.local`:
 ```
-AZURE_SPEECH_KEY=REDACTED_AZURE_SPEECH_KEY
+AZURE_SPEECH_KEY=<your-azure-speech-key>
 AZURE_SPEECH_REGION=westus
 ```
 
@@ -200,7 +200,7 @@ AZURE_SPEECH_REGION=westus
 
 ### T2-C · Groq for Oracle / Eval Calls
 **Time:** ~2 hours  
-**APIs needed:** `GROQ_API_KEY` (already live — `REDACTED_GROQ_API_KEY`)  
+**APIs needed:** `GROQ_API_KEY` (already live — see `.env.local`)  
 **Why:** The Oracle (the quick-decision secondary AI) doesn't need GPT-4o quality and is currently the highest-latency call in the stack. Groq runs Llama 3.3 70B at 500+ tokens/second — close to instant. Move the Oracle route to Groq and your oracle panels will appear noticeably faster. Also use Groq for the eval endpoint (T2-E) to make it near-zero cost.
 
 ```ts
@@ -212,7 +212,7 @@ AZURE_SPEECH_REGION=westus
 
 Env vars to add to `.env.local`:
 ```
-GROQ_API_KEY=REDACTED_GROQ_API_KEY
+GROQ_API_KEY=<your-groq-api-key>
 ```
 
 ---
