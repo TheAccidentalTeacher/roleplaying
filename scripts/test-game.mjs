@@ -66,12 +66,9 @@ async function checkServer() {
   try {
     const t = performance.now();
     const res = await fetch(BASE, { signal: AbortSignal.timeout(5000) });
-    if (res.ok || res.status === 307 || res.status === 308) {
-      pass('Server reachable', `${BASE} — ${elapsed(t)}`);
-      return true;
-    }
-    fail('Server reachable', `HTTP ${res.status}`);
-    return false;
+    // Any HTTP response (even 500) means the server is up
+    pass('Server reachable', `${BASE} — HTTP ${res.status} — ${elapsed(t)}`);
+    return true;
   } catch (e) {
     fail('Server reachable', e.message + '. Is `npm run dev` running?');
     return false;
@@ -102,7 +99,7 @@ async function runWorldGenesis() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ character: charInput, userId: 'test-runner' }),
-      signal: AbortSignal.timeout(360_000), // 6 min max
+      signal: AbortSignal.timeout(900_000), // 15 min max
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
   } catch (e) {

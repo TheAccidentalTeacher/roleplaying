@@ -197,13 +197,18 @@ export async function callClaude(
   const maxTokens = options?.maxTokens ?? 4096
   const temperature = options?.temperature ?? 0.7
 
+  // Enable Anthropic extended-output beta for steps that need >8192 tokens
+  const requestOptions = maxTokens > 8192
+    ? { headers: { 'anthropic-beta': 'output-128k-2025-02-19' } }
+    : undefined
+
   const response = await anthropic.messages.create({
     model,
     max_tokens: maxTokens,
     temperature,
     system: systemPrompt,
     messages,
-  })
+  }, requestOptions)
 
   const block = response.content[0]
   if (!block) return ''
