@@ -1,7 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { AZURE_VOICES } from '@/lib/utils/azure-voices';
-
-export { AZURE_VOICES };
 export const maxDuration = 30;
 
 export async function POST(req: NextRequest) {
