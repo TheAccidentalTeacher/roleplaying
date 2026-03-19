@@ -21,6 +21,7 @@ import type { EnemyStatBlock } from '@/lib/types/encounter';
 import { roll, rollMultiple, advantage, disadvantage } from '@/lib/utils/dice';
 import { getAbilityModifier } from '@/lib/utils/calculations';
 import { getSpellTerminology } from '@/lib/utils/spell-terminology';
+import { getBestWeaponDie } from '@/lib/utils/multiclass';
 
 // ============================================================
 // INITIALIZATION
@@ -309,7 +310,7 @@ export function executeAttack(
   const hpChange: { entityId: string; amount: number }[] = [];
 
   if (hits) {
-    // Determine weapon damage die based on class (not hit die!)
+    // Determine weapon damage die — pick the best die across both classes
     // Classes typically use: warrior/paladin → d10, rogue → d6, monk → d8, mage/cleric → d6, ranger → d8, bard → d8
     const weaponDieByClass: Record<string, number> = {
       warrior: 10, fighter: 10, barbarian: 12, paladin: 10,
@@ -317,8 +318,7 @@ export function executeAttack(
       mage: 6, wizard: 6, sorcerer: 6, warlock: 8,
       cleric: 8, druid: 8, artificer: 8,
     };
-    const charClass = character.class?.toLowerCase() || '';
-    const damageDie = weaponDieByClass[charClass] || 8; // Default to longsword (d8)
+    const damageDie = getBestWeaponDie(character, weaponDieByClass);
     const damageBase = roll(damageDie);
     const critBonus = isCritical ? roll(damageDie) : 0;
     const damageMod = Math.max(strMod, dexMod);

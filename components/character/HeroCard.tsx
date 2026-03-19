@@ -5,6 +5,7 @@
 
 import React from 'react';
 import type { Character } from '@/lib/types/character';
+import { getShortClassLabel } from '@/lib/utils/multiclass';
 
 interface HeroCardProps {
   character: Character;
@@ -52,7 +53,7 @@ export default function HeroCard({
           {character.name}
         </h3>
         <p className="text-xs text-slate-500 mb-2">
-          {character.race} {character.class} &middot; {worldName}
+          {character.race} {getShortClassLabel(character)} &middot; {worldName}
         </p>
 
         {/* HP bar */}

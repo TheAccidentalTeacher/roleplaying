@@ -216,6 +216,9 @@ export interface WorldRecord {
   playerRole: string;
   originScenario: OriginScenario;
 
+  // Available character classes in this world
+  classes?: { id: string; name: string; icon?: string }[];
+
   // Tone & Feel
   narrativeTone: NarrativeTone[];
   primaryGenre: Genre;

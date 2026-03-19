@@ -12,6 +12,7 @@ import type { CombatState } from '@/lib/types/combat';
 import type { GameClock, Weather } from '@/lib/types/exploration';
 import { getWeaponsForGenre } from '@/lib/data/weapons';
 import { getSpellTerminology, renameSchool } from '@/lib/utils/spell-terminology';
+import { getAIClassDescription } from '@/lib/utils/multiclass';
 
 /** Map world Genre → GenreFamily tags used by the weapon catalog */
 function genreToGenreFamilies(genre: string): string[] {
@@ -363,7 +364,7 @@ function buildSection3_Character(ctx: DMContext): string {
 
   return `## SECTION 3 — THE CHARACTER: ${c.name ?? 'Adventurer'}
 
-**Race**: ${c.race ?? 'Human'} | **Class**: ${c.class ?? 'Fighter'} | **Level**: ${c.level ?? 1}  
+**Race**: ${c.race ?? 'Human'} | **Class**: ${getAIClassDescription(c)} | **Level**: ${c.level ?? 1}  
 **Background**: ${c.background ?? 'Adventurer'}  
 **Alignment**: ${c.alignment ?? 'Neutral'}  
 **Pronouns**: ${c.gender === 'male' ? 'he/him' : c.gender === 'female' ? 'she/her' : c.gender === 'nonbinary' ? 'they/them' : 'they/them (unspecified)'} — ALWAYS use these pronouns when referring to ${c.name ?? 'the character'} in narration and NPC dialogue.  

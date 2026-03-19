@@ -38,6 +38,7 @@ export default function NewCharacter() {
   const [selectedWorld, setSelectedWorld] = useState<WorldDefinition | null>(null);
   const [race, setRace] = useState<CharacterRace | null>(null);
   const [characterClass, setCharacterClass] = useState<CharacterClass | null>(null);
+  const [secondaryClass, setSecondaryClass] = useState<CharacterClass | null>(null);
   const [abilityScores, setAbilityScores] = useState({
     str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10,
   });
@@ -64,6 +65,7 @@ export default function NewCharacter() {
     setSelectedWorld(world);
     setRace(null);
     setCharacterClass(null);
+    setSecondaryClass(null);
     setBackground(null);
     setPersonality({ traits: [], ideal: '', bond: '', flaw: '' });
   }, []);
@@ -114,6 +116,7 @@ export default function NewCharacter() {
     name: name.trim(),
     race: race!,
     class: characterClass!,
+    secondaryClass: secondaryClass ?? undefined,
     background: background!,
     abilityScoreMethod: abilityMethod,
     abilityScores,
@@ -201,12 +204,61 @@ export default function NewCharacter() {
             />
           )}
           {step === 2 && (
-            <ClassSelector
-              selected={characterClass}
-              onSelect={setCharacterClass}
-              classes={selectedWorld?.classes}
-              classLabel={selectedWorld?.classLabel}
-            />
+            <div className="space-y-6">
+              <ClassSelector
+                selected={characterClass}
+                onSelect={(cls) => { setCharacterClass(cls); setSecondaryClass(null); }}
+                classes={selectedWorld?.classes}
+                classLabel={selectedWorld?.classLabel}
+              />
+              {/* Optional dual-spec secondary class */}
+              {characterClass && (
+                <div className="max-w-2xl mx-auto">
+                  <div className="p-4 bg-slate-900/60 rounded-xl border border-slate-700/50">
+                    <p className="text-xs text-slate-500 uppercase tracking-widest mb-1">
+                      Dual Spec — Optional
+                    </p>
+                    <p className="text-slate-400 text-sm mb-4">
+                      Choose a second class to multiclass into. Levels in your secondary class
+                      can only be gained when your primary class has at least as many levels.
+                      Leave unselected for a pure single-class build.
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        onClick={() => setSecondaryClass(null)}
+                        className={`px-3 py-1.5 rounded-lg border text-xs transition-all ${
+                          secondaryClass === null
+                            ? 'bg-slate-700 border-slate-500 text-slate-200'
+                            : 'bg-slate-800 border-slate-700 text-slate-500 hover:border-slate-600 hover:text-slate-300'
+                        }`}
+                      >
+                        None (single class)
+                      </button>
+                      {(selectedWorld?.classes ?? []).filter(c => c.id !== characterClass).map(cls => (
+                        <button
+                          key={cls.id}
+                          onClick={() => setSecondaryClass(cls.id as CharacterClass)}
+                          className={`px-3 py-1.5 rounded-lg border text-xs transition-all ${
+                            secondaryClass === cls.id
+                              ? 'bg-sky-500/20 border-sky-500/60 text-sky-300'
+                              : 'bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-500 hover:text-slate-200'
+                          }`}
+                        >
+                          {cls.name}
+                        </button>
+                      ))}
+                    </div>
+                    {secondaryClass && (
+                      <p className="mt-3 text-xs text-sky-400/80">
+                        ✓ Multiclassing as {selectedWorld?.classes?.find(c => c.id === secondaryClass)?.name ?? secondaryClass}.
+                        You will start as <strong>{selectedWorld?.classes?.find(c => c.id === characterClass)?.name ?? characterClass} 1 / {selectedWorld?.classes?.find(c => c.id === secondaryClass)?.name ?? secondaryClass} 0</strong> and
+                        can invest levels in either class as you grow.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
           )}
           {step === 3 && (
             <AbilityScoreRoller

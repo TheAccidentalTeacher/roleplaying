@@ -20,9 +20,13 @@ const TABS: { id: SheetTab; label: string; icon: React.ReactNode }[] = [
 interface CharacterSheetProps {
   character: Character;
   genre?: string;
+  /** Optional: callback to update character in the store (enables respec from sheet) */
+  onUpdateCharacter?: (updates: Partial<Character>) => void;
+  /** Class list from the current world (for respec secondary class picker) */
+  worldClasses?: { id: string; name: string }[];
 }
 
-export default function CharacterSheet({ character, genre }: CharacterSheetProps) {
+export default function CharacterSheet({ character, genre, onUpdateCharacter, worldClasses }: CharacterSheetProps) {
   const [activeTab, setActiveTab] = useState<SheetTab>('overview');
 
   return (
@@ -50,7 +54,7 @@ export default function CharacterSheet({ character, genre }: CharacterSheetProps
       {/* Tab content */}
       <div className="flex-1 overflow-y-auto p-4">
         {activeTab === 'overview' && <OverviewTab character={character} />}
-        {activeTab === 'abilities' && <AbilitiesTab character={character} genre={genre} />}
+        {activeTab === 'abilities' && <AbilitiesTab character={character} genre={genre} onUpdateCharacter={onUpdateCharacter} worldClasses={worldClasses} />}
         {activeTab === 'inventory' && <InventoryTab character={character} />}
         {activeTab === 'journal' && <JournalTab character={character} />}
       </div>

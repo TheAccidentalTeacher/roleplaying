@@ -134,7 +134,7 @@ export interface SavingThrow {
 export interface ClassFeature {
   id: string;
   name: string;
-  source: 'class' | 'subclass' | 'race' | 'background' | 'story' | 'feat';
+  source: 'class' | 'subclass' | 'class2' | 'subclass2' | 'race' | 'background' | 'story' | 'feat';
   level: number; // Level gained
   description: string;
   uses?: {
@@ -177,6 +177,18 @@ export interface Character {
   level: number;
   xp: number;
   xpToNextLevel: number;
+
+  // Multiclassing (optional — undefined means single-class)
+  /** Levels invested in the primary class. Undefined on legacy saves = equals .level */
+  primaryClassLevel?: number;
+  /** Optional second class chosen at character creation or later */
+  secondaryClass?: CharacterClass;
+  /** Levels invested in the secondary class (0 = declared but not yet levelled) */
+  secondaryClassLevel?: number;
+  /** Subclass for the secondary class */
+  secondarySubclass?: string;
+  /** Separate spell slot pool for the secondary class */
+  secondarySpellcasting?: Spellcasting;
 
   // Core Stats
   abilityScores: AbilityScores;
@@ -274,6 +286,8 @@ export interface CharacterCreationInput {
   name: string;
   race: CharacterRace;
   class: CharacterClass;
+  /** Optional second class chosen at character creation */
+  secondaryClass?: CharacterClass;
   background: BackgroundType;
   abilityScoreMethod: AbilityScoreMethod;
   abilityScores: {

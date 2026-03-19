@@ -2,6 +2,7 @@
 
 import type { Character } from '@/lib/types/character';
 import { Shield, Heart, Zap, Footprints } from 'lucide-react';
+import { getMulticlassLabel, getShortClassLabel } from '@/lib/utils/multiclass';
 
 interface OverviewTabProps {
   character: Character;
@@ -45,8 +46,8 @@ export default function OverviewTab({ character }: OverviewTabProps) {
           {character.name}
         </h3>
         <p className="text-xs text-slate-400">
-          Level {character.level} {character.race} {character.class}
-          {character.subclass ? ` (${character.subclass})` : ''}
+          Level {character.level} {character.race} {getMulticlassLabel(character)}
+          {!character.secondaryClass && character.subclass ? ` (${character.subclass})` : ''}
         </p>
         <p className="text-[10px] text-slate-600 capitalize">
           {character.alignment.replace('-', ' ')} • {character.background}

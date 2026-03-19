@@ -61,6 +61,7 @@ import {
   type ChallengeComplexity,
 } from '@/lib/engines/skill-challenge-engine';
 import { previewLevelUp, applyLevelUp, type LevelUpGains } from '@/lib/engines/level-engine';
+import { canLevelSecondaryClass, capsClass } from '@/lib/utils/multiclass';
 import { checkAchievements, type AchievementContext } from '@/lib/engines/achievement-engine';
 import AchievementPopup from '@/components/ui/AchievementPopup';
 import { LoadingScreen } from '@/components/ui/LoadingScreen';
@@ -162,6 +163,8 @@ export default function GamePage() {
   const [activeChallenge, setActiveChallenge] = useState<SkillChallenge | null>(null);
   const [lastChallengeResult, setLastChallengeResult] = useState<SkillAttemptResult | undefined>(undefined);
   const [pendingLevelUp, setPendingLevelUp] = useState<LevelUpGains | null>(null);
+  /** True when character can level up but we need them to choose primary or secondary class first */
+  const [needsLevelUpClassChoice, setNeedsLevelUpClassChoice] = useState(false);
   const [earnedAchievements, setEarnedAchievements] = useState<Achievement[]>([]);
   const [achievementPopupQueue, setAchievementPopupQueue] = useState<Achievement[]>([]);
   const [pendingRecruitment, setPendingRecruitment] = useState<import('@/lib/utils/game-data-parser').GameDataUpdate['companion_join'] | null>(null);
@@ -370,8 +373,13 @@ export default function GamePage() {
 
   // ── Level-up detection ──
   useEffect(() => {
-    if (!fullCharacter || pendingLevelUp) return;
-    const gains = previewLevelUp(fullCharacter);
+    if (!fullCharacter || pendingLevelUp || needsLevelUpClassChoice) return;
+    // If character can level a secondary class, ask them which class to level first
+    if (canLevelSecondaryClass(fullCharacter)) {
+      setNeedsLevelUpClassChoice(true);
+      return;
+    }
+    const gains = previewLevelUp(fullCharacter, 'primary');
     if (gains) {
       setPendingLevelUp(gains);
     }
@@ -1222,12 +1230,16 @@ export default function GamePage() {
     if (!fullCharacter || !pendingLevelUp) return;
     const updates = applyLevelUp(fullCharacter, pendingLevelUp);
     updateActiveCharacter(updates);
+    const classLabel = pendingLevelUp.targetClass === 'secondary' && fullCharacter.secondaryClass
+      ? `${capsClass(fullCharacter.secondaryClass)} (secondary class)`
+      : capsClass(fullCharacter.class);
     addMessage({
       role: 'system',
-      content: `**🎉 ${fullCharacter.name} has reached Level ${pendingLevelUp.newLevel}!** HP increased by ${pendingLevelUp.hpGain}.${pendingLevelUp.newFeatures.length > 0 ? ' New abilities: ' + pendingLevelUp.newFeatures.map(f => f.name).join(', ') + '.' : ''}`,
+      content: `**🎉 ${fullCharacter.name} reached Level ${pendingLevelUp.newLevel}!** ${classLabel} advanced to level ${pendingLevelUp.targetClass === 'secondary' ? pendingLevelUp.newSecondaryClassLevel : pendingLevelUp.newPrimaryClassLevel}. HP +${pendingLevelUp.hpGain}.${pendingLevelUp.newFeatures.length > 0 ? ' New abilities: ' + pendingLevelUp.newFeatures.map(f => f.name).join(', ') + '.' : ''}`,
       timestamp: Date.now(),
     });
     setPendingLevelUp(null);
+    setNeedsLevelUpClassChoice(false);
     addToast(`🎉 Level ${pendingLevelUp.newLevel} reached!`, 'success');
     // Check for level-based achievements
     setTimeout(() => runAchievementCheck(), 100);
@@ -1841,7 +1853,7 @@ export default function GamePage() {
           {/* Scrollable character data area */}
           <div className="flex-1 overflow-y-auto">
             {fullCharacter ? (
-              <CharacterSheet character={fullCharacter} genre={world?.primaryGenre} />
+              <CharacterSheet character={fullCharacter} genre={world?.primaryGenre} onUpdateCharacter={updateActiveCharacter} worldClasses={world?.classes} />
             ) : (
               <CharacterSidebar
                 name={displayName}
@@ -1996,7 +2008,7 @@ export default function GamePage() {
               </button>
             </div>
             {fullCharacter ? (
-              <CharacterSheet character={fullCharacter} genre={world?.primaryGenre} />
+              <CharacterSheet character={fullCharacter} genre={world?.primaryGenre} onUpdateCharacter={updateActiveCharacter} worldClasses={world?.classes} />
             ) : (
               <CharacterSidebar
                 name={displayName}
@@ -2288,6 +2300,43 @@ export default function GamePage() {
               lastResult={lastChallengeResult}
               onComplete={handleChallengeComplete}
             />
+          </div>
+        </div>
+      )}
+
+      {/* Level-Up Class Choice (multiclass) */}
+      {needsLevelUpClassChoice && fullCharacter && fullCharacter.secondaryClass && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="w-full max-w-sm mx-4 bg-gradient-to-b from-amber-900/90 to-slate-900/95 border-2 border-amber-500/60 rounded-2xl shadow-2xl p-6">
+            <div className="text-center mb-5">
+              <div className="text-amber-400/80 text-sm font-semibold uppercase tracking-widest mb-1">Level Up!</div>
+              <h2 className="text-2xl font-bold text-amber-300">{fullCharacter.name}</h2>
+              <p className="text-slate-400 text-sm mt-1">Which class advances?</p>
+            </div>
+            <div className="space-y-3">
+              <button
+                onClick={() => {
+                  setNeedsLevelUpClassChoice(false);
+                  const gains = previewLevelUp(fullCharacter, 'primary');
+                  if (gains) setPendingLevelUp(gains);
+                }}
+                className="w-full py-3 px-4 rounded-xl bg-amber-600/20 border border-amber-600/50 hover:bg-amber-600/30 text-amber-200 text-left transition-all"
+              >
+                <div className="font-semibold">{capsClass(fullCharacter.class)}</div>
+                <div className="text-xs text-amber-400/60 mt-0.5">Primary class &middot; Level {(fullCharacter.primaryClassLevel ?? fullCharacter.level) + 1}</div>
+              </button>
+              <button
+                onClick={() => {
+                  setNeedsLevelUpClassChoice(false);
+                  const gains = previewLevelUp(fullCharacter, 'secondary');
+                  if (gains) setPendingLevelUp(gains);
+                }}
+                className="w-full py-3 px-4 rounded-xl bg-sky-600/20 border border-sky-600/50 hover:bg-sky-600/30 text-sky-200 text-left transition-all"
+              >
+                <div className="font-semibold">{capsClass(fullCharacter.secondaryClass)}</div>
+                <div className="text-xs text-sky-400/60 mt-0.5">Secondary class &middot; Level {(fullCharacter.secondaryClassLevel ?? 0) + 1}</div>
+              </button>
+            </div>
           </div>
         </div>
       )}

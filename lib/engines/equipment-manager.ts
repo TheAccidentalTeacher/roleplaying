@@ -6,6 +6,7 @@
 
 import type { Character, EquipSlot, EquippedItems } from '@/lib/types/character';
 import type { Item } from '@/lib/types/items';
+import { isClassMatch } from '@/lib/utils/multiclass';
 
 export interface EquipResult {
   success: boolean;
@@ -56,7 +57,7 @@ export function canEquip(
   }
 
   if (item.classRequirement && item.classRequirement.length > 0) {
-    if (!item.classRequirement.includes(character.class)) {
+    if (!isClassMatch(character, item.classRequirement)) {
       return {
         canEquip: false,
         reason: `Requires class: ${item.classRequirement.join(', ')}`,

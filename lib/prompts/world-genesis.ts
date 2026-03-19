@@ -26,7 +26,7 @@ Generate a complete WorldRecord as a single JSON object. This world must feel li
 ## THE PLAYER CHARACTER
 - Name: ${character.name}
 - Race: ${character.race}
-- Class: ${character.class}
+- Class: ${character.class}${character.secondaryClass ? ` / ${character.secondaryClass} (multiclassing)` : ''}
 - Background: ${character.background ?? 'Adventurer'}
 ${playerContext}
 

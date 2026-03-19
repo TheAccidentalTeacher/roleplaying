@@ -1,18 +1,24 @@
 'use client';
 
 import { useState } from 'react';
-import type { Character, ClassFeature, Spell } from '@/lib/types/character';
+import type { Character, CharacterClass, ClassFeature, Spell } from '@/lib/types/character';
 import { ChevronDown, ChevronRight, Sparkles, Star } from 'lucide-react';
 import { getSpellTerminology, renameSchool } from '@/lib/utils/spell-terminology';
+import { capsClass } from '@/lib/utils/multiclass';
 
 interface AbilitiesTabProps {
   character: Character;
   genre?: string;
+  /** If provided, enables the "Respec secondary class" button */
+  onUpdateCharacter?: (updates: Partial<Character>) => void;
+  /** Available classes for respec picker */
+  worldClasses?: { id: string; name: string }[];
 }
 
-export default function AbilitiesTab({ character, genre }: AbilitiesTabProps) {
+export default function AbilitiesTab({ character, genre, onUpdateCharacter, worldClasses }: AbilitiesTabProps) {
   const [expandedFeature, setExpandedFeature] = useState<string | null>(null);
   const [spellFilter, setSpellFilter] = useState<number | 'all'>('all');
+  const [showRespecPicker, setShowRespecPicker] = useState(false);
 
   // Group features by source
   const featuresBySource = character.features.reduce<Record<string, ClassFeature[]>>(
@@ -28,6 +34,8 @@ export default function AbilitiesTab({ character, genre }: AbilitiesTabProps) {
   const sourceLabels: Record<string, string> = {
     class: 'Class Features',
     subclass: 'Subclass Features',
+    class2: `${character.secondaryClass ? capsClass(character.secondaryClass) : 'Secondary'} Features`,
+    subclass2: `${character.secondarySubclass ?? 'Secondary'} Subclass Features`,
     race: 'Racial Traits',
     background: 'Background Features',
     story: 'Story Abilities',
@@ -165,6 +173,95 @@ export default function AbilitiesTab({ character, genre }: AbilitiesTabProps) {
               </p>
             )}
           </div>
+        </div>
+      )}
+
+      {/* Secondary Spellcasting (multiclass) */}
+      {character.secondarySpellcasting && character.secondaryClass && (
+        <div className="pt-2 border-t border-slate-700/30">
+          <div className="flex items-center justify-between mb-3">
+            <h4 className="text-xs text-slate-500 font-semibold uppercase tracking-wider flex items-center gap-1">
+              <Sparkles className="w-3 h-3" /> {capsClass(character.secondaryClass)} {cap(term.abilities)}
+            </h4>
+            <div className="text-[10px] text-slate-500">
+              DC {character.secondarySpellcasting.spellSaveDC} • Atk{' '}
+              {character.secondarySpellcasting.spellAttackBonus >= 0 ? '+' : ''}
+              {character.secondarySpellcasting.spellAttackBonus}
+            </div>
+          </div>
+          {character.secondarySpellcasting.spellSlots.length > 0 && (
+            <div className="mb-3">
+              <p className="text-[10px] text-slate-600 mb-1.5">{cap(term.slotsLabel)}</p>
+              <div className="flex flex-wrap gap-2">
+                {character.secondarySpellcasting.spellSlots.map((slot) => (
+                  <div
+                    key={slot.level}
+                    className="bg-slate-800/60 rounded-lg px-2 py-1 border border-slate-700/30 text-center"
+                  >
+                    <div className="text-[10px] text-slate-500">{term.tierLabel(slot.level)}</div>
+                    <div className="flex gap-0.5 mt-0.5">
+                      {Array.from({ length: slot.total }).map((_, i) => (
+                        <div
+                          key={i}
+                          className={`w-2 h-2 rounded-full ${i < slot.remaining ? 'bg-purple-400' : 'bg-slate-700'}`}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Respec secondary class (shown if secondary class is set and update callback available) */}
+      {character.secondaryClass && onUpdateCharacter && (
+        <div className="pt-2 border-t border-slate-700/30">
+          {!showRespecPicker ? (
+            <button
+              onClick={() => setShowRespecPicker(true)}
+              className="text-[10px] text-slate-600 hover:text-amber-400 transition-colors"
+            >
+              ⟳ Respec secondary class ({capsClass(character.secondaryClass)})
+            </button>
+          ) : (
+            <div className="space-y-2">
+              <p className="text-[10px] text-slate-500 uppercase tracking-wider">Choose new secondary class</p>
+              <p className="text-[10px] text-slate-600">
+                Your secondary class levels ({character.secondaryClassLevel ?? 0}) carry over. Spell slots reset.
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                <button
+                  onClick={() => {
+                    onUpdateCharacter({ secondaryClass: undefined, secondaryClassLevel: 0, secondarySubclass: undefined, secondarySpellcasting: undefined });
+                    setShowRespecPicker(false);
+                  }}
+                  className="px-2 py-1 rounded text-[10px] bg-slate-800 border border-slate-600 text-slate-400 hover:border-red-500/50 hover:text-red-400 transition-all"
+                >
+                  Remove (single class)
+                </button>
+                {(worldClasses ?? []).filter(c => c.id !== character.class && c.id !== character.secondaryClass).map(cls => (
+                  <button
+                    key={cls.id}
+                    onClick={() => {
+                      onUpdateCharacter({
+                        secondaryClass: cls.id as CharacterClass,
+                        secondarySpellcasting: undefined, // reset pool
+                      });
+                      setShowRespecPicker(false);
+                    }}
+                    className="px-2 py-1 rounded text-[10px] bg-slate-800 border border-slate-700 text-slate-400 hover:border-sky-500/50 hover:text-sky-400 transition-all"
+                  >
+                    {cls.name}
+                  </button>
+                ))}
+              </div>
+              <button onClick={() => setShowRespecPicker(false)} className="text-[10px] text-slate-600 hover:text-slate-400">
+                Cancel
+              </button>
+            </div>
+          )}
         </div>
       )}
 

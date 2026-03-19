@@ -253,6 +253,20 @@ export function applyShortRestToCharacter(
   character: Character,
   result: ShortRestResult
 ): Character {
+  // Recharge warlock pact slots (both pools if applicable)
+  const updatedSpellcasting = result.warlockSlotRecharge && character.class === 'warlock' && character.spellcasting
+    ? {
+        ...character.spellcasting,
+        spellSlots: character.spellcasting.spellSlots.map((s) => ({ ...s, remaining: s.total })),
+      }
+    : character.spellcasting;
+  const updatedSecondarySpellcasting = result.warlockSlotRecharge && character.secondaryClass === 'warlock' && character.secondarySpellcasting
+    ? {
+        ...character.secondarySpellcasting,
+        spellSlots: character.secondarySpellcasting.spellSlots.map((s) => ({ ...s, remaining: s.total })),
+      }
+    : character.secondarySpellcasting;
+
   return {
     ...character,
     hitPoints: {
@@ -266,6 +280,8 @@ export function applyShortRestToCharacter(
         remaining: result.hitDiceAvailable,
       },
     },
+    spellcasting: updatedSpellcasting,
+    secondarySpellcasting: updatedSecondarySpellcasting,
     features: character.features.map((f) =>
       result.abilitiesRecharged.includes(f.name) && f.uses
         ? { ...f, uses: { ...f.uses, remaining: f.uses.max } }
@@ -294,11 +310,21 @@ export function applyLongRestToCharacter(
         ),
       },
     },
-    // Recharge spell slots
+    // Recharge primary spell slots
     spellcasting: character.spellcasting
       ? {
           ...character.spellcasting,
           spellSlots: character.spellcasting.spellSlots.map((s) => ({
+            ...s,
+            remaining: s.total,
+          })),
+        }
+      : undefined,
+    // Recharge secondary spell slots too
+    secondarySpellcasting: character.secondarySpellcasting
+      ? {
+          ...character.secondarySpellcasting,
+          spellSlots: character.secondarySpellcasting.spellSlots.map((s) => ({
             ...s,
             remaining: s.total,
           })),

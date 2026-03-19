@@ -5,6 +5,7 @@ import type { LevelUpGains } from '@/lib/engines/level-engine';
 import type { Character } from '@/lib/types/character';
 import type { WorldRecord } from '@/lib/types/world';
 import { getSpellTerminology } from '@/lib/utils/spell-terminology';
+import { getMulticlassLabel, capsClass } from '@/lib/utils/multiclass';
 
 interface LevelUpCeremonyProps {
   character: Character;
@@ -16,6 +17,13 @@ interface LevelUpCeremonyProps {
 export default function LevelUpCeremony({ character, gains, onAccept, world }: LevelUpCeremonyProps) {
   const term = getSpellTerminology(world?.primaryGenre, world?.magicSystem);
   const cap = (s: string) => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+  // Which class gained this level?
+  const levelledClass = gains.targetClass === 'secondary' && character.secondaryClass
+    ? capsClass(character.secondaryClass)
+    : capsClass(character.class);
+  const levelledClassLevel = gains.targetClass === 'secondary'
+    ? gains.newSecondaryClassLevel
+    : gains.newPrimaryClassLevel;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm animate-in fade-in duration-500" role="dialog" aria-modal="true" aria-label="Level Up">
       <div className="relative w-full max-w-lg mx-4 bg-gradient-to-b from-yellow-900/90 to-slate-900/95 border-2 border-yellow-500/60 rounded-2xl shadow-2xl shadow-yellow-500/20 overflow-hidden">
@@ -35,9 +43,14 @@ export default function LevelUpCeremony({ character, gains, onAccept, world }: L
             <span className="text-yellow-400 text-2xl">→</span>
             <span className="text-yellow-300 font-bold text-xl">Level {gains.newLevel}</span>
           </div>
-          <div className="mt-1 text-sm text-slate-400 capitalize">
-            {character.subclass ? `${character.subclass} ` : ''}{character.class}
+          <div className="mt-1 text-sm text-slate-400">
+            {getMulticlassLabel(character)}
           </div>
+          {character.secondaryClass && (
+            <div className="mt-0.5 text-xs text-amber-400/70">
+              {levelledClass} → Level {levelledClassLevel}
+            </div>
+          )}
         </div>
 
         {/* Gains List */}
