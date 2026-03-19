@@ -10,10 +10,9 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { text, voice = 'en-US-AriaNeural', speed = 1.0 } = (await req.json()) as {
+    const { text, voice = 'en-US-AriaNeural' } = (await req.json()) as {
       text: string;
       voice?: string;
-      speed?: number;
     };
 
     if (!text || text.trim().length === 0) {
@@ -22,10 +21,6 @@ export async function POST(req: NextRequest) {
 
     // Azure TTS max is ~10K characters per request
     const truncated = text.length > 9000 ? text.slice(0, 9000) + '...' : text;
-
-    // Clamp speed to Azure's range: 0.5x–2x expressed as % (e.g. "+50%" = 1.5x)
-    const clampedRate = Math.max(0.5, Math.min(2.0, speed));
-    const rateStr = clampedRate === 1.0 ? '0%' : `${Math.round((clampedRate - 1.0) * 100)}%`;
 
     // Escape XML special chars for SSML
     const escaped = truncated
@@ -36,9 +31,7 @@ export async function POST(req: NextRequest) {
       .replace(/'/g, '&apos;');
 
     const ssml = `<speak version='1.0' xml:lang='en-US'>
-  <voice name='${voice}'>
-    <prosody rate='${rateStr}'>${escaped}</prosody>
-  </voice>
+  <voice name='${voice}'>${escaped}</voice>
 </speak>`;
 
     const endpoint = `https://${speechRegion}.tts.speech.microsoft.com/cognitiveservices/v1`;

@@ -954,7 +954,7 @@ export default function GamePage() {
                 if (ttsSettings.ttsVoice === 'elevenlabs' && ttsSettings.ttsElVoiceId) {
                   tts.prefetch(prefetchText, 'elevenlabs', { endpoint: '/api/tts-el', extraBody: { voiceId: ttsSettings.ttsElVoiceId } });
                 } else if (ttsSettings.ttsVoice === 'azure' && ttsSettings.ttsAzVoiceId) {
-                  tts.prefetch(prefetchText, 'azure', { endpoint: '/api/tts-az', extraBody: { voice: ttsSettings.ttsAzVoiceId, speed: ttsSettings.ttsSpeed } });
+                  tts.prefetch(prefetchText, 'azure', { endpoint: '/api/tts-az', extraBody: { voice: ttsSettings.ttsAzVoiceId } });
                 } else {
                   const voice = getVoiceForWorld(world?.primaryGenre, world?.worldType, ttsSettings.ttsVoice);
                   tts.prefetch(prefetchText, voice);
@@ -1005,7 +1005,7 @@ export default function GamePage() {
           } else if (ttsSettings.ttsVoice === 'azure' && ttsSettings.ttsAzVoiceId) {
             tts.speak(ttsContent, 'azure', {
               endpoint: '/api/tts-az',
-              extraBody: { voice: ttsSettings.ttsAzVoiceId, speed: ttsSettings.ttsSpeed },
+              extraBody: { voice: ttsSettings.ttsAzVoiceId },
             });
           } else {
             const voice = getVoiceForWorld(
@@ -1740,7 +1740,7 @@ export default function GamePage() {
                   } else if (ttsSettings.ttsVoice === 'azure' && ttsSettings.ttsAzVoiceId) {
                     tts.speak(ttsText, 'azure', {
                       endpoint: '/api/tts-az',
-                      extraBody: { voice: ttsSettings.ttsAzVoiceId, speed: ttsSettings.ttsSpeed },
+                      extraBody: { voice: ttsSettings.ttsAzVoiceId },
                     });
                   } else {
                     const voice = getVoiceForWorld(
