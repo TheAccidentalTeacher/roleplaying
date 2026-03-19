@@ -1,6 +1,6 @@
 # RPG App — Next Phase Roadmap
 ### Merged Plan: Self-Improving AI (JAIMES) + API Integration
-*Last updated: March 12, 2026*
+*Last updated: March 19, 2026 — Tier 1 + Tier 2 complete, TTS start time optimized to ~2s*
 
 ---
 
@@ -15,19 +15,27 @@ Turn a working single-player RPG into a **self-aware, self-improving game** — 
 | Capability | Status |
 |---|---|
 | AI Dungeon Master (GPT-4o streaming) | ✅ |
+| Anthropic Claude DM (extended output, 128k tokens) | ✅ |
 | Tool calls (combat, dice, items, spells, world events, etc.) | ✅ |
-| TTS narration — OpenAI 11 voices + ElevenLabs (Gollum, Sage Wizard) | ✅ |
+| TTS — OpenAI TTS-1 (11 voices, ~2s start via prefetch + 500-char first chunk) | ✅ |
+| TTS — Azure Speech (500K chars/mo free, 120+ neural voices, SSML) | ✅ |
+| TTS — ElevenLabs (ultra-realistic character voices) | ✅ |
 | Message TTS replay / pause / resume / redo | ✅ |
 | Per-session world state + Zustand persistence | ✅ |
 | System prompt with world + character context | ✅ |
-| Scene images via DALL-E | ✅ |
+| Scene images via DALL-E 3 → Cloudinary CDN | ✅ |
+| Scene images via Stability AI SDXL (style-locked) | ✅ |
 | 3D dice animation | ✅ |
-| Ambient audio | ❌ |
-| Per-message feedback (thumbs) | ❌ |
-| Cost / token observability | ❌ |
-| AI self-evaluation of DM quality | ❌ |
-| System prompt versioning | ❌ |
-| Session export | ❌ |
+| Ambient audio — Freesound CC0 reactive loops | ✅ |
+| Per-message feedback (👍👎) | ✅ |
+| Cost / token observability (Langfuse) | ✅ |
+| AI self-evaluation of DM quality (Groq, 5 rubrics) | ✅ |
+| System prompt versioning (FNV-1a hash) | ✅ |
+| Session export (JSON with feedback + engagement tags) | ✅ |
+| Engagement heuristics (engaged / confused / frustrated) | ✅ |
+| Oracle via Groq Llama 3.3 70B (near-instant) | ✅ |
+| Prompt improvement wizard (3-step, GPT-backed) | ✅ |
+| World genesis — 14 steps, 16k tokens each, extended output beta | ✅ |
 
 ---
 

@@ -1,30 +1,72 @@
 # Deployment Guide
 
-Live URL: **https://roleplaying-nu.vercel.app**
-Git repo: **https://github.com/TheAccidentalTeacher/roleplaying**
+Live URL: **https://roleplaying-nu.vercel.app**  
+Git repo: **https://github.com/TheAccidentalTeacher/roleplaying**  
+*Last updated: March 19, 2026*
 
 ---
 
 ## Environment Variables
 
-Set these in Vercel Dashboard → Project → Settings → Environment Variables (or in `.env` for local dev).
+Set these in Vercel Dashboard → Project → Settings → Environment Variables (or in `.env.local` for local dev).
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `OPENAI_API_KEY` | ✅ Yes | DM narration, world genesis, image generation (DALL-E) |
-| `ANTHROPIC_API_KEY` | Optional | Claude as alternate DM model |
-| `ELEVENLABS_API_KEY` | Optional | TTS narration voice |
-| `ELEVENLABS_VOICE_ID` | Optional | Specific ElevenLabs voice ID |
-| `NEXT_PUBLIC_SUPABASE_URL` | Optional | Supabase project URL for cloud saves |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Optional | Supabase anon key |
+### Core — Required
+
+| Variable | Description |
+|----------|-------------|
+| `OPENAI_API_KEY` | DM narration (GPT-4o), TTS-1, DALL-E 3 image generation |
+| `ANTHROPIC_API_KEY` | Claude as alternate DM model (extended output beta, 128k tokens) |
+
+### TTS Providers
+
+| Variable | Description |
+|----------|-------------|
+| `ELEVENLABS_API_KEY` | ElevenLabs ultra-realistic voices (Gollum, Sage Wizard) |
+| `AZURE_SPEECH_KEY` | Azure Cognitive Services Speech key (rotate if exposed) |
+| `AZURE_SPEECH_REGION` | Azure region, e.g. `westus` |
+
+### AI — Oracle & Eval
+
+| Variable | Description |
+|----------|-------------|
+| `GROQ_API_KEY` | Groq Llama 3.3 70B — Oracle route + eval endpoint (rotate if exposed) |
+
+### Images
+
+| Variable | Description |
+|----------|-------------|
+| `STABILITY_API_KEY` | Stability AI SDXL — style-locked scene images |
+| `CLOUDINARY_URL` | `cloudinary://<api_key>:<api_secret>@<cloud_name>` — CDN storage for images |
+
+### Persistence
+
+| Variable | Description |
+|----------|-------------|
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key |
+| `SUPABASE_SERVICE_ROLE_KEY` | Service role key for server-side writes |
+
+### Observability
+
+| Variable | Description |
+|----------|-------------|
+| `LANGFUSE_SECRET_KEY` | Langfuse server key (token cost + prompt version tracking) |
+| `LANGFUSE_PUBLIC_KEY` | Langfuse public key |
+| `LANGFUSE_BASE_URL` | e.g. `https://us.cloud.langfuse.com` |
+
+### Ambient Audio
+
+| Variable | Description |
+|----------|-------------|
+| `FREESOUND_API_KEY` | Freesound API — CC0 ambient audio loops |
 
 ---
 
 ## Local Development
 
 ```bash
-cp .env.example .env
-# fill in at least OPENAI_API_KEY
+cp .env.example .env.local
+# fill in OPENAI_API_KEY at minimum; add others for full feature set
 
 npm install
 npm run dev
@@ -85,7 +127,11 @@ public/dice/
 | Dice values don't match display | Pre-computed random used instead of physics result | `handleDiceResult` must read from `onRollComplete` callback |
 | "Missing API Key" error | Env var not set in Vercel | Add to Vercel Dashboard and redeploy |
 | Build fails on `@3d-dice/dice-box` | Worker files missing from public/ | Copy from `node_modules/@3d-dice/dice-box/dist/` |
-| TTS not working | Missing ElevenLabs keys | Add `ELEVENLABS_API_KEY` and `ELEVENLABS_VOICE_ID` |
+| OpenAI TTS not working | `OPENAI_API_KEY` missing or rate-limited | Check key and usage dashboard |
+| Azure TTS not working | `AZURE_SPEECH_KEY` or `AZURE_SPEECH_REGION` missing | Add both vars; region must match your Azure resource |
+| ElevenLabs TTS not working | `ELEVENLABS_API_KEY` missing or credits exhausted | Add key; check credits at elevenlabs.io |
+| Oracle answers very slow | Groq key missing — falling back to GPT-4o | Add `GROQ_API_KEY` |
+| Scene images not persisting across sessions | `CLOUDINARY_URL` not set — storing base64 in state | Add Cloudinary URL; images will be stored as CDN URLs |
 
 ---
 
@@ -95,15 +141,22 @@ public/dice/
 |---------|----------------------|
 | Vercel (hobby) | Free |
 | OpenAI GPT-4o | ~$5–20 depending on session length |
+| OpenAI TTS-1 | ~$15/1M chars |
 | DALL-E 3 images | ~$0.04/image |
-| ElevenLabs | Free tier = 10k chars/month |
-| Supabase | Free tier sufficient |
+| Azure Speech | **Free** up to 500K chars/month, then $16/1M |
+| ElevenLabs | Free tier = 10K chars/month; Creator = $22/mo |
+| Groq | ~$0 (Oracle + eval — Llama 3.3 is near-free) |
+| Stability AI | ~$0.002–0.02/image |
+| Cloudinary | Free tier: 25GB storage, 25GB bandwidth/month |
+| Freesound | Free (CC0 audio) |
+| Supabase | Free tier sufficient for personal use |
+| Langfuse | Free tier sufficient |
 
 ---
 
 ## Security
 
-- `.env` is in `.gitignore` — never commit it
-- Rotate any key that appears in a commit or log
+- `.env.local` is in `.gitignore` — never commit it
+- **Rotate any key that was exposed in git history** (Azure Speech + Groq keys were redacted from history on 2026-03-18 — rotate them if you haven't already)
 - Monitor OpenAI usage dashboard for unexpected activity
-
+- Before opening to external users: add Azure Content Safety middleware on `/api/dm`

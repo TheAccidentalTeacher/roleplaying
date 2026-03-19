@@ -6,8 +6,8 @@ A single-player role-playing game with an AI Dungeon Master, 3D physics dice, wo
 
 ## Features
 
-- **AI Dungeon Master** — streaming narrative using OpenAI / Anthropic
-- **World Genesis** — procedural world creation with lore, factions, and opening scenes
+- **AI Dungeon Master** — streaming narrative using OpenAI GPT-4o or Anthropic Claude (extended output beta, 128k token ceiling)
+- **World Genesis** — 14-step procedural world creation (geography, factions, lore, NPCs, opening scene) at 16k tokens/step
 - **Character Creation** — race, class, background, ability scores (4d6 drop-lowest with real 3D dice)
 - **3D Physics Dice** — `@3d-dice/dice-box` (Babylon.js + Ammo.js WASM physics); full-viewport canvas, amber theme
 - **Dice Tray** — free-roll any combination of d4–d100; results match what the dice show
@@ -16,24 +16,42 @@ A single-player role-playing game with an AI Dungeon Master, 3D physics dice, wo
 - **Economy** — shop generation, haggling, crafting
 - **Exploration** — travel, trap detection, stealth
 - **NPC & Companion System** — persistent NPCs with memory
-- **Oracle Panel** — yes/no fate questions
+- **Oracle Panel** — yes/no fate questions (powered by Groq Llama 3.3 70B — near-instant)
 - **Achievement System** — milestone tracking
 - **Character Sheet** — printable, full ability/spell/inventory tabs
-- **Text-to-Speech** — ElevenLabs narration via `useTTS` hook
-- **Supabase Persistence** — save/load games across sessions
-- **Image Generation** — DALL-E scene and portrait images
+- **Text-to-Speech — 3 providers:**
+  - **OpenAI TTS-1** — 11 voices, parallel chunk fetch, ~2s first-audio start
+  - **Azure Speech** — 500K chars/month free, 120+ neural voices, SSML prosody control
+  - **ElevenLabs** — ultra-realistic character voices (Gollum, Sage Wizard), per-NPC assignment
+- **Ambient Audio** — Freesound CC0 reactive loops (tavern, dungeon, wilderness, combat)
+- **Scene Images** — DALL-E 3 or Stability AI SDXL (style-locked per world type); stored as Cloudinary CDN URLs
+- **Character Portraits** — AI-generated at creation, Cloudinary CDN gallery
+- **Per-Message Feedback** — 👍👎 on every DM message; auto-triggers eval scoring on 👎
+- **AI Self-Evaluation** — Groq-powered endpoint scores DM responses on 5 rubrics (brevity, player agency, story flow, mechanics, immersion)
+- **Prompt Improvement Wizard** — 3-step wizard generates GPT-backed targeted prompt improvements from 👎 data
+- **System Prompt Versioning** — FNV-1a hash tracks which prompt version produced each response (Langfuse metadata)
+- **Session Export** — full JSON export of messages, feedback, and engagement tags
+- **Engagement Heuristics** — rule-based player-message classifier (engaged / confused / frustrated)
+- **Weapon Codex** — full weapon catalog with affixes, archetypes, and crafting
+- **Spell System** — 40-genre adaptive, slot tracking, concentration, AI spell generation
+- **Supabase Persistence** — cloud save/load across devices
 
 ---
 
 ## Tech Stack
 
 | Layer | Technology |
-|-------|-----------|
+|-------|------------|
 | Framework | Next.js 14 (App Router) |
 | Language | TypeScript 5.3 |
 | Styling | Tailwind CSS 3.4 |
 | State | Zustand 4.5 |
-| AI | OpenAI SDK 6, Anthropic SDK 0.78 |
+| AI — DM | OpenAI GPT-4o (streaming) + Anthropic Claude (extended output beta) |
+| AI — Oracle/Eval | Groq Llama 3.3 70B (500+ tok/s) |
+| TTS | OpenAI TTS-1 · Azure Speech · ElevenLabs |
+| Ambient Audio | Freesound API (CC0) |
+| Images | DALL-E 3 · Stability AI SDXL · Cloudinary CDN |
+| Observability | Langfuse (cost + prompt version tracking) |
 | 3D Dice | @3d-dice/dice-box 1.1.4 (Babylon.js 5.57 + Ammo.js) |
 | 3D (misc) | Three.js 0.183 / React Three Fiber 8 |
 | Database | Supabase (PostgreSQL) |

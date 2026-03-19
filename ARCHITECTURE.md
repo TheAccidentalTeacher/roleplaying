@@ -1,7 +1,8 @@
 # Architecture
 
-Current architecture of the AI RPG Dungeon Master application.
-Live: https://roleplaying-nu.vercel.app | Repo: https://github.com/TheAccidentalTeacher/roleplaying
+Current architecture of the AI RPG Dungeon Master application.  
+Live: https://roleplaying-nu.vercel.app | Repo: https://github.com/TheAccidentalTeacher/roleplaying  
+*Last updated: March 19, 2026*
 
 ---
 
@@ -14,13 +15,22 @@ app/                          Next.js App Router pages & API routes
 │   ├── saves/route.ts        Save-game CRUD
 │   ├── saves/[id]/route.ts
 │   ├── oracle/route.ts       Fate/oracle yes-no questions
-│   ├── tts/route.ts          ElevenLabs text-to-speech
-│   ├── generate-image/       DALL-E scene images
+│   ├── tts/route.ts          OpenAI TTS-1 text-to-speech (11 voices, streams MP3)
+│   ├── tts-az/route.ts       Azure Speech TTS (SSML, 120+ neural voices, free 500K/mo)
+│   ├── tts-el/route.ts       ElevenLabs TTS (ultra-realistic character voices)
+│   ├── ambient/route.ts      Freesound CC0 ambient audio (scene-type → loop)
+│   ├── generate-image/       DALL-E 3 scene images → Cloudinary CDN
+│   ├── scene-image-stability/ Stability AI SDXL (style-locked per world type)
 │   ├── character-portrait/   Portrait generation + gallery
 │   ├── character-help/       AI character-creation assistant
-│   ├── world-genesis/        Multi-step world + opening-scene generation
+│   ├── spells/generate/      AI spell generation (40-genre adaptive)
+│   ├── oracle/route.ts       Fate questions (Groq Llama 3.3 70B — near-instant)
+│   ├── eval-message/         DM response scorer (5 rubrics, Groq-powered)
+│   ├── prompt-wizard/        3-step prompt improvement wizard (GPT-backed)
+│   ├── world-genesis/        Multi-step world + opening-scene generation (16k tokens/step)
 │   ├── world/update/         Mutate world state
 │   ├── adventures/           Adventure listing
+│   ├── adventures/[id]/      Individual adventure CRUD
 │   ├── combat/               start + action routes
 │   └── shop/generate/        Dynamic shop inventory
 │
@@ -156,7 +166,12 @@ lib/
     ├── game-data-parser.ts    AI response → structured game state
     ├── item-converter.ts      Raw item data normalisation
     ├── message-summarizer.ts  Trim old context for AI token budget
-    └── tts-voices.ts          ElevenLabs voice list
+    ├── tts-voices.ts          OpenAI voice list + metadata
+    ├── azure-voices.ts        Azure Speech neural voice catalog
+    ├── strip-markdown.ts      Strip markdown formatting for TTS text
+    ├── cloudinary.ts          Cloudinary upload helper → CDN URL
+    ├── prompt-version.ts      FNV-1a hash of DM system prompt
+    └── engagement-heuristics.ts  Player-message classifier (engaged/confused/frustrated)
 
 types/
 └── dice-box.d.ts             Type declarations for @3d-dice/dice-box
@@ -164,7 +179,9 @@ types/
 hooks/
 ├── useAutoSave.ts            Auto-save debounce hook
 ├── useToast.ts               Toast notification hook
-└── useTTS.ts                 ElevenLabs TTS hook
+└── useTTS.ts                 Multi-provider TTS hook (OpenAI · Azure Speech · ElevenLabs)
+                              Parallel chunk fetch, 500-char fast-start first chunk,
+                              streaming prefetch during DM response, pipelined playback
 
 public/
 └── dice/                    @3d-dice/dice-box worker + WASM assets
@@ -234,9 +251,11 @@ Zustand store with `persist` middleware (localStorage). Key slices:
 |-------|----------|
 | `character` | stats, inventory, spells, HP, XP, conditions |
 | `world` | lore, factions, locations, clock |
-| `session` | messages, journal entries |
+| `session` | messages, journal entries, dmPromptVersion |
 | `combat` | initiative order, combatants, round counter |
 | `ui` | active modals, toast queue, settings flags |
+| `feedback` | per-message 👍👎 ratings + eval scores |
+| `settings` | TTS voice/provider, autoPlay, promptOverrides |
 
 ---
 
@@ -247,19 +266,27 @@ Zustand store with `persist` middleware (localStorage). Key slices:
 | `/api/dm` | POST (stream) | Main DM narration — returns SSE |
 | `/api/saves` | GET/POST | List / create saves |
 | `/api/saves/[id]` | GET/PUT/DELETE | Individual save CRUD |
-| `/api/oracle` | POST | Fate question → yes/no/maybe |
-| `/api/tts` | POST | ElevenLabs TTS → audio stream |
-| `/api/generate-image` | POST | DALL-E scene image |
+| `/api/oracle` | POST | Fate question → yes/no/maybe (Groq Llama 3.3 70B) |
+| `/api/tts` | POST | OpenAI TTS-1 → MP3 stream |
+| `/api/tts-az` | POST | Azure Speech TTS → MP3 stream |
+| `/api/tts-el` | POST | ElevenLabs TTS → MP3 stream |
+| `/api/ambient` | POST | Freesound CC0 ambient audio URL by scene type |
+| `/api/generate-image` | POST | DALL-E 3 scene image → Cloudinary URL |
+| `/api/scene-image-stability` | POST | Stability AI SDXL scene image (style-locked per world type) |
 | `/api/character-portrait` | POST | Character portrait generation |
 | `/api/character-portrait/gallery` | GET | Saved portrait list |
 | `/api/character-help` | POST | AI character-creation guidance |
+| `/api/spells/generate` | POST | AI spell generation (40-genre adaptive) |
+| `/api/eval-message` | POST | Score a DM response on 5 rubrics (Groq-powered) |
+| `/api/prompt-wizard` | POST | Generate prompt improvements from 👎 feedback data |
 | `/api/world-genesis` | POST | Full world generation |
-| `/api/world-genesis/step` | POST | Single world-gen step |
+| `/api/world-genesis/step` | POST | Single world-gen step (16k tokens, extended output beta) |
 | `/api/world-genesis/assemble` | POST | Assemble world from steps |
 | `/api/world-genesis/opening-scene` | POST | Generate opening scene |
 | `/api/world-genesis/regenerate` | POST | Regenerate a world section |
 | `/api/world/update` | POST | Mutate world state |
 | `/api/adventures` | GET | List adventures |
+| `/api/adventures/[id]` | GET/PUT/DELETE | Individual adventure CRUD |
 | `/api/combat/start` | POST | Begin combat encounter |
 | `/api/combat/action` | POST | Process a combat action |
 | `/api/shop/generate` | POST | Generate shop inventory |
