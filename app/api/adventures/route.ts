@@ -14,8 +14,9 @@ export async function GET(req: NextRequest) {
     const rows = await listAdventures(userId);
     return NextResponse.json(rows);
   } catch (err) {
-    console.error('[adventures/GET]', err);
-    return NextResponse.json({ error: 'Failed to list adventures' }, { status: 500 });
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error('[adventures/GET] ERROR:', msg);
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
 
@@ -73,7 +74,8 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ id: row.id, created_at: row.created_at });
   } catch (err) {
-    console.error('[adventures/POST]', err);
-    return NextResponse.json({ error: 'Failed to create adventure' }, { status: 500 });
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error('[adventures/POST] ERROR:', msg);
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
