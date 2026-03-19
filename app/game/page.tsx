@@ -1799,6 +1799,7 @@ export default function GamePage() {
                 duration={tts.duration}
                 error={tts.error}
                 playbackRate={tts.playbackRate}
+                ttsEnabled={ttsSettings.ttsEnabled}
                 currentVoice={ttsSettings.ttsVoice}
                 elVoiceId={ttsSettings.ttsElVoiceId}
                 elPresets={ttsSettings.ttsElPresets ?? []}

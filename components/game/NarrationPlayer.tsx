@@ -70,6 +70,8 @@ interface NarrationPlayerProps {
   onAzVoiceIdChange?: (id: string) => void;
   onSavePreset?: (name: string, voiceId: string) => void;
   onDeletePreset?: (voiceId: string) => void;
+  /** When true, show the voice picker button even when TTS is idle (not playing) */
+  ttsEnabled?: boolean;
 }
 
 function formatTime(seconds: number): string {
@@ -104,6 +106,7 @@ export default function NarrationPlayer({
   onAzVoiceIdChange,
   onSavePreset,
   onDeletePreset,
+  ttsEnabled = false,
 }: NarrationPlayerProps) {
   const progressBarRef = useRef<HTMLDivElement>(null);
   const [showVoicePicker, setShowVoicePicker] = useState(false);
@@ -128,11 +131,113 @@ export default function NarrationPlayer({
     onSetSpeed(SPEED_OPTIONS[nextIdx]);
   }, [playbackRate, onSetSpeed]);
 
-  const visible = isSpeaking || isPaused || isLoading || !!error;
-  if (!visible) return null;
+  const isActive = isSpeaking || isPaused || isLoading || !!error;
+  const isIdle = ttsEnabled && !isActive;
+  if (!isActive && !isIdle) return null;
 
   const activeVoice = VOICE_OPTIONS.find(v => v.value === currentVoice) ?? VOICE_OPTIONS[0];
   const genderIcon = activeVoice.gender === 'Female' ? '♀️' : activeVoice.gender === 'Male' ? '♂️' : activeVoice.gender === 'Custom' ? '🎭' : activeVoice.gender === 'Azure' ? '🔷' : '🎲';
+
+  // When TTS is enabled but nothing is playing, render just the voice picker pill
+  if (isIdle) {
+    return (
+      <div className="fixed bottom-[84px] right-4 z-40 pointer-events-none flex justify-end">
+        <div className="pointer-events-auto">
+          <div className="relative">
+            <button
+              onClick={() => setShowVoicePicker(p => !p)}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-bold rounded-xl bg-slate-800/90 backdrop-blur-sm border border-slate-600/50 text-sky-400 hover:text-sky-300 hover:bg-slate-700 shadow-lg transition-colors"
+              title="Change narrator voice"
+            >
+              <span>🎙️</span>
+              <span>{genderIcon} {activeVoice.label}</span>
+            </button>
+            {showVoicePicker && (
+              <div className="absolute bottom-10 right-0 bg-slate-900 border border-slate-600 rounded-xl shadow-2xl p-2.5 z-50 w-[280px]">
+                <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 px-1">Narrator Voice</p>
+                {/* Auto */}
+                <div className="mb-2">
+                  {VOICE_OPTIONS.filter(o => o.gender === 'Auto').map(opt => (
+                    <button key={opt.value} onClick={() => { onVoiceChange?.(opt.value as TTSVoiceSetting); setShowVoicePicker(false); }}
+                      className={`w-full px-2.5 py-2 text-xs rounded-lg text-left transition flex items-center justify-between gap-2 ${
+                        currentVoice === opt.value ? 'bg-sky-500/30 text-sky-300 border border-sky-500/40' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800 border border-transparent'
+                      }`}>
+                      <span className="font-medium">🎲 {opt.label}</span>
+                      <span className="text-[10px] text-slate-500">{opt.desc}</span>
+                    </button>
+                  ))}
+                </div>
+                {/* Male voices */}
+                <p className="text-[10px] text-slate-600 px-1 mb-1">♂️ Male</p>
+                <div className="grid grid-cols-2 gap-1 mb-2">
+                  {VOICE_OPTIONS.filter(o => o.gender === 'Male').map(opt => (
+                    <button key={opt.value} onClick={() => { onVoiceChange?.(opt.value as TTSVoiceSetting); setShowVoicePicker(false); }}
+                      className={`px-2 py-1.5 text-xs rounded-lg text-left transition ${
+                        currentVoice === opt.value ? 'bg-sky-500/30 text-sky-300 border border-sky-500/40' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800 border border-transparent'
+                      }`}>
+                      <span className="block font-medium">{opt.label}</span>
+                      <span className="block text-[10px] text-slate-500">{opt.accent} · {opt.desc}</span>
+                    </button>
+                  ))}
+                </div>
+                {/* Female voices */}
+                <p className="text-[10px] text-slate-600 px-1 mb-1">♀️ Female</p>
+                <div className="grid grid-cols-2 gap-1 mb-2">
+                  {VOICE_OPTIONS.filter(o => o.gender === 'Female').map(opt => (
+                    <button key={opt.value} onClick={() => { onVoiceChange?.(opt.value as TTSVoiceSetting); setShowVoicePicker(false); }}
+                      className={`px-2 py-1.5 text-xs rounded-lg text-left transition ${
+                        currentVoice === opt.value ? 'bg-sky-500/30 text-sky-300 border border-sky-500/40' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800 border border-transparent'
+                      }`}>
+                      <span className="block font-medium">{opt.label}</span>
+                      <span className="block text-[10px] text-slate-500">{opt.accent} · {opt.desc}</span>
+                    </button>
+                  ))}
+                </div>
+                {/* ElevenLabs */}
+                <div className="mt-2 pt-2 border-t border-slate-700">
+                  <p className="text-[10px] text-slate-500 px-1 mb-1.5">🎭 ElevenLabs</p>
+                  {elPresets.length > 0 && (
+                    <div className="flex flex-col gap-1 mb-2">
+                      {elPresets.map(p => (
+                        <div key={p.voiceId} className="flex items-center gap-1">
+                          <button onClick={() => { setElInputValue(p.voiceId); onElVoiceIdChange?.(p.voiceId); onVoiceChange?.('elevenlabs'); setShowVoicePicker(false); }}
+                            className={`flex-1 px-2.5 py-1.5 text-xs rounded-lg text-left transition ${currentVoice === 'elevenlabs' && elVoiceId === p.voiceId ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40' : 'text-slate-300 hover:text-white hover:bg-slate-800 border border-transparent'}`}>
+                            <span className="font-medium">{p.name}</span>
+                            <span className="block text-[10px] text-slate-600 font-mono truncate">{p.voiceId}</span>
+                          </button>
+                          <button onClick={() => onDeletePreset?.(p.voiceId)} className="w-5 h-5 flex items-center justify-center text-slate-600 hover:text-red-400 transition-colors flex-shrink-0" title="Remove">×</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <div className="flex gap-1.5">
+                    <input type="text" value={elInputValue} onChange={e => setElInputValue(e.target.value)} placeholder="Paste ElevenLabs Voice ID…"
+                      className="flex-1 px-2 py-1.5 text-[11px] rounded-lg bg-slate-800 border border-slate-600 text-slate-300 placeholder-slate-600 focus:outline-none focus:border-purple-500/60" />
+                    <button onClick={() => { if (elInputValue.trim()) { onElVoiceIdChange?.(elInputValue.trim()); onVoiceChange?.('elevenlabs'); setShowVoicePicker(false); } }}
+                      disabled={!elInputValue.trim()}
+                      className="px-2.5 py-1.5 text-[11px] rounded-lg bg-purple-600 text-white hover:bg-purple-500 disabled:opacity-40 disabled:cursor-not-allowed transition">Use</button>
+                  </div>
+                </div>
+                {/* Azure */}
+                <div className="mt-2 pt-2 border-t border-slate-700">
+                  <p className="text-[10px] text-slate-500 px-1 mb-1.5">🔷 Azure Neural</p>
+                  <div className="grid grid-cols-2 gap-1">
+                    {AZURE_VOICES.map(v => (
+                      <button key={v.id} onClick={() => { setAzInputValue(v.id); onAzVoiceIdChange?.(v.id); onVoiceChange?.('azure'); setShowVoicePicker(false); }}
+                        className={`px-2 py-1.5 text-xs rounded-lg text-left transition ${currentVoice === 'azure' && azVoiceId === v.id ? 'bg-blue-500/20 text-blue-300 border border-blue-500/40' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800 border border-transparent'}`}>
+                        <span className="block font-medium">{v.gender === 'F' ? '♀️' : '♂️'} {v.label}</span>
+                        <span className="block text-[10px] text-slate-500">{v.accent}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     // Fixed floating bar, centered above the bottom action bar
