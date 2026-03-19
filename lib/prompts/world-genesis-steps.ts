@@ -548,7 +548,7 @@ export function step07_geography(c: CharacterCreationInput, acc: Acc): StepPromp
   const catList = acc.catastrophes?.join('; ') || 'the catastrophes';
   const villainName = acc.villainCore?.name || 'the villain';
   return {
-    maxTokens: 16000,
+    maxTokens: 10000,
     system: `Continue building "${acc.worldName || '?'}". Create the geography and regions.
 ${charContext(c)}
 ${bible}
@@ -588,7 +588,7 @@ Return JSON:
   ]
 }
 
-Generate 5-8 regions with 2-5 locations each. Every faction must control at least 1 region.`,
+Generate 4-6 regions with 2-3 locations each. Every faction must control at least 1 region.`,
     user: `Map the geography of "${acc.worldName || 'the world'}". Assign each region to a specific faction: ${factionNames}. The terrain was shaped by: ${catList}. "${villainName}" needs a stronghold. Where is everything?`,
   };
 }
@@ -606,7 +606,7 @@ export function step08_settlements(c: CharacterCreationInput, acc: Acc): StepPro
   const conflicts = acc.currentConflicts?.join('; ') || 'the ongoing conflicts';
   const currency = acc.currencyNames ? `${acc.currencyNames.primary}/${acc.currencyNames.secondary}/${acc.currencyNames.tertiary}` : 'local currency';
   return {
-    maxTokens: 16000,
+    maxTokens: 8000,
     system: `Continue building "${acc.worldName || '?'}". Detail the major settlements.
 ${charContext(c)}
 ${bible}
@@ -635,20 +635,20 @@ Return JSON:
       "controllingFaction": "EXACT faction name",
       "description": "string",
       "districts": [
-        { "name": "string", "description": "string", "notableLocations": ["2-3"], "dangerLevel": 1, "atmosphere": "string" }
+        { "name": "string", "description": "string", "notableLocations": ["1-2"], "dangerLevel": 1, "atmosphere": "string" }
       ],
       "keyNPCs": [
         { "name": "string", "role": "string", "personality": "string", "secret": "string — connects to established lore", "questHook": "string", "factionLoyalty": "string — which faction" }
       ],
       "services": ["inn", "smith", "temple", "market"],
-      "rumors": ["2-4 rumors — each references established names/events"],
-      "laws": ["1-3 local laws"],
+      "rumors": ["2-3 rumors — each references established names/events"],
+      "laws": ["1-2 local laws"],
       "economicProfile": "string"
     }
   ]
 }
 
-Detail 3-5 major settlements. Each should have 2-3 districts and 3-5 key NPCs. NPCs must reference established factions and conflicts.`,
+Detail 2-3 major settlements. Each should have 1-2 districts and 2-3 key NPCs. NPCs must reference established factions and conflicts.`,
     user: `Detail the major settlements of "${acc.worldName || 'the world'}". Place them in these regions: ${regionNames}. The ongoing conflicts are: ${conflicts}. NPCs should take sides.`,
   };
 }
@@ -667,7 +667,7 @@ export function step09_companions(c: CharacterCreationInput, acc: Acc): StepProm
   const villainName = acc.villainCore?.name || 'the villain';
   const magicName = acc.magicSystem?.name || 'the magic system';
   return {
-    maxTokens: 16000,
+    maxTokens: 8000,
     system: `Continue building "${acc.worldName || '?'}". Create recruitable companion characters.
 ${charContext(c)}
 ${bible}
@@ -721,7 +721,7 @@ Return JSON:
   ]
 }
 
-Generate 5-7 companions. Cover tank, healer, DPS, and support roles.
+Generate 3-5 companions. Cover tank, healer, DPS, and support roles.
 At least one morally grey. At least one pair with tension. At least one with ties to ${villainName}.`,
     user: `Create companion characters for "${acc.worldName || 'the world'}". ${c.name} is a ${c.class} who needs allies. Place them in: ${settlementNames}. They must take sides in faction conflicts: ${factionNames}. Some must know about "${villainName}".`,
   };
@@ -740,7 +740,7 @@ export function step10_bestiary(c: CharacterCreationInput, acc: Acc): StepPrompt
   const magicName = acc.magicSystem?.name || 'the magic system';
   const villainName = acc.villainCore?.name || 'the villain';
   return {
-    maxTokens: 16000,
+    maxTokens: 8000,
     system: `Continue building "${acc.worldName || '?'}". Create the bestiary — creatures native to this world.
 ${charContext(c)}
 ${bible}
@@ -776,8 +776,8 @@ Return JSON:
   ]
 }
 
-Generate 10-15 creatures. CR 1-3 common, CR 4-7 regional threats, CR 8+ boss-tier.
-Include 2-3 unique bosses. At least 1 creature per major region.`,
+Generate 6-10 creatures. CR 1-3 common, CR 4-7 regional threats, CR 8+ boss-tier.
+Include 1-2 unique bosses. At least 1 creature per major region.`,
     user: `Create the bestiary of "${acc.worldName || 'the world'}". Creatures live in: ${regionList}. "${magicName}" has shaped evolution here. "${villainName}" commands some creatures. What hunts in these lands?`,
   };
 }
@@ -798,7 +798,7 @@ export function step11_dungeons(c: CharacterCreationInput, acc: Acc): StepPrompt
   const artifactName = acc.centralArtifact?.name || 'the artifact';
   const magicName = acc.magicSystem?.name || 'the magic system';
   return {
-    maxTokens: 16000,
+    maxTokens: 8000,
     system: `Continue building "${acc.worldName || '?'}". Design the major dungeon and adventure sites.
 ${charContext(c)}
 ${bible}
@@ -847,7 +847,7 @@ Return JSON:
   ]
 }
 
-Design 4-6 dungeons across different regions. One MUST be ${villainName}'s stronghold. Bosses from the bestiary.`,
+Design 3-4 dungeons across different regions. One MUST be ${villainName}'s stronghold. Bosses from the bestiary.`,
     user: `Design dungeons for "${acc.worldName || 'the world'}". Place them in: ${regionList}. Use these boss creatures: ${creatureList}. One is "${villainName}"'s stronghold. "${artifactName}" is guarded somewhere. Puzzles use "${magicName}".`,
   };
 }
@@ -868,7 +868,7 @@ export function step12_economyAndCrafting(c: CharacterCreationInput, acc: Acc): 
   const magicName = acc.magicSystem?.name || 'the magic system';
   const conflicts = acc.currentConflicts?.join('; ') || 'the ongoing conflicts';
   return {
-    maxTokens: 16000,
+    maxTokens: 8000,
     system: `Continue building "${acc.worldName || '?'}". Create the economy, crafting, and loot systems.
 ${charContext(c)}
 ${bible}
@@ -920,7 +920,7 @@ Return JSON:
   ]
 }
 
-5-8 trade goods, 4-6 rare materials, 3-4 crafting disciplines with 4-6 recipes each, 3-5 loot tables. ALL cross-referenced with established names.`,
+4-5 trade goods, 3-4 rare materials, 2-3 crafting disciplines with 2-3 recipes each, 2-3 loot tables. ALL cross-referenced with established names.`,
     user: `Build the economy of "${acc.worldName || 'the world'}". Trade flows between ${regionNames}. Crafts using materials from: ${creatureLoot}. Prices in ${currency}. The conflicts (${conflicts}) disrupt trade. Connect everything to what already exists.`,
   };
 }
@@ -944,7 +944,7 @@ export function step13_campaignAndEncounters(c: CharacterCreationInput, acc: Acc
   const threatName = acc.mainThreat?.name || 'the threat';
   const creatureNames = acc.bestiary?.map((cr: Acc) => `"${cr.name}"`).join(', ') || 'creatures';
   return {
-    maxTokens: 16000,
+    maxTokens: 10000,
     system: `Continue building "${acc.worldName || '?'}". Map out the full campaign arc, encounter tables, and travel network.
 ${charContext(c)}
 ${bible}
@@ -1012,7 +1012,7 @@ Return JSON:
   ]
 }
 
-3 acts, 4-6 beats each. 3-4 endings. Encounter tables for EVERY region. 6-10 travel routes. ALL names EXACT.`,
+3 acts, 3-4 beats each. 2-3 endings. Encounter tables for EVERY region. 4-6 travel routes. ALL names EXACT.`,
     user: `Map the campaign arc for "${acc.worldName || 'the world'}". "${villainName}"'s plan escalates from "${acc.mainThreat?.currentPhase || '?'}" through ${acc.mainThreat?.escalation?.length || '?'} stages. Companions (${companionNames}) join at different acts. Story flows through dungeons (${dungeonNames}) and regions (${regionNames}). Encounters use bestiary creatures. Everything connects.`,
   };
 }
@@ -1040,7 +1040,7 @@ export function step14_relationshipsAndOrigin(c: CharacterCreationInput, acc: Ac
   const regionNames = acc.geography?.map((r: Acc) => `"${r.name}"`).join(', ') || 'regions';
   const startSettlement = acc.settlements?.[0]?.name || acc.geography?.[0]?.knownLocations?.[0]?.name || 'the starting town';
   return {
-    maxTokens: 16000,
+    maxTokens: 8000,
     system: `FINAL STEP. Complete "${acc.worldName || '?'}" with the relationship web, random events, and origin scenario.
 ${charContext(c)}
 ${bible}
@@ -1097,7 +1097,7 @@ Return JSON:
   }
 }
 
-10-15 relationship links between NAMED entities. 6-10 random events affecting NAMED regions/factions. An IMMEDIATELY gripping origin in a NAMED settlement with a NAMED NPC.`,
+8-12 relationship links between NAMED entities. 4-6 random events affecting NAMED regions/factions. An IMMEDIATELY gripping origin in a NAMED settlement with a NAMED NPC.`,
     user: `Complete "${acc.worldName || 'the world'}". Connect everything: "${villainName}" to the factions, companions to the NPCs, creatures to the regions. The player starts in "${startSettlement}". Their first NPC encounter must be someone already established. Every thread ties together.`,
   };
 }
