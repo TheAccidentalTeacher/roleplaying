@@ -210,6 +210,25 @@ export async function loadGame(saveId: string): Promise<PersistedState> {
   // Write to local Zustand store
   writeActiveState(state);
 
+  // Also set the individual keys that game/page.tsx reads on mount.
+  // Zustand rehydration is async — without these keys the page redirects
+  // to /character/new before the store is ready.
+  try {
+    const activeChar = state.characters?.find(c => c.id === state.activeCharacterId) ?? state.characters?.[0];
+    if (activeChar) {
+      localStorage.setItem('rpg-active-character', JSON.stringify(activeChar));
+    }
+    if (state.activeWorld) {
+      localStorage.setItem('rpg-active-world', JSON.stringify(state.activeWorld));
+    }
+    if (state.activeWorldId) {
+      localStorage.setItem('rpg-world-id', state.activeWorldId);
+    }
+    if (state.activeCharacterId) {
+      localStorage.setItem('rpg-character-id', state.activeCharacterId);
+    }
+  } catch { /* quota — ignore */ }
+
   // Update last_played_at in the cloud (fire-and-forget)
   fetch(`/api/adventures/${encodeURIComponent(saveId)}`, {
     method: 'PATCH',

@@ -48,6 +48,22 @@ const QUICK_DIRECTIONS = [
   { label: '💔 Add emotion', value: 'Deepen the emotional content — add vulnerability, longing, or passion' },
 ];
 
+/** Retry a fetch up to `retries` times on network error or 5xx, with a delay between attempts. */
+async function fetchWithRetry(url: string, options: RequestInit, retries = 2, delayMs = 1500): Promise<Response> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const res = await fetch(url, options);
+      if (res.ok || res.status < 500) return res; // don't retry 4xx
+      lastError = new Error(`HTTP ${res.status}`);
+    } catch (err) {
+      lastError = err;
+    }
+    if (attempt < retries) await new Promise(r => setTimeout(r, delayMs));
+  }
+  throw lastError;
+}
+
 export default function AIEnhancePopover({
   fullText,
   onReplace,
@@ -69,7 +85,7 @@ export default function AIEnhancePopover({
     setStep('results');
 
     try {
-      const res = await fetch('/api/character-help', {
+      const res = await fetchWithRetry('/api/character-help', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
